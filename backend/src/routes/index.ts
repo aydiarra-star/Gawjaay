@@ -27,6 +27,8 @@ import exportRoutes from '../modules/exports/routes';
 import barcodeRoutes from '../modules/barcodes/routes';
 import favoriteRoutes from '../modules/favorites/routes';
 import loyaltyRoutes from '../modules/loyalty/routes';
+import b2bRoutes from '../modules/b2b/routes';
+import replenishmentRoutes from '../modules/replenishment/routes';
 
 const router = Router();
 
@@ -58,7 +60,9 @@ router.use('/exports', exportRoutes);
 router.use('/barcodes', barcodeRoutes);
 router.use('/favorites', favoriteRoutes);
 router.use('/loyalty', loyaltyRoutes);
+router.use('/b2b', b2bRoutes);
+router.use('/replenishment', replenishmentRoutes);
 
-router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.2.0-lot-c', timestamp: new Date().toISOString() }));
+router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.3.0-lot-d', timestamp: new Date().toISOString() }));
 
 export default router;
