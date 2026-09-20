@@ -18,9 +18,14 @@ export function buildApp() {
 
   const app = express();
 
+  // CORS : FRONTEND_URL toujours autorisé ; localhost/e2b uniquement hors production.
+  const corsOrigins: any = [env.FRONTEND_URL];
+  if (env.NODE_ENV !== 'production') {
+    corsOrigins.push('http://localhost:5173', 'https://*.e2b.app');
+  }
   app.use(helmet());
   app.use(cors({
-    origin: [env.FRONTEND_URL, 'http://localhost:5173', 'https://*.e2b.app'],
+    origin: corsOrigins,
     credentials: true,
   }));
   app.use(express.json({ limit: '1mb' }));

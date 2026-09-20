@@ -33,7 +33,7 @@ export default function InventoryCount() {
     } catch (e: any) { setMsg(e.response?.data?.error || 'Erreur'); }
   };
   const confirm = async () => {
-    if (!confirm('Confirmer l ajustement du stock selon les écarts comptés ? Cette opération est traçable.')) return;
+    if (!window.confirm('Confirmer l ajustement du stock selon les écarts comptés ? Cette opération est traçable.')) return;
     try {
       const r = await api.post(`/inventory-counts/${current.id}/confirm`, {});
       setCurrent(r.data);
@@ -42,7 +42,7 @@ export default function InventoryCount() {
     } catch (e: any) { setMsg(e.response?.data?.error || 'Erreur'); }
   };
   const cancel = async () => {
-    if (!confirm('Annuler cet inventaire ?')) return;
+    if (!window.confirm('Annuler cet inventaire ?')) return;
     await api.post(`/inventory-counts/${current.id}/cancel`, {});
     setCurrent(null);
     load();

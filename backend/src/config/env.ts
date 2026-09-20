@@ -19,3 +19,13 @@ export const env = {
 if (env.JWT_ACCESS_SECRET.length < 20) {
   console.warn('JWT secrets too short');
 }
+// PRODUCTION : refuse de démarrer avec les secrets de développement (fail-fast).
+if (env.NODE_ENV === 'production') {
+  const devDefaults = [
+    'dev-access-secret-change-me-32chars-long',
+    'dev-refresh-secret-change-me-32chars-long',
+  ];
+  if (devDefaults.includes(env.JWT_ACCESS_SECRET) || devDefaults.includes(env.JWT_REFRESH_SECRET)) {
+    throw new Error('PRODUCTION : JWT_ACCESS_SECRET / JWT_REFRESH_SECRET doivent être définis dans l environnement (pas de défaut de dev).');
+  }
+}

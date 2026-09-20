@@ -1,0 +1,52 @@
+# Nginx — GawJaay V2 (frontend statique + proxy API + HTTPS Let's Encrypt)
+# À adapter : remplacer gawjaay.example.com par le domaine réel.
+# Certificat : sudo certbot --nginx -d gawjaay.example.com
+
+server {
+    listen 80;
+    server_name gawjaay.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name gawjaay.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/gawjaay.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/gawjaay.example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+    add_header Referrer-Policy strict-origin-when-cross-origin;
+    client_max_body_size 2m;
+
+    # API → PM2 (port 4000, loopback uniquement)
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Frontend : build statique (frontend/dist)
+    root /opt/gawjaay/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html; # SPA (react-router)
+    }
+
+    # Cache long des assets fingerprintés
+    location /assets/ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+}
