@@ -26,5 +26,8 @@
     "postcss": "^8.4.32",
     "autoprefixer": "^10.4.16",
     "@playwright/test": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
