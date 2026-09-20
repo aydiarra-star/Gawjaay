@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { initDb } from '../lib/db';
+import { resetDatabase } from './helpers';
 import * as authService from '../modules/auth/service';
 
 beforeAll(()=>{
   initDb();
   // disable FK for cleanup
-  db.exec('PRAGMA foreign_keys = OFF; DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees; DELETE FROM deliveries; DELETE FROM payments; DELETE FROM order_items; DELETE FROM orders; DELETE FROM sale_items; DELETE FROM sales; DELETE FROM inventories; DELETE FROM inventory_movements; DELETE FROM products; DELETE FROM stores; DELETE FROM merchants; DELETE FROM users; PRAGMA foreign_keys = ON;');
+  resetDatabase(db);
 });
 
 describe('Auth sécurisée', ()=>{

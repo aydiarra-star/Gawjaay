@@ -1,7 +1,7 @@
 // Baseline V1 — Tests unitaires (22+)
 // Chaque fichier utilise sa propre DB isolée pour éviter tout conflit.
 import { vi } from 'vitest';
-vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v1-unit.db'; });
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-v1-unit.db'; });
 
 import { describe, it, expect } from 'vitest';
 import crypto from 'crypto';

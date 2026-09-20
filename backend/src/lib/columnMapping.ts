@@ -194,6 +194,21 @@ export const COLUMN_MAPPING: Record<string, string> = {
   min: 'min',
   max: 'max',
   appliedat: 'appliedAt',
+  qtysold: 'qtySold',
+  lastat: 'lastAt',
+  salescount: 'salesCount',
+  totalspent: 'totalSpent',
+  firstsale: 'firstSale',
+  lastsale: 'lastSale',
+  availableqty: 'availableQty',
+  stockqty: 'stockQty',
+  customername: 'customerName',
+  storename: 'storeName',
+  storeslug: 'storeSlug',
+  clientphone: 'clientPhone',
+  categoryslug: 'categorySlug',
+  invqty: 'invQty',
+  clientphonemasked: 'clientPhoneMasked',
 };
 
 export function remapRow<T = any>(row: any): T {

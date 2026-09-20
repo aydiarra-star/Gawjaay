@@ -1,30 +1,17 @@
 // Tests V2 — LOT D : B2B (grossistes, catalogues pro, commandes) + réapprovisionnement.
 import { vi } from 'vitest';
-vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v2-lotd.db'; });
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-v2-lotd.db'; });
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { bootstrap } from '../lib/bootstrap';
-import { seedWorld } from './helpers';
+import { seedWorld , resetDatabase } from './helpers';
 
 let W: any;
 let b2b: any;
 
 beforeAll(async () => {
   bootstrap();
-  db.exec(`PRAGMA foreign_keys = OFF;
-    DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees;
-    DELETE FROM deliveries; DELETE FROM payments; DELETE FROM debt_payments; DELETE FROM debts;
-    DELETE FROM order_items; DELETE FROM orders; DELETE FROM sale_items; DELETE FROM sales;
-    DELETE FROM b2b_order_items; DELETE FROM b2b_orders; DELETE FROM b2b_catalog_items; DELETE FROM b2b_catalogs;
-    DELETE FROM b2b_profiles; DELETE FROM replenishment_suggestions;
-    DELETE FROM loyalty_transactions; DELETE FROM loyalty_accounts; DELETE FROM favorites;
-    DELETE FROM coupon_redemptions; DELETE FROM coupons; DELETE FROM promotion_products; DELETE FROM promotions;
-    DELETE FROM review_reports; DELETE FROM moderation_actions; DELETE FROM reviews;
-    DELETE FROM inventory_count_items; DELETE FROM inventory_counts;
-    DELETE FROM purchase_items; DELETE FROM purchases; DELETE FROM expenses;
-    DELETE FROM inventory_movements; DELETE FROM inventories; DELETE FROM products;
-    DELETE FROM stores; DELETE FROM merchants; DELETE FROM users; DELETE FROM categories;
-    PRAGMA foreign_keys = ON;`);
+  resetDatabase(db);
   b2b = await import('../modules/b2b/service');
   W = await seedWorld(db);
 }, 120000);

@@ -1,10 +1,10 @@
 // Baseline V1 — Tests DB E2E (67+) — couche services complète, DB isolée.
 import { vi } from 'vitest';
-vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v1-dbe2e.db'; });
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-v1-dbe2e.db'; });
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { bootstrap } from '../lib/bootstrap';
-import { seedWorld, nowIso } from './helpers';
+import { seedWorld, nowIso , resetDatabase } from './helpers';
 
 let W: any;
 let auth: any, stores: any, products: any, inventory: any, sales: any, customers: any,
@@ -13,14 +13,7 @@ let auth: any, stores: any, products: any, inventory: any, sales: any, customers
 
 beforeAll(async () => {
   bootstrap();
-  db.exec(`PRAGMA foreign_keys = OFF;
-    DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees;
-    DELETE FROM deliveries; DELETE FROM payments; DELETE FROM debt_payments; DELETE FROM debts;
-    DELETE FROM order_items; DELETE FROM orders; DELETE FROM sale_items; DELETE FROM sales;
-    DELETE FROM purchase_items; DELETE FROM purchases; DELETE FROM expenses;
-    DELETE FROM inventory_movements; DELETE FROM inventories; DELETE FROM products;
-    DELETE FROM stores; DELETE FROM merchants; DELETE FROM users; DELETE FROM categories;
-    PRAGMA foreign_keys = ON;`);
+  resetDatabase(db);
   auth = await import('../modules/auth/service');
   stores = await import('../modules/stores/service');
   products = await import('../modules/products/service');

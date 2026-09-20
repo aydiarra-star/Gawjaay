@@ -2,14 +2,41 @@ import { Worker, MessageChannel, receiveMessageOnPort } from 'worker_threads';
 import path from 'path';
 import { remapRow } from './columnMapping';
 
+/**
+ * Traduction SQLite → PostgreSQL.
+ *
+ * L'application est écrite pour SQLite (runtime de référence dev/test). Pour que le MÊME code
+ * tourne sur PostgreSQL sans réécrire 678 requêtes, on traduit uniquement les différences de
+ * dialecte réellement utilisées dans ce dépôt :
+ *
+ *  1. `PRAGMA ...`                      → supprimés (spécifiques SQLite)
+ *  2. `datetime('now')`                 → texte ISO-8601 UTC identique à `new Date().toISOString()`
+ *     (comparaisons lexicographiques `createdAt >= ?` identiques à SQLite pour les valeurs écrites
+ *      par l'application, qui sont toujours des ISO produits par `nowIso()`)
+ *  3. `sqlite_master`                   → catalogue PostgreSQL (union pg_tables/pg_indexes)
+ *  4. `?`                               → `$1, $2, ...` (hors littéraux)
+ *  5. `LIKE`                            → `ILIKE` : en SQLite, LIKE est insensible à la casse par
+ *     défaut ; en PostgreSQL il y est sensible. Sans cette traduction, les recherches
+ *     (« riz » vs « Riz ») cassent en production.
+ */
+/** Types SQL à ne jamais citer après `AS` (CAST(x AS TEXT), AS INTEGER, ...) */
+const SQL_TYPE_KEYWORDS = new Set([
+  'TEXT', 'INTEGER', 'INT', 'REAL', 'NUMERIC', 'DECIMAL', 'DOUBLE', 'PRECISION', 'BOOLEAN',
+  'BLOB', 'DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'VARCHAR', 'CHAR', 'CHARACTER', 'BIGINT',
+  'SMALLINT', 'FLOAT', 'JSON', 'JSONB', 'UUID', 'BYTEA',
+]);
+
 export function translateSql(sql: string): string {
-  // Strip SQLite PRAGMA lines
+  // 1. PRAGMA (spécifique SQLite)
   let s = sql.replace(/PRAGMA\s+[^;]+;?/gi, '');
 
-  // Convert datetime('now') to now()::text
-  s = s.replace(/datetime\(\s*'now'\s*\)/gi, 'now()::text');
+  // 2. datetime('now') → ISO-8601 UTC (même format que toISOString() côté application)
+  s = s.replace(
+    /datetime\(\s*'now'\s*\)/gi,
+    `(to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`
+  );
 
-  // Convert sqlite_master table inspection queries to Postgres catalog
+  // 3. sqlite_master → catalogue PostgreSQL
   if (/sqlite_master/i.test(s)) {
     s = s.replace(
       /sqlite_master/gi,
@@ -17,11 +44,31 @@ export function translateSql(sql: string): string {
     );
   }
 
-  // Convert ? placeholders outside quotes to $1, $2, $3, ...
+  // 4 & 5. Passe unique consciente des littéraux : placeholders + LIKE → ILIKE
   let paramIndex = 1;
   let inString = false;
   let quoteChar = '';
   let result = '';
+  let segment = ''; // fragment hors littéral (candidat aux réécritures de mots-clés)
+
+  const flushSegment = () => {
+    if (!segment) return '';
+    let out = segment.replace(/\bNOT\s+LIKE\b/gi, 'NOT ILIKE');
+    out = out.replace(/\bLIKE\b/gi, 'ILIKE');
+
+    // 6. MAX(a, b) / MIN(a, b) scalaires (SQLite) → GREATEST(a, b) / LEAST(a, b) (PostgreSQL).
+    //    Les agrégats à un seul argument (MAX(x)) restent inchangés.
+    out = out.replace(/\bMAX\s*\(\s*([^(),]+?)\s*,\s*([^()]*?)\)/gi, 'GREATEST($1, $2)');
+    out = out.replace(/\bMIN\s*\(\s*([^(),]+?)\s*,\s*([^()]*?)\)/gi, 'LEAST($1, $2)');
+
+    // NOTE — alias `AS storeName` : non cité volontairement. PostgreSQL le replie en `storename`,
+    // ce qui casserait les références `ORDER BY storeName` / `GROUP BY storeName` du même
+    // statement. La casse est donc restaurée À LA LECTURE par `remapRow` (columnMapping.ts), et la
+    // complétude du mapping est garantie par un test dédié (column-mapping.test.ts).
+
+    segment = '';
+    return out;
+  };
 
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
@@ -35,18 +82,18 @@ export function translateSql(sql: string): string {
           inString = false;
         }
       }
+    } else if (ch === "'" || ch === '"') {
+      result += flushSegment();
+      inString = true;
+      quoteChar = ch;
+      result += ch;
+    } else if (ch === '?') {
+      result += flushSegment() + `$${paramIndex++}`;
     } else {
-      if (ch === "'" || ch === '"') {
-        inString = true;
-        quoteChar = ch;
-        result += ch;
-      } else if (ch === '?') {
-        result += `$${paramIndex++}`;
-      } else {
-        result += ch;
-      }
+      segment += ch;
     }
   }
+  result += flushSegment();
 
   return result;
 }
@@ -63,6 +110,7 @@ export class PostgresDatabase {
   private sab: SharedArrayBuffer;
   private int32: Int32Array;
   private reqId = 0;
+  private closed = false;
 
   constructor(connectionString: string) {
     this.sab = new SharedArrayBuffer(4);
@@ -71,6 +119,9 @@ export class PostgresDatabase {
 
     const workerPath = path.resolve(__dirname, 'postgresWorker.cjs');
     this.worker = new Worker(workerPath);
+    // Le worker ne doit pas empêcher le processus (script, test, CLI) de se terminer.
+    this.worker.unref();
+    this.channel.port1.unref?.();
 
     Atomics.store(this.int32, 0, 0);
     this.worker.postMessage(
@@ -83,7 +134,7 @@ export class PostgresDatabase {
       [this.channel.port2]
     );
 
-    // Synchronous wait for init completion
+    // Attente synchrone de la fin d'initialisation
     let initMsg: any = null;
     const start = Date.now();
     while (!initMsg) {
@@ -113,7 +164,9 @@ export class PostgresDatabase {
     }
     const res = msg.message;
     if (!res.ok) {
-      throw new Error(res.error);
+      // Message d'erreur compatible avec les attentes du code SQLite (`UNIQUE constraint failed`,
+      // `FOREIGN KEY constraint failed`) : les tests et services matchent ces sous-chaînes.
+      throw new Error(normalizePgError(res.error));
     }
     return res;
   }
@@ -151,10 +204,49 @@ export class PostgresDatabase {
     };
   }
 
+  /** Ferme proprement la connexion (tests, scripts, arrêt gracieux). */
   close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    try {
+      this.channel.port1.postMessage({ type: 'close' });
+      // Laisse au worker le temps de fermer le pool (best effort, non bloquant)
+      const start = Date.now();
+      while (Date.now() - start < 500) {
+        const m = receiveMessageOnPort(this.channel.port1);
+        if (m && m.message && m.message.type === 'close') break;
+        Atomics.wait(this.int32, 0, 0, 10);
+      }
+    } catch (_) {
+      /* déjà fermé */
+    }
     try {
       this.channel.port1.close();
       this.worker.terminate();
-    } catch (_) {}
+    } catch (_) {
+      /* noop */
+    }
   }
+}
+
+/**
+ * Les contraintes PostgreSQL ne portent pas les mêmes messages que SQLite. Plusieurs services et
+ * tests s'appuient sur ces messages (`catch` + vérification de sous-chaîne). On les normalise pour
+ * conserver le comportement de l'application quelle que soit la base.
+ */
+export function normalizePgError(raw: string): string {
+  const msg = String(raw || '');
+  if (/duplicate key value violates unique constraint/i.test(msg)) {
+    return `UNIQUE constraint failed (${msg})`;
+  }
+  if (/violates foreign key constraint/i.test(msg)) {
+    return `FOREIGN KEY constraint failed (${msg})`;
+  }
+  if (/violates check constraint/i.test(msg)) {
+    return `CHECK constraint failed (${msg})`;
+  }
+  if (/null value in column .* violates not-null constraint/i.test(msg)) {
+    return `NOT NULL constraint failed (${msg})`;
+  }
+  return msg;
 }

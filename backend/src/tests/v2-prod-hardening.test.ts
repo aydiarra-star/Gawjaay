@@ -1,31 +1,17 @@
 // Tests V2 — durcissement production : idempotence financière (§21), index 007, Sentry no-op.
 import { vi } from 'vitest';
-vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v2-hardening.db'; });
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-v2-hardening.db'; });
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { bootstrap } from '../lib/bootstrap';
-import { seedWorld } from './helpers';
+import { seedWorld , resetDatabase } from './helpers';
 import { idempotencyMiddleware } from '../middlewares/idempotency';
 
 let W: any;
 
 beforeAll(async () => {
   bootstrap();
-  db.exec(`PRAGMA foreign_keys = OFF;
-    DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees;
-    DELETE FROM idempotency_keys; DELETE FROM delivery_proofs; DELETE FROM deliveries;
-    DELETE FROM payments; DELETE FROM debt_payments; DELETE FROM debts;
-    DELETE FROM order_items; DELETE FROM orders; DELETE FROM sale_items; DELETE FROM sales;
-    DELETE FROM b2b_order_items; DELETE FROM b2b_orders; DELETE FROM b2b_catalog_items; DELETE FROM b2b_catalogs;
-    DELETE FROM b2b_profiles; DELETE FROM replenishment_suggestions;
-    DELETE FROM loyalty_transactions; DELETE FROM loyalty_accounts; DELETE FROM favorites;
-    DELETE FROM coupon_redemptions; DELETE FROM coupons; DELETE FROM promotion_products; DELETE FROM promotions;
-    DELETE FROM review_reports; DELETE FROM moderation_actions; DELETE FROM reviews;
-    DELETE FROM inventory_count_items; DELETE FROM inventory_counts;
-    DELETE FROM purchase_items; DELETE FROM purchases; DELETE FROM expenses;
-    DELETE FROM inventory_movements; DELETE FROM inventories; DELETE FROM products;
-    DELETE FROM drivers; DELETE FROM stores; DELETE FROM merchants; DELETE FROM users; DELETE FROM categories;
-    PRAGMA foreign_keys = ON;`);
+  resetDatabase(db);
   W = await seedWorld(db);
 }, 120000);
 
@@ -53,22 +39,72 @@ describe('V2 durcissement — migrations 007/008', () => {
   });
 });
 
-describe('V2 durcissement — masquage costPrice sur liste publique (audit HIGH)', () => {
-  it('le détail masque costPrice pour un tiers (logique existante)', async () => {
-    const products = await import('../modules/products/service');
-    const riz = (db.prepare('SELECT * FROM products WHERE id = ?').get(W.pRiz) as any);
-    const fetched = await products.getProduct(W.pRiz);
-    expect(fetched.costPrice).toBeDefined(); // propriétaire (pas de user) — service brut
-    void riz;
+describe('V2 durcissement — masquage costPrice sur TOUTES les surfaces publiques (audit HIGH)', () => {
+  // Ces tests passent par l'API HTTP RÉELLE (aucune simulation de la logique) : ils échouent si la
+  // fuite revient, y compris sur une route publique ajoutée plus tard.
+  let api: any;
+  let tokens: { merchantA?: string } = {};
+  let pCost = '';
+  beforeAll(async () => {
+    const { startApi } = await import('./helpers');
+    api = await startApi();
+    const login = await fetch(`http://127.0.0.1:${api.port}/api/v1/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+221770000010', password: 'Password123!' }),
+    });
+    tokens.merchantA = ((await login.json()) as any).accessToken;
+    // Produit AVEC prix d'achat : sans lui, les assertions de masquage ne prouveraient rien.
+    const created = await api('POST', `/products/store/${W.storeA}`, {
+      token: tokens.merchantA,
+      body: { name: 'Produit Marge Test', price: 15000, costPrice: 9000, initialStock: 4 },
+    });
+    pCost = created.data.id;
+  }, 60000);
+
+  it('produit de test : costPrice bien renseigné en base (sinon le test ne prouve rien)', () => {
+    const row = db.prepare('SELECT costPrice FROM products WHERE id = ?').get(pCost) as any;
+    expect(row.costPrice).toBeGreaterThan(0);
   });
 
-  it('la LISTE ne contient plus la clé costPrice côté anonyme (fix contrôleur)', () => {
-    // vérification au niveau du contrôleur via simulation : la transformation appliquée
-    const rows = [{ id: 'x', name: 'Riz', costPrice: 9000, price: 15000 }];
-    const isOwner = false;
-    const safe = isOwner ? rows : rows.map(({ costPrice, ...rest }: any) => rest);
-    expect('costPrice' in safe[0]).toBe(false);
-    expect(safe[0].price).toBe(15000);
+  it('GET /stores/slug/:slug anonyme → AUCUN costPrice (vitrine publique)', async () => {
+    const r = await api('GET', '/stores/slug/boutique-a');
+    expect(r.status).toBe(200);
+    const body = JSON.stringify(r.data);
+    expect(body).toContain('Produit Marge Test');
+    expect(/costPrice/.test(body)).toBe(false);
+  });
+
+  it('GET /products/store/:storeId anonyme → AUCUN costPrice', async () => {
+    const r = await api('GET', `/products/store/${W.storeA}`);
+    expect(r.status).toBe(200);
+    const body = JSON.stringify(r.data);
+    expect(body).toContain('Produit Marge Test');
+    expect(/costPrice/.test(body)).toBe(false);
+  });
+
+  it('GET /products/:productId anonyme → AUCUN costPrice', async () => {
+    const r = await api('GET', `/products/${pCost}`);
+    expect(r.status).toBe(200);
+    expect(/costPrice/.test(JSON.stringify(r.data))).toBe(false);
+  });
+
+  it('GET /marketplace/products anonyme → AUCUN costPrice', async () => {
+    const r = await api('GET', '/marketplace/products?q=Marge');
+    expect(r.status).toBe(200);
+    expect(/costPrice/.test(JSON.stringify(r.data))).toBe(false);
+  });
+
+  it('le PROPRIÉTAIRE authentifié reçoit bien costPrice (marge préservée)', async () => {
+    const r = await api('GET', `/products/store/${W.storeA}`, { token: tokens.merchantA });
+    expect(r.status).toBe(200);
+    const riz = (r.data as any[]).find((p: any) => p.id === pCost);
+    expect(riz.costPrice).toBeGreaterThan(0);
+  });
+
+  it('GET /auth/me ne renvoie JAMAIS passwordHash', async () => {
+    const r = await api('GET', '/auth/me', { token: tokens.merchantA });
+    expect(r.status).toBe(200);
+    expect(/passwordHash/.test(JSON.stringify(r.data))).toBe(false);
   });
 });
 

@@ -16,13 +16,65 @@ jobs:
           node-version: 22
       - name: Install backend dependencies
         working-directory: backend
-        run: npm install
-      - name: Tests (305) — unitaires, DB E2E, API E2E, sécurité, multi-tenant, IA
+        run: npm ci
+      - name: Tests (SQLite — runtime de développement)
         working-directory: backend
         run: npx vitest run
       - name: TypeScript backend
         working-directory: backend
         run: npx tsc --noEmit
+
+  # Runtime PostgreSQL réellement exercé : TOUTE la suite de tests tourne contre un vrai serveur
+  # PostgreSQL (le moteur de production), avec le driver `pg` — et non un substitut.
+  backend-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gawjaay
+          POSTGRES_PASSWORD: gawjaay_ci
+          POSTGRES_DB: gawjaay_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gawjaay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/gawjaay_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Tests complets sur PostgreSQL (auth, multi-tenant, ventes, stock, IA, concurrence)
+        working-directory: backend
+        run: npx vitest run
+      - name: Build production
+        working-directory: backend
+        run: npm run build
+      - name: Démarrage API (build prod + PostgreSQL) + smoke HTTP
+        working-directory: backend
+        env:
+          NODE_ENV: production
+          PORT: 4000
+          DATABASE_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/gawjaay_test
+          JWT_ACCESS_SECRET: ci_access_secret_at_least_32_characters_long
+          JWT_REFRESH_SECRET: ci_refresh_secret_at_least_32_characters_long
+          FRONTEND_URL: http://localhost:5173
+        run: |
+          node dist/index.js > /tmp/api.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4000/health > /dev/null; then break; fi
+            sleep 1
+          done
+          npx tsx scripts/smoke.ts
+          echo "--- log API (extrait) ---"
 
   frontend:
     runs-on: ubuntu-latest
@@ -33,7 +85,7 @@ jobs:
           node-version: 22
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
       - name: TypeScript strict
         working-directory: frontend
         run: npx tsc --noEmit

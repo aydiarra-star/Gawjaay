@@ -47,7 +47,9 @@ export async function meHandler(req: AuthRequest, res: Response, next: NextFunct
     const merchant = db.prepare('SELECT * FROM merchants WHERE userId = ?').get(userId) as any;
     let stores: any[] = [];
     if (merchant) stores = db.prepare('SELECT * FROM stores WHERE merchantId = ?').all(merchant.id);
-    res.json({ ...user, merchant: merchant ? { ...merchant, stores } : null });
+    // SÉCURITÉ : le hash de mot de passe ne sort jamais du serveur (même vers son propriétaire).
+    const { passwordHash, ...safeUser } = user as any;
+    res.json({ ...safeUser, merchant: merchant ? { ...merchant, stores } : null });
   } catch (e) { next(e); }
 }
 
