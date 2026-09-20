@@ -1,5 +1,14 @@
 # GawJaay V2 — RAPPORT FINAL « READY FOR PILOT ? »
 
+> **CORRECTION MESURÉE (2026-09-20, phase finale)** — métriques recalculées sur base réelle
+> (identiques SQLite et PostgreSQL) : **54 tables** (dont `_migrations` → **53 tables métier**),
+> **64 clés étrangères**, **54 PK**, **31 UNIQUE**, **110 index**, **8 migrations**.
+> Le chiffre de « 247/248 CHECK » utilisé précédemment provenait d'un quirk d'`information_schema`
+> PostgreSQL (`table_constraints` compte les colonnes `NOT NULL` comme `CHECK` :
+> 238 NOT NULL + **13 vrais CHECK = 251**). Le nombre réel de contraintes `CHECK` est **13**.
+> Voir `docs/FINAL_PRODUCTION_REPORT.md`.
+
+
 Date : 2026-09-20 · Branche : `arena/01a0be50-gawjaay` · PR ouverte vers `main`
 Statut final : voir §10 (un seul statut, non ambigu).
 

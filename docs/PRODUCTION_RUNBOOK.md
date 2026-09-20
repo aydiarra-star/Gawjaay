@@ -3,6 +3,42 @@
 > Qui : exploitant de garde. Quand : quotidien / sur alerte.
 > Prérequis : accès SSH au VPS, accès PM2 (`pm2`), accès Sentry, accès S3.
 
+## 0. Runtime base de données (PostgreSQL en production)
+
+Le moteur est choisi **par la variable `DATABASE_URL`** — aucun code à changer :
+
+| `DATABASE_URL` | Moteur | Usage |
+|---|---|---|
+| `postgresql://user:pass@host:5432/gawjaay` | **PostgreSQL** | production (source de vérité) |
+| `file:./dev.db` (ou absent) | SQLite (`node:sqlite`) | développement / tests |
+
+```bash
+# Vérifier le moteur réellement utilisé au démarrage (log attendu) :
+#   [db] Runtime: PostgreSQL via host:5432/gawjaay
+#   DB initialized (PostgreSQL)
+#   [migrations] appliquée: … / [migrations] à jour   ← idempotent à chaque redémarrage
+pm2 logs gawjaay-api --lines 30
+
+# Contrôle de santé applicative
+curl -s https://<domaine>/health            # { "status": "ok", … }
+
+# Contrôle fonctionnel complet (39 vérifications, sans effet de bord destructeur)
+SMOKE_BASE_URL=https://<domaine> npx tsx backend/scripts/smoke.ts
+
+# Contrôle de la base
+psql "$DATABASE_URL" -c "SELECT count(*) FROM _migrations;"          # 8
+psql "$DATABASE_URL" -c "SELECT count(*) FROM pg_tables WHERE schemaname='public';"  # 54
+```
+
+- **Transactions** : l'adaptateur utilise une connexion unique (`Pool max: 1`) → `BEGIN/COMMIT`
+  portent bien sur la même session. Le déploiement est **mono-processus** (`instances: 1` dans
+  `deploy/ecosystem.config.cjs`) ; ne pas passer en cluster sans lire `docs/BACKLOG_V3.md` §7.
+- **Backup/restauration** : `docs/BACKUP_RESTORE.md` (pg_dump sur le VPS ; fallback vérifié
+  `deploy/pg-backup.mjs` / `deploy/pg-restore.mjs`).
+- **Retour arrière** : repointer `DATABASE_URL` vers SQLite est possible (les deux moteurs sont
+  supportés) mais **ne préserve pas les données écrites dans PostgreSQL** — préférer la restauration
+  d'un dump (§Backup).
+
 ## 1. Démarrage / arrêt / statut
 
 ```bash

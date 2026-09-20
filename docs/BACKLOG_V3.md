@@ -28,3 +28,25 @@
 ## 5. Expansion Régionale & Infrastructure
 - **Support multi-devises (XOF, GNF, EUR)** pour l'expansion sous-régionale (Guinée, Mali, Côte d'Ivoire).
 - **Mode offline distribué complet (PWA / SQLite local synchronisé en CRDT)** pour les zones à connectivité intermittente.
+
+## 7. Durcissement technique identifié pendant la phase finale (à traiter AVANT toute montée en charge)
+
+- **Mises à jour conditionnelles de stock (`UPDATE … WHERE quantity >= ?`)** : aujourd'hui les
+  opérations sont sûres parce que l'accès base est synchrone (un seul thread, un seul processus).
+  En cas de **plusieurs instances Node** (cluster PM2, réplicas), le motif
+  « lire → vérifier → écrire » peut produire un stock négatif. Prérequis avant de scaler :
+  débit conditionnel atomique + transactions sur `sales`/`orders`.
+- **Transactions explicites sur les écritures métier multi-tables** (vente : `sales`,
+  `sale_items`, `inventories`, `inventory_movements`, `debts`, fidélité). Repli sûr en cas d'erreur
+  en cours de séquence.
+- **Verrouillage optimiste/`SELECT … FOR UPDATE`** pour les compteurs de promotions/coupons.
+- **Journalisation** : les erreurs 4xx attendues (400/401/403/404) sont aujourd'hui loguées comme
+  des erreurs avec pile d'appels → bruit en production, à filtrer.
+- **`prisma/` legacy** : plus aucun import de `@prisma/client` dans `src/` ; supprimer
+  `prisma/schema.prisma`, `src/lib/prisma.ts`, la dépendance et l'étape `prisma generate`.
+- **`deploy/postgres/validate.mjs`** : la métrique « CHECK » comptait en réalité les colonnes
+  `NOT NULL` (quirk `information_schema` PostgreSQL : 238 NOT NULL + 13 CHECK = 251). Corriger le
+  compteur (les vrais CHECK sont au nombre de 13).
+- **Rotation/expiration des refresh tokens** et révocation globale par utilisateur (aujourd'hui :
+  révocation par session).
+- **Pagination** : plusieurs listes publiques sont plafonnées (`LIMIT`), sans curseur ni total.
