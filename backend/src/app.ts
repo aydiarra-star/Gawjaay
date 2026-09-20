@@ -4,14 +4,18 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
+import { bootstrap } from './lib/bootstrap';
 import routes from './routes';
 import { errorHandler } from './middlewares/errorHandler';
 
 /**
  * Fabrique l'application Express (sans écouter).
  * Permet aux tests API E2E de monter un serveur éphémère sans toucher à V1.
+ * Applique le schéma V1 (initDb) puis les migrations versionnées V2 (idempotent).
  */
 export function buildApp() {
+  bootstrap();
+
   const app = express();
 
   app.use(helmet());

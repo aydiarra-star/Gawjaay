@@ -1,11 +1,12 @@
-import db, { cuid, initDb } from './lib/db';
+import db, { cuid } from './lib/bootstrap';
+import { bootstrap } from './lib/bootstrap';
 import bcrypt from 'bcryptjs';
 import { seedRegions } from './modules/regions/service';
 
 function nowIso(){ return new Date().toISOString(); }
 
 async function main() {
-  initDb();
+  bootstrap();
   console.log('Seeding GawJaay SQLite...');
 
   await seedRegions();

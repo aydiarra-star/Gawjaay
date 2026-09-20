@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v1-dbe2e.db'; });
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import db, { initDb } from '../lib/db';
+import db, { bootstrap } from '../lib/bootstrap';
 import { seedWorld, nowIso } from './helpers';
 
 let W: any;
@@ -12,7 +12,7 @@ let auth: any, stores: any, products: any, inventory: any, sales: any, customers
   notifications: any, employees: any, marketplace: any, dashboard: any, admin: any, regions: any;
 
 beforeAll(async () => {
-  initDb();
+  bootstrap();
   db.exec(`PRAGMA foreign_keys = OFF;
     DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees;
     DELETE FROM deliveries; DELETE FROM payments; DELETE FROM debt_payments; DELETE FROM debts;

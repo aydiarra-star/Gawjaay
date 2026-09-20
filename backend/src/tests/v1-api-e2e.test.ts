@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v1-api.db'; });
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import db, { initDb } from '../lib/db';
+import db, { bootstrap } from '../lib/bootstrap';
 import { seedWorld, startApi, Http } from './helpers';
 
 let W: any;
@@ -11,7 +11,7 @@ let api: Http;
 let tokens: { admin?: string; merchantA?: string; merchantB?: string; client?: string; employee?: string } = {};
 
 beforeAll(async () => {
-  initDb();
+  bootstrap();
   db.exec(`PRAGMA foreign_keys = OFF;
     DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees;
     DELETE FROM deliveries; DELETE FROM payments; DELETE FROM debt_payments; DELETE FROM debts;
@@ -215,7 +215,7 @@ describe('Baseline V1 API — Commandes & paiements (7)', () => {
     expect(r.status).toBe(403);
   });
   it('POST /payments/initiate + POST /payments/:id/verify → SUCCESS', async () => {
-    const init = await api('POST', '/payments/initiate', { token: tokens.client, body: { orderId, provider: 'WAVE' }, headers: undefined } );
+    const init = await api('POST', '/payments/initiate', { token: tokens.client, body: { orderId, provider: 'WAVE' } });
     expect(init.status).toBeLessThan(300);
     const v = await api('POST', `/payments/${init.data.id}/verify`, { token: tokens.client });
     expect(v.data.status).toBe('SUCCESS');

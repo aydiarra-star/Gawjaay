@@ -17,6 +17,10 @@ import notificationRoutes from '../modules/notifications/routes';
 import employeeRoutes from '../modules/employees/routes';
 import adminRoutes from '../modules/admin/routes';
 import regionRoutes from '../modules/regions/routes';
+import promotionRoutes from '../modules/promotions/routes';
+import couponRoutes from '../modules/coupons/routes';
+import reviewRoutes from '../modules/reviews/routes';
+import moderationRoutes from '../modules/moderation/routes';
 
 const router = Router();
 
