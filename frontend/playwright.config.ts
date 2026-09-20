@@ -12,7 +12,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
+  // 'github' : annotations lisibles via l'API checks (les logs bruts sont bloqués depuis Arena)
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'retain-on-failure',
@@ -31,6 +32,8 @@ export default defineConfig({
       cwd: '../backend',
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,
+      // NODE_ENV=test : désactive les rate-limits login/assistant pour les connexions E2E (CI uniquement)
+      env: { NODE_ENV: 'test' },
     },
     {
       command: 'npm run build && npx vite preview --port 4173 --strictPort',
