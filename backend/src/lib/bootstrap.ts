@@ -1,5 +1,5 @@
 import db, { initDb, cuid } from './db';
-import { runAllMigrations } from '../migrations/versions/001_lot_a';
+import { runAllMigrations } from '../migrations/versions/002_lot_b';
 
 /**
  * Bootstrap complet du schéma : base V1 (initDb) + migrations versionnées V2.

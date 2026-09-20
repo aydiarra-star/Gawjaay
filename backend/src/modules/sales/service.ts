@@ -1,6 +1,7 @@
 import db, { cuid } from '../../lib/db';
 import { applyPromotions, consumePromotion } from '../promotions/service';
 import { validateCoupon, consumeCoupon } from '../coupons/service';
+import { maybeNotifyLowStock } from '../inventory/service';
 function nowIso(){ return new Date().toISOString(); }
 
 export async function createSale(storeId: string, data: any, userId: string) {
@@ -64,6 +65,7 @@ export async function createSale(storeId: string, data: any, userId: string) {
     db.prepare('UPDATE inventories SET quantity = ?, updatedAt = ? WHERE id = ?').run(inv.quantity - it.quantity, nowIso(), inv.id);
     db.prepare('INSERT INTO inventory_movements (id, storeId, productId, quantity, type, referenceId, reason, userId, createdAt) VALUES (?,?,?,?,?,?,?,?,?)')
       .run(cuid(), storeId, it.productId, -it.quantity, 'SALE', saleId, 'Vente physique', userId, nowIso());
+    await maybeNotifyLowStock(storeId, it.productId, userId);
   }
 
   for (const pid of [...new Set(usedPromotionIds)]) {

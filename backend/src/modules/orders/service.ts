@@ -2,6 +2,7 @@ import db, { cuid } from '../../lib/db';
 import { generateOrderNumber } from '../../utils/slug';
 import { applyPromotions, consumePromotion, releasePromotion } from '../promotions/service';
 import { validateCoupon, consumeCoupon, releaseCoupon } from '../coupons/service';
+import { maybeNotifyLowStock } from '../inventory/service';
 
 function nowIso(){ return new Date().toISOString(); }
 
@@ -104,6 +105,7 @@ export async function updateStatus(orderId: string, newStatus: string, user: any
       db.prepare('UPDATE inventories SET quantity = ?, updatedAt = ? WHERE id = ?').run(inv.quantity - it.quantity, nowIso(), inv.id);
       db.prepare('INSERT INTO inventory_movements (id, storeId, productId, quantity, type, referenceId, reason, userId, createdAt) VALUES (?,?,?,?,?,?,?,?,?)')
         .run(cuid(), order.storeId, it.productId, -it.quantity, 'ONLINE_ORDER', orderId, 'Commande confirmée', user.userId, nowIso());
+      await maybeNotifyLowStock(order.storeId, it.productId, user.userId);
     }
     // V2 : consomption des promotions au moment de la confirmation (atomicité serveur)
     if (order.promotionIds) {

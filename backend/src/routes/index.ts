@@ -21,6 +21,10 @@ import promotionRoutes from '../modules/promotions/routes';
 import couponRoutes from '../modules/coupons/routes';
 import reviewRoutes from '../modules/reviews/routes';
 import moderationRoutes from '../modules/moderation/routes';
+import inventoryCountRoutes from '../modules/inventoryCounts/routes';
+import analyticsRoutes from '../modules/analytics/routes';
+import exportRoutes from '../modules/exports/routes';
+import barcodeRoutes from '../modules/barcodes/routes';
 
 const router = Router();
 
@@ -46,7 +50,11 @@ router.use('/promotions', promotionRoutes);
 router.use('/coupons', couponRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/admin/moderation', moderationRoutes);
+router.use('/inventory-counts', inventoryCountRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/exports', exportRoutes);
+router.use('/barcodes', barcodeRoutes);
 
-router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.0.0-lot-a', timestamp: new Date().toISOString() }));
+router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.1.0-lot-b', timestamp: new Date().toISOString() }));
 
 export default router;

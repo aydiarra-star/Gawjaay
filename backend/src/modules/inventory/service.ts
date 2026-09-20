@@ -26,3 +26,23 @@ export async function lowStock(storeId: string) {
   const rows = db.prepare(`SELECT i.*, p.name, p.lowStockThreshold FROM inventories i JOIN products p ON p.id = i.productId WHERE i.storeId = ?`).all(storeId) as any[];
   return rows.filter(r=> r.quantity <= (r.lowStockThreshold || 5));
 }
+
+
+/**
+ * V2 — Alerte stock faible : notifie le marchand quand le stock passe sous le seuil.
+ * Utilise uniquement les données réelles (inventories + products.lowStockThreshold).
+ */
+export async function maybeNotifyLowStock(storeId: string, productId: string, userId?: string) {
+  const row = db.prepare(`SELECT i.quantity, p.name, p.lowStockThreshold FROM inventories i
+    JOIN products p ON p.id = i.productId WHERE i.storeId = ? AND i.productId = ?`).get(storeId, productId) as any;
+  if (!row) return;
+  const threshold = row.lowStockThreshold ?? 5;
+  if (row.quantity > threshold) return;
+  const store = db.prepare('SELECT merchantId FROM stores WHERE id = ?').get(storeId) as any;
+  if (!store) return;
+  const merchant = db.prepare('SELECT userId FROM merchants WHERE id = ?').get(store.merchantId) as any;
+  if (!merchant) return;
+  const { cuid } = await import('../../lib/db');
+  db.prepare('INSERT INTO notifications (id, userId, title, body, type, data, createdAt) VALUES (?,?,?,?,?,?,?)')
+    .run(cuid(), merchant.userId, 'Stock faible', `${row.name} : stock faible (${row.quantity} restant, seuil ${threshold})`, 'STOCK_ALERT', JSON.stringify({ storeId, productId, quantity: row.quantity }), new Date().toISOString());
+}
