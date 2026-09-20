@@ -14,6 +14,7 @@ export default function Marketplace() {
   const [sort, setSort] = useState('');
   const [favorites, setFavorites] = useState<any[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const isFav = (type: string, id: string) => favorites.some((f) => f.targetType === type && f.targetId === id);
 
@@ -55,12 +56,15 @@ export default function Marketplace() {
   };
 
   const checkout = async () => {
-    if (!cart.length) return;
+    if (!cart.length || busy) return;
+    setBusy(true); // anti double-tap / réseau faible : une seule commande par clic (§21)
+    try {
     const storeId = cart[0].storeId;
     const items = cart.map((c) => ({ productId: c.productId, quantity: c.quantity }));
     const res = await api.post('/orders', { storeId, items, deliveryType: 'LIVRAISON' });
     alert(`Commande créée ${res.data.orderNumber} - ${res.data.totalAmount} FCFA (prix confirmé serveur)`);
     setCart([]);
+    } finally { setBusy(false); }
   };
 
   const nearby = async () => {
@@ -156,11 +160,11 @@ export default function Marketplace() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded shadow h-fit sticky top-4">
+        <div className="bg-white p-4 rounded shadow h-fit lg:sticky lg:top-4 lg:z-10">
           <h3 className="font-bold mb-3">Panier ({cart.length})</h3>
           {cart.map((c: any) => <div key={c.productId} className="flex justify-between text-sm py-1"><span>{c.name} x{c.quantity}</span><span>{c.price * c.quantity}</span></div>)}
           <div className="mt-3 font-bold">Total: {cart.reduce((s, i) => s + i.quantity * i.price, 0)} FCFA</div>
-          <button onClick={checkout} disabled={!cart.length} className="mt-4 w-full bg-green-700 text-white p-2 rounded disabled:bg-gray-300">Commander</button>
+          <button onClick={checkout} disabled={!cart.length || busy} className="mt-4 w-full bg-green-700 text-white p-2 rounded disabled:bg-gray-300">{busy ? 'Envoi…' : 'Commander'}</button>
           <p className="text-xs mt-2 text-gray-500">Stock, prix et remises vérifiés côté serveur à la commande.</p>
         </div>
       </div>

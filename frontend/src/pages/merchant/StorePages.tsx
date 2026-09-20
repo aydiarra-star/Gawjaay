@@ -37,10 +37,15 @@ export function SalesPage() {
     else setCart([...cart, { productId:p.id, name:p.name, quantity:1, unitPrice:p.price }]);
   };
 
+  const [busySale, setBusySale] = useState(false);
   const createSale = async ()=>{
+    if (busySale) return;
+    setBusySale(true); // anti double-tap (§21) : une seule vente par clic
+    try {
     const total = cart.reduce((s,i)=>s+i.quantity*i.unitPrice,0);
     await api.post(`/sales/store/${storeId}`, { items: cart, amountPaid: total, paymentMethod: 'CASH' });
     setCart([]);
+    } finally { setBusySale(false); }
     api.get(`/sales/store/${storeId}`).then(r=>setSales(r.data));
   };
 
@@ -73,7 +78,7 @@ export function SalesPage() {
           <h3 className="font-bold mb-2">Panier ({cart.length})</h3>
           {cart.map((c:any)=><div key={c.productId} className="flex justify-between text-sm py-1"><span>{c.name} x{c.quantity}</span><span>{c.quantity*c.unitPrice}</span></div>)}
           <div className="mt-4 font-bold">Total: {cart.reduce((s,i)=>s+i.quantity*i.unitPrice,0)} FCFA</div>
-          <button onClick={createSale} disabled={!cart.length} className="mt-4 w-full bg-green-700 text-white p-2 rounded disabled:bg-gray-300">Enregistrer vente</button>
+          <button onClick={createSale} disabled={!cart.length || busySale} className="mt-4 w-full bg-green-700 text-white p-2 rounded disabled:bg-gray-300">Enregistrer vente</button>
         </div>
       </div>
     </div>

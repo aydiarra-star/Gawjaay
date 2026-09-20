@@ -14,6 +14,7 @@ export const env = {
   OM_API_KEY: process.env.OM_API_KEY || 'sandbox_om_key',
   OM_WEBHOOK_SECRET: process.env.OM_WEBHOOK_SECRET || 'sandbox_om_secret',
   NODE_ENV: process.env.NODE_ENV || 'development',
+  SENTRY_DSN: process.env.SENTRY_DSN || '',
 };
 
 if (env.JWT_ACCESS_SECRET.length < 20) {

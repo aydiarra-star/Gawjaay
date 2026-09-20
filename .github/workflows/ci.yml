@@ -1,0 +1,42 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [main, principal, 'arena/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+      - name: Tests (305) — unitaires, DB E2E, API E2E, sécurité, multi-tenant, IA
+        working-directory: backend
+        run: npx vitest run
+      - name: TypeScript backend
+        working-directory: backend
+        run: npx tsc --noEmit
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+      - name: TypeScript strict
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: Build production
+        working-directory: frontend
+        run: npm run build
