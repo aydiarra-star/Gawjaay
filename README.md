@@ -1,15 +1,15 @@
-GAWDIAYE
+GAWJAAY
 
-« Vendre vite. Gérer mieux. »
+Vendre vite. Gérer mieux.
 
-1. Vision du projet
+1. Vision
 
-GawDiaye est une plateforme numérique destinée aux commerçants, boutiques, magasins, grossistes, petits distributeurs et clients au Sénégal.
+GawJaay est une plateforme numérique sénégalaise destinée aux commerçants, boutiques, magasins, grossistes, petits distributeurs et clients.
 
-L’objectif est de réunir dans une même infrastructure :
+GawJaay réunit dans une même plateforme :
 
 * gestion du commerce ;
-* gestion du stock ;
+* gestion des stocks ;
 * ventes physiques ;
 * boutique en ligne ;
 * marketplace ;
@@ -20,43 +20,41 @@ L’objectif est de réunir dans une même infrastructure :
 * gestion des fournisseurs ;
 * gestion des créances ;
 * approvisionnement B2B ;
-* statistiques commerciales ;
-* puis assistance intelligente.
+* statistiques ;
+* automatisations ;
+* assistant intelligent.
 
-GawDiaye ne doit pas être conçu comme un simple site de petites annonces ou une copie de Vinted/Glovo.
+Concept central
 
-Le concept central est :
+Chaque commerce physique peut devenir une boutique numérique accessible 24h/24.
 
-Un commerçant possède un commerce physique et obtient automatiquement un commerce numérique accessible 24h/24.
-
-Même lorsque son magasin physique est fermé, ses clients peuvent consulter son catalogue et passer commande selon les conditions qu’il définit.
+Lorsque la boutique physique ferme, sa boutique en ligne peut continuer à recevoir des commandes selon les horaires et conditions définis par le commerçant.
 
 ⸻
 
-2. Problème à résoudre
+2. Problème
 
-Une grande partie des petits commerçants doit aujourd’hui gérer séparément :
+De nombreux commerçants utilisent plusieurs outils séparés :
 
-* les ventes ;
-* le stock ;
-* les clients ;
-* les dettes ;
-* les fournisseurs ;
-* WhatsApp ;
-* les commandes ;
-* les paiements ;
-* la livraison ;
-* la promotion de leurs produits.
+* cahier pour les ventes ;
+* calculatrice ;
+* WhatsApp pour les commandes ;
+* Mobile Money pour les paiements ;
+* notes pour les dettes ;
+* Excel ou papier pour les stocks ;
+* réseaux sociaux pour présenter les produits.
 
-GawDiaye doit réunir ces activités dans un seul système simple.
+GawJaay doit réunir ces opérations dans un seul système.
 
-Le commerçant ne doit pas avoir besoin de compétences techniques particulières.
+L’objectif n’est pas de rendre la gestion plus compliquée.
+
+L’objectif est de remplacer plusieurs outils dispersés par une seule plateforme simple.
 
 ⸻
 
 3. Cibles
 
-Cible principale
+Commerçants
 
 * boutiques de quartier ;
 * épiceries ;
@@ -66,22 +64,29 @@ Cible principale
 * boutiques de beauté ;
 * quincailleries ;
 * commerces spécialisés ;
-* petits distributeurs ;
 * vendeurs indépendants ;
-* grossistes.
+* petits distributeurs.
 
-Cible secondaire
+Professionnels
 
-* clients particuliers ;
-* entreprises ;
-* restaurants ;
-* autres commerçants recherchant des fournisseurs.
+* grossistes ;
+* fournisseurs ;
+* distributeurs ;
+* entreprises clientes.
 
-Couverture géographique
+Clients
 
-Le produit est conçu pour le Sénégal entier.
+Toute personne souhaitant rechercher, acheter, retirer ou recevoir des produits auprès de commerces présents sur GawJaay.
 
-Le lancement commercial peut commencer par Dakar, mais l’architecture doit prévoir dès le départ :
+⸻
+
+4. Zone géographique
+
+GawJaay est conçu pour couvrir l’ensemble du Sénégal.
+
+Le lancement peut commencer à Dakar, mais la plateforme doit être construite dès le départ pour fonctionner dans toutes les régions.
+
+Prévoir :
 
 * Dakar ;
 * Thiès ;
@@ -100,55 +105,61 @@ Le lancement commercial peut commencer par Dakar, mais l’architecture doit pr�
 * Tambacounda ;
 * Kédougou.
 
-Prévoir également régions, départements, communes et quartiers afin de permettre une extension nationale propre.
+Prévoir également :
+
+* régions ;
+* départements ;
+* communes ;
+* villes ;
+* quartiers.
+
+L’architecture ne doit pas être limitée à Dakar.
 
 ⸻
 
-4. Proposition de valeur
+5. Proposition de valeur
 
 Pour le commerçant
 
-« Je gère mon commerce physique et ma boutique en ligne depuis une seule application. »
+Gérer son commerce physique et sa boutique en ligne depuis une seule application.
 
 Pour le client
 
-« Je trouve rapidement le produit que je cherche, je vois où il est disponible et je peux commander. »
+Trouver rapidement un produit, voir où il est disponible et commander.
 
 Pour le grossiste
 
-« Je peux présenter mon catalogue et recevoir des commandes de commerçants. »
+Présenter son catalogue et recevoir des commandes professionnelles.
 
 ⸻
 
-5. Principe fondamental
+6. Principe fondamental : UN SEUL STOCK
 
-Un seul stock
-
-Le stock physique et le stock numérique doivent utiliser la même source de vérité.
+Le stock physique et le stock en ligne utilisent la même source de vérité.
 
 Exemple :
 
 Stock initial : 20
 
-Vente en boutique : -3
+Vente physique : -3
 
 Commande en ligne : -2
 
-Réapprovisionnement : +10
+Réception fournisseur : +10
 
 Stock final : 25
 
-Aucune duplication manuelle du stock.
+Toutes les opérations doivent être enregistrées.
 
-Toutes les opérations importantes sont validées côté serveur.
+Aucune modification critique ne doit être décidée uniquement par l’application cliente.
 
 ⸻
 
-6. TYPES DE COMPTES
+7. TYPES DE COMPTES
 
-Client
+7.1 Client
 
-Peut :
+Le client peut :
 
 * créer un compte ;
 * rechercher des produits ;
@@ -159,43 +170,42 @@ Peut :
 * payer ;
 * choisir livraison ou retrait ;
 * suivre une commande ;
-* recevoir des notifications ;
 * consulter son historique ;
+* recevoir des notifications ;
+* ajouter des favoris ;
 * noter une commande ;
 * signaler un problème.
 
-Commerçant
+7.2 Commerçant
 
-Peut :
+Le commerçant peut :
 
 * créer sa boutique ;
-* gérer son catalogue ;
-* gérer ses stocks ;
+* gérer ses produits ;
+* gérer son stock ;
 * enregistrer ses ventes ;
 * gérer ses clients ;
 * gérer ses fournisseurs ;
 * gérer ses dépenses ;
 * gérer ses créances ;
 * recevoir des commandes ;
-* gérer les livraisons ;
+* gérer ses livraisons ;
 * consulter ses statistiques.
 
-Grossiste
+7.3 Grossiste
 
-Peut :
+Le grossiste peut :
 
-* créer son catalogue ;
+* créer sa boutique professionnelle ;
+* publier son catalogue ;
 * gérer son stock ;
 * recevoir des commandes B2B ;
 * gérer ses clients professionnels ;
-* définir ses conditions commerciales ;
-* suivre ses ventes.
+* définir ses conditions commerciales.
 
-Employé
+7.4 Employé
 
-Compte rattaché à un commerçant avec permissions spécifiques.
-
-Exemples :
+Le propriétaire peut créer plusieurs employés :
 
 * vendeur ;
 * caissier ;
@@ -203,54 +213,62 @@ Exemples :
 * gérant ;
 * livreur.
 
-Administrateur
+Les permissions sont personnalisables.
 
-Gestion de la plateforme :
+7.5 Administrateur
+
+L’administration gère :
 
 * utilisateurs ;
 * commerces ;
 * catégories ;
-* signalements ;
+* produits ;
 * commandes ;
 * paiements ;
+* livraisons ;
+* signalements ;
 * litiges ;
-* contenus ;
 * sécurité ;
-* statistiques globales.
+* statistiques ;
+* modération.
 
 ⸻
 
-7. V1 — MVP COMPLET
+8. V1 — PRODUIT MINIMUM COMPLET
 
-La V1 doit rester concentrée sur le fonctionnement fondamental.
+La V1 doit permettre à un vrai commerçant de gérer son activité et de commencer à vendre en ligne.
 
-MODULE A — Inscription et authentification
+⸻
 
-* inscription client ;
-* inscription commerçant ;
+9. AUTHENTIFICATION
+
+Prévoir :
+
+* inscription ;
+* connexion ;
 * numéro de téléphone ;
 * email optionnel ;
 * mot de passe sécurisé ;
 * vérification du numéro ;
-* connexion ;
 * récupération de compte ;
-* déconnexion de tous les appareils ;
+* changement de mot de passe ;
 * gestion des sessions ;
+* déconnexion des appareils ;
 * protection contre les tentatives répétées.
 
 ⸻
 
-8. MODULE B — Création de boutique
+10. CRÉATION DE BOUTIQUE
 
-Lorsqu’un commerçant s’inscrit, il peut créer sa boutique.
+Chaque commerçant peut créer sa boutique.
 
 Informations :
 
 * nom ;
-* catégorie ;
-* description ;
 * logo ;
 * photos ;
+* catégorie ;
+* description ;
 * téléphone ;
 * WhatsApp ;
 * adresse ;
@@ -265,34 +283,66 @@ Informations :
 * retrait en boutique ;
 * moyens de paiement.
 
-Chaque boutique obtient une page publique partageable.
+Chaque boutique possède une page publique.
 
-Exemple :
+Elle peut être partagée :
 
-GawDiaye / boutique / nom-du-commerce
-
-Le commerçant peut partager son lien sur WhatsApp, Facebook, Instagram ou SMS.
+* WhatsApp ;
+* Facebook ;
+* Instagram ;
+* SMS ;
+* QR code.
 
 ⸻
 
-9. MODULE C — Catalogue produits
+11. STATUT DE LA BOUTIQUE
+
+La boutique doit distinguer :
+
+🏪 Commerce physique
+
+* ouvert ;
+* fermé.
+
+🛒 Boutique numérique
+
+* ouverte ;
+* fermée ;
+* commandes temporairement suspendues.
+
+Exemple :
+
+Boutique physique : FERMÉE
+Boutique en ligne : OUVERTE
+Livraison : DISPONIBLE
+
+C’est une fonctionnalité centrale de GawJaay.
+
+⸻
+
+12. CATALOGUE PRODUITS
 
 Le commerçant peut :
 
-* ajouter un produit ;
-* modifier un produit ;
-* supprimer un produit ;
-* ajouter une photo ;
-* nommer le produit ;
-* choisir une catégorie ;
-* définir un prix ;
-* définir le stock ;
-* définir une unité ;
-* ajouter une description ;
-* indiquer la disponibilité ;
-* créer des variantes.
+* ajouter ;
+* modifier ;
+* supprimer ;
+* masquer ;
+* réactiver un produit.
 
-Exemples :
+Chaque produit peut contenir :
+
+* photo ;
+* nom ;
+* description ;
+* catégorie ;
+* prix ;
+* stock ;
+* unité ;
+* variantes ;
+* disponibilité.
+
+Exemples de variantes :
 
 * taille ;
 * couleur ;
@@ -301,141 +351,139 @@ Exemples :
 
 ⸻
 
-10. MODULE D — Gestion du stock
+13. GESTION DU STOCK
 
 Fonctions :
 
 * stock actuel ;
-* entrée ;
-* sortie ;
-* ajustement ;
+* entrées ;
+* sorties ;
+* ajustements ;
 * inventaire ;
 * seuil d’alerte ;
 * historique ;
-* produits en rupture ;
-* produits presque épuisés.
+* produits faibles ;
+* produits en rupture.
 
-Chaque modification importante doit être enregistrée.
+Chaque mouvement possède :
 
-Exemple :
-
-Produit : Huile 1L
-Stock précédent : 15
-Nouveau stock : 10
-Modification : vente
-Date : 14h32
-Utilisateur : employé X
+* produit ;
+* quantité ;
+* type ;
+* utilisateur ;
+* date ;
+* raison.
 
 ⸻
 
-11. MODULE E — Ventes physiques
+14. VENTES PHYSIQUES
 
-Le commerçant doit pouvoir enregistrer une vente effectuée dans son magasin.
+Le commerçant peut enregistrer une vente en magasin.
 
-Possibilité de :
+Processus :
 
-* rechercher produit ;
-* scanner ultérieurement un code-barres si disponible ;
-* choisir quantité ;
-* appliquer une remise ;
-* choisir moyen de paiement ;
-* associer la vente à un client ;
-* générer un reçu ;
-* diminuer automatiquement le stock.
+Produit → quantité → client éventuel → paiement → reçu → stock actualisé
 
-Moyens de paiement :
+Prévoir :
 
-* espèces ;
-* paiements numériques intégrés ;
-* autres moyens disponibles selon les prestataires connectés.
+* recherche produit ;
+* panier de vente ;
+* remise ;
+* moyen de paiement ;
+* client ;
+* reçu ;
+* annulation selon permissions.
+
+Prévoir ultérieurement le scan de code-barres.
 
 ⸻
 
-12. MODULE F — Boutique en ligne
+15. BOUTIQUE EN LIGNE
 
-Chaque commerçant dispose automatiquement d’une vitrine.
+Chaque commerçant obtient automatiquement une boutique numérique.
 
 Le client peut :
 
-* consulter les produits ;
+* consulter ;
 * rechercher ;
 * filtrer ;
-* voir prix ;
-* voir disponibilité ;
-* voir informations de la boutique ;
-* ajouter au panier ;
+* voir le prix ;
+* voir la disponibilité ;
+* consulter les informations ;
 * commander.
 
-La boutique peut rester accessible même lorsque le commerce physique est fermé.
-
-Afficher clairement :
-
-Boutique physique : FERMÉE
-Boutique en ligne : OUVERTE
-
-Le commerçant choisit ses horaires et règles de commande.
+La boutique peut rester ouverte après la fermeture physique.
 
 ⸻
 
-13. MODULE G — Marketplace
+16. MARKETPLACE
 
-La marketplace permet de rechercher :
+GawJaay permet de rechercher :
 
-Produit
+Un produit
 
-Exemple :
+« Riz 25 kg »
 
-Riz 25 kg
+Une boutique
 
-Commerce
+« Épicerie »
 
-Exemple :
+Une catégorie
 
-Boutique alimentaire
+« Alimentaire »
 
-Localisation
+Une localisation
 
-Exemple :
+« Dakar »
 
-Dakar / Parcelles Assainies
-
-Disponibilité
-
-Afficher uniquement les produits dont la disponibilité est déclarée.
-
-Ne jamais présenter comme disponible un produit dont le système sait qu’il est en rupture.
+Les résultats doivent respecter la disponibilité déclarée.
 
 ⸻
 
-14. MODULE H — « Acheter près de moi »
+17. ACHETER PRÈS DE MOI
 
-Le client peut rechercher un produit et obtenir les commerces qui le proposent dans sa zone.
+Le client peut rechercher un produit et voir les commerces proches.
 
-Informations possibles :
+Exemple :
 
-* nom du commerce ;
-* distance approximative ;
-* disponibilité déclarée ;
+Huile 1L
+
+Résultats :
+
+* Boutique A — disponible ;
+* Boutique B — disponible ;
+* Boutique C — rupture.
+
+Afficher lorsque disponible :
+
+* distance ;
 * prix ;
+* disponibilité ;
 * retrait ;
 * livraison ;
 * horaires.
 
-La localisation doit être utilisée uniquement avec l’autorisation appropriée du client.
+La localisation nécessite le consentement approprié du client.
 
 ⸻
 
-15. MODULE I — Panier et commande
+18. PANIER
 
 Le client peut :
 
-* ajouter des produits ;
+* ajouter ;
+* retirer ;
 * modifier les quantités ;
-* supprimer un produit ;
-* choisir l’adresse ;
-* choisir retrait ou livraison ;
-* choisir le paiement ;
-* confirmer la commande.
+* consulter le total ;
+* sélectionner une adresse ;
+* choisir livraison/retrait ;
+* sélectionner le paiement.
+
+Le serveur doit vérifier le stock avant validation définitive.
+
+⸻
+
+19. COMMANDES
 
 Statuts :
 
@@ -455,64 +503,58 @@ ou :
 
 ANNULÉE
 
-Chaque changement doit être enregistré.
+Chaque transition est contrôlée par les permissions appropriées.
 
 ⸻
 
-16. MODULE J — Paiements
+20. PAIEMENTS
 
-Prévoir l’intégration progressive des moyens de paiement disponibles au Sénégal, notamment :
+Prévoir l’intégration progressive des moyens disponibles au Sénégal :
 
 * Wave ;
 * Orange Money ;
-* autres services de mobile money compatibles ;
+* autres services Mobile Money compatibles ;
 * cartes bancaires ;
-* paiement en espèces ;
-* paiement à la livraison lorsque le commerçant l’autorise.
+* espèces ;
+* paiement à la livraison.
 
-Les intégrations devront utiliser les API ou solutions officielles des prestataires concernés.
+Les intégrations devront utiliser les solutions/API officielles des prestataires concernés.
 
-Règles de sécurité
+Règle absolue
 
-Ne jamais stocker :
+Le client ou le commerçant ne peut pas modifier directement le statut :
 
-* PIN mobile money ;
-* codes secrets ;
-* informations sensibles inutiles.
+PAYÉ
 
-Le statut d’un paiement doit être confirmé côté serveur.
+Le paiement doit être confirmé côté serveur par le mécanisme approprié du prestataire.
 
-Un utilisateur ne doit jamais pouvoir déclarer lui-même :
+Prévoir :
 
-« Paiement réussi »
+* réussi ;
+* échoué ;
+* en attente ;
+* annulé ;
+* expiré ;
+* remboursé ;
+* doublon.
 
-Le système doit recevoir une confirmation fiable du prestataire.
-
-Prévoir la gestion :
-
-* paiement réussi ;
-* paiement échoué ;
-* paiement annulé ;
-* paiement expiré ;
-* remboursement ;
-* double tentative ;
-* transaction en attente.
+Ne jamais stocker inutilement les PIN ou codes secrets des utilisateurs.
 
 ⸻
 
-17. MODULE K — Livraison
+21. LIVRAISON
 
 V1
 
-Le commerçant peut gérer lui-même la livraison.
+Le commerçant peut assurer lui-même la livraison.
 
 Il définit :
 
-* zone desservie ;
+* zones ;
 * frais ;
 * horaires ;
-* délai indicatif ;
-* disponibilité.
+* conditions ;
+* délai indicatif.
 
 Le client choisit :
 
@@ -522,7 +564,7 @@ ou
 
 Retrait en boutique
 
-Le commerçant peut mettre à jour :
+Statuts :
 
 * à préparer ;
 * prêt ;
@@ -533,476 +575,441 @@ Prévoir une preuve de livraison.
 
 ⸻
 
-18. MODULE L — WhatsApp et partage
+22. WHATSAPP
 
-Chaque boutique doit pouvoir être facilement partagée.
+Prévoir une intégration pratique avec WhatsApp.
 
-Prévoir :
+Le commerçant peut partager :
 
-* bouton WhatsApp ;
-* lien de boutique ;
-* partage produit ;
-* partage catalogue ;
-* partage commande.
+* boutique ;
+* produit ;
+* catalogue ;
+* commande ;
+* lien de paiement lorsque techniquement disponible.
 
 Objectif :
 
-Le commerçant peut continuer à utiliser WhatsApp tout en faisant passer progressivement ses ventes par GawDiaye.
+Permettre au commerçant de conserver ses habitudes tout en centralisant progressivement ses ventes dans GawJaay.
 
 ⸻
 
-19. MODULE M — Gestion des clients
+23. CLIENTS
 
-Le commerçant peut enregistrer :
+Le commerçant peut gérer :
 
 * nom ;
 * téléphone ;
-* historique des achats ;
 * commandes ;
-* créances éventuelles ;
-* notes internes.
+* historique ;
+* créances ;
+* informations nécessaires au service.
 
-Les données personnelles doivent être protégées et accessibles uniquement aux utilisateurs autorisés.
+Les données doivent être protégées.
 
 ⸻
 
-20. MODULE N — Gestion des créances
+24. CRÉANCES CLIENTS
 
-Le commerçant peut suivre les ventes à crédit.
+Fonction de gestion des ventes à crédit.
 
 Exemple :
-
-Client : X
 
 Achat : 50 000 FCFA
 
 Paiement : 30 000 FCFA
 
-Reste : 20 000 FCFA
+Solde : 20 000 FCFA
 
 Prévoir :
 
 * historique ;
 * paiements partiels ;
 * solde ;
-* date ;
+* dates ;
 * rappels.
 
-GawDiaye ne doit pas devenir un organisme de crédit.
+GawJaay ne prête pas d’argent.
 
-Il s’agit uniquement d’un outil de gestion des créances commerciales.
+Il s’agit uniquement d’un outil de suivi des créances commerciales.
 
 ⸻
 
-21. MODULE O — Fournisseurs
+25. FOURNISSEURS
 
 Le commerçant peut enregistrer :
 
-* fournisseurs ;
-* coordonnées ;
-* produits achetés ;
+* fournisseur ;
+* téléphone ;
+* adresse ;
+* produits ;
 * historique ;
 * commandes ;
 * montants.
 
-Prévoir les entrées de marchandises.
+Réception d’une commande :
 
-Lorsqu’une réception est enregistrée :
-
-Stock + quantité reçue
+Réception → stock automatiquement augmenté
 
 ⸻
 
-22. MODULE P — Tableau de bord
+26. DÉPENSES
 
-Le tableau de bord doit rester simple.
+Prévoir une gestion simple :
 
-Afficher :
+* achat marchandises ;
+* transport ;
+* livraison ;
+* loyer ;
+* salaires ;
+* autres dépenses.
 
-* ventes du jour ;
-* ventes de la semaine ;
-* commandes ;
-* commandes à traiter ;
+Le commerçant peut voir :
+
+* recettes ;
 * dépenses ;
-* stock faible ;
-* produits en rupture ;
-* créances ;
-* paiements reçus ;
-* chiffre d’affaires.
+* résultat estimatif.
 
-Ne pas surcharger l’écran avec des statistiques inutiles.
+GawJaay ne doit pas présenter cela comme une comptabilité réglementaire certifiée sans disposer des fonctionnalités et exigences nécessaires.
 
 ⸻
 
-23. MODULE Q — Reçus
+27. TABLEAU DE BORD
 
-Après une vente ou commande :
+Afficher simplement :
 
-* reçu numérique ;
-* numéro unique ;
+Aujourd’hui
+
+* ventes ;
+* commandes ;
+* paiements ;
+* dépenses ;
+* produits faibles ;
+* créances ;
+* livraisons.
+
+Puis :
+
+Activité
+
+* semaine ;
+* mois ;
+* évolution.
+
+⸻
+
+28. REÇUS
+
+Chaque vente ou commande peut générer un reçu numérique.
+
+Contenu :
+
+* numéro ;
+* boutique ;
 * date ;
 * produits ;
 * quantités ;
 * montant ;
 * paiement ;
-* boutique.
+* commande.
 
 Le reçu peut être partagé selon les canaux disponibles.
 
 ⸻
 
-24. MODULE R — Employés et permissions
+29. EMPLOYÉS ET PERMISSIONS
 
-Le propriétaire peut créer des comptes employés.
+Exemple :
 
-Permissions configurables :
+Propriétaire
 
-* ventes ;
-* stock ;
-* commandes ;
-* clients ;
-* fournisseurs ;
-* finances ;
-* livraison.
+Accès complet.
 
-Un employé ne doit jamais avoir accès automatiquement à toutes les données.
+Gérant
+
+Ventes + stock + commandes.
+
+Caissier
+
+Ventes + encaissement.
+
+Magasinier
+
+Stock.
+
+Livreur
+
+Livraisons assignées.
+
+Chaque action sensible est enregistrée dans l’historique.
 
 ⸻
 
-25. MODULE S — Notifications
-
-Notifications pour :
+30. NOTIFICATIONS
 
 Commerçant
 
 * nouvelle commande ;
 * paiement confirmé ;
-* produit presque épuisé ;
-* produit en rupture ;
-* commande annulée ;
-* nouvelle demande client.
+* stock faible ;
+* rupture ;
+* annulation ;
+* nouvelle demande.
 
 Client
 
 * commande confirmée ;
-* commande préparée ;
-* commande en livraison ;
-* commande livrée ;
 * paiement confirmé ;
+* préparation ;
+* livraison ;
+* commande livrée ;
 * annulation.
-
-Prévoir push notification et, lorsque pertinent, d’autres canaux.
 
 ⸻
 
-26. MODULE T — Sécurité V1
+31. SÉCURITÉ V1
 
-La sécurité est une priorité absolue.
+La sécurité doit être intégrée dès la conception.
 
-Principes :
+Prévoir :
 
 * HTTPS/TLS ;
-* mots de passe correctement hachés ;
-* authentification sécurisée ;
-* autorisations côté serveur ;
-* contrôle d’accès par rôle ;
-* isolation des données entre commerçants ;
-* validation serveur ;
-* protection API ;
+* hachage sécurisé des mots de passe ;
+* authentification ;
+* autorisation ;
+* contrôle par rôle ;
+* isolation des données ;
+* validation côté serveur ;
 * rate limiting ;
-* protection contre injections ;
-* protection XSS/CSRF selon architecture ;
-* validation des fichiers ;
-* journalisation ;
+* protection des API ;
+* protection contre les injections ;
+* protection des fichiers ;
+* journal d’audit ;
 * sauvegardes ;
 * restauration ;
-* surveillance ;
-* gestion des sessions ;
-* détection d’activité inhabituelle.
+* surveillance.
 
 Principe fondamental
 
-Le client mobile/web n’est jamais considéré comme une source de vérité.
+Le téléphone du client ou du commerçant n’est jamais considéré comme une source de vérité.
 
-Le serveur décide :
+Le serveur valide :
 
 * prix ;
 * stock ;
-* paiement ;
 * commande ;
+* paiement ;
 * permissions ;
-* remboursement ;
-* commissions.
+* remboursement.
 
 ⸻
 
-27. MODE HORS CONNEXION
+32. HORS CONNEXION
 
-Prévoir une architecture permettant de continuer certaines opérations lorsque la connexion est faible.
+Prévoir un mode adapté aux connexions faibles.
+
+Certaines opérations peuvent être enregistrées localement puis synchronisées.
 
 Exemple :
 
-Le commerçant enregistre une vente hors connexion.
+Vente hors connexion
 
-La vente est conservée localement.
+→ stockage local sécurisé
 
-Lorsque la connexion revient :
+→ reconnexion
 
-Synchronisation sécurisée
+→ synchronisation
 
-Prévoir la gestion des conflits.
+→ validation serveur.
 
-Les opérations financières sensibles doivent être synchronisées et validées correctement avant d’être considérées comme définitives lorsque cela est nécessaire.
+Prévoir une gestion rigoureuse des conflits et doublons.
+
+Les opérations sensibles doivent être confirmées par le serveur.
 
 ⸻
 
-28. V2 — EXTENSION MAJEURE
+33. V2 — MARKETPLACE AVANCÉE
 
-La V2 transforme GawDiaye en véritable infrastructure commerciale.
+Ajouter :
 
-A. Marketplace avancée
-
-* recherche multicritère ;
+* recherche avancée ;
 * catégories ;
 * filtres ;
 * localisation ;
 * disponibilité ;
 * promotions ;
-* recommandations ;
 * favoris ;
 * boutiques suivies ;
-* historique de recherche.
+* historique ;
+* recommandations.
 
 ⸻
 
-29. V2 — GROSSISTES ET B2B
+34. V2 — GROSSISTES ET B2B
 
-Créer un véritable espace :
+Créer un véritable marché :
 
-Grossistes → Commerçants
-
-Un commerçant peut :
-
-1. rechercher un grossiste ;
-2. consulter son catalogue ;
-3. sélectionner des produits ;
-4. créer une commande ;
-5. payer selon les moyens disponibles ;
-6. recevoir la marchandise ;
-7. intégrer automatiquement les produits dans son stock.
-
-⸻
-
-30. V2 — Réapprovisionnement
-
-Le système détecte les stocks faibles.
-
-Exemple :
-
-Huile : stock faible
+Grossiste → Commerçant
 
 Le commerçant peut :
 
+1. rechercher ;
+2. consulter ;
+3. sélectionner ;
+4. commander ;
+5. payer ;
+6. recevoir ;
+7. intégrer automatiquement la marchandise dans son stock.
+
+⸻
+
+35. V2 — RÉAPPROVISIONNEMENT
+
+Lorsque le stock devient faible :
+
+⚠️ Stock faible
+
+GawJaay peut proposer :
+
 Réapprovisionner
 
-et consulter ses fournisseurs disponibles.
+et afficher les fournisseurs disponibles.
 
 À terme :
 
-historique des ventes → estimation de consommation → suggestion de réapprovisionnement.
-
-Les suggestions doivent être présentées comme des recommandations, pas comme des certitudes.
+historique des ventes → analyse → suggestion de réapprovisionnement.
 
 ⸻
 
-31. V2 — Réseau de livraison
+36. V2 — RÉSEAU DE LIVRAISON
 
 Après validation du modèle initial, intégrer des livreurs partenaires.
 
-Architecture :
+Flux :
 
-Client
+Client → commande → commerçant → préparation → livreur → client
 
-→ commande
-
-Commerçant
-
-→ préparation
-
-Livreur
-
-→ collecte
-
-Client
-
-→ réception
-
-Le système gère :
+Fonctions :
 
 * attribution ;
+* récupération ;
+* livraison ;
 * statut ;
-* localisation selon consentement ;
-* preuve de livraison ;
+* preuve ;
 * historique ;
-* rémunération du livreur.
+* rémunération.
+
+La géolocalisation du livreur doit être traitée avec les autorisations et protections appropriées.
 
 ⸻
 
-32. V2 — Avis et confiance
+37. V2 — AVIS ET CONFIANCE
 
 Après une commande terminée :
 
-Le client peut évaluer :
-
-* produit ;
-* expérience commerciale ;
-* livraison.
+Le client peut évaluer l’expérience.
 
 Prévoir :
 
-* avis vérifiés après commande ;
+* avis vérifiés ;
 * signalement ;
 * modération ;
-* lutte contre faux avis ;
-* droit de réponse du commerçant.
+* lutte contre les faux avis ;
+* réponse du commerçant.
 
-Créer progressivement des badges factuels :
+Badges factuels :
 
-Commerce vérifié
+* téléphone vérifié ;
+* commerce vérifié ;
+* adresse vérifiée.
 
-Téléphone vérifié
-
-Adresse vérifiée
-
-etc.
-
-Ne pas créer de score opaque présenté comme une vérité absolue.
+Éviter les scores opaques présentés comme une vérité absolue.
 
 ⸻
 
-33. V2 — Promotions
+38. V2 — PROMOTIONS
 
 Le commerçant peut créer :
 
 * réduction ;
-* produit en promotion ;
-* offre limitée ;
 * lot ;
-* remise sur quantité ;
-* promotion pour clients fidèles.
+* remise quantité ;
+* promotion limitée ;
+* coupon ;
+* produit promotionnel.
 
 ⸻
 
-34. V2 — Fidélité
+39. V2 — FIDÉLITÉ
 
-Prévoir éventuellement :
+Prévoir :
 
-* clients favoris ;
 * points ;
 * récompenses ;
 * coupons ;
-* offres personnalisées.
+* clients fidèles ;
+* offres.
 
 Les règles doivent être simples et transparentes.
 
 ⸻
 
-35. V2 — IA ASSISTANT COMMERÇANT
+40. V2 — ASSISTANT IA
 
-L’IA ne constitue pas le cœur du produit.
+L’IA est un assistant, pas le cœur du produit.
 
-Elle intervient comme assistant.
-
-Exemples :
+Elle peut répondre :
 
 « Combien ai-je vendu aujourd’hui ? »
 
-« Quels sont mes produits en rupture ? »
+« Quels produits sont presque en rupture ? »
 
-« Quels produits se vendent le plus ? »
+« Quels sont mes produits les plus vendus ? »
 
-« Prépare une commande pour mon fournisseur. »
+« Prépare une commande fournisseur. »
+
+« Résume mes ventes de la semaine. »
 
 « Crée une fiche produit à partir de cette photo. »
 
-« Résume mon activité de la semaine. »
+Règle absolue
 
-L’IA doit impérativement respecter une règle :
+L’IA ne doit jamais inventer :
 
-Elle ne doit jamais inventer une donnée commerciale.
+* prix ;
+* stock ;
+* vente ;
+* paiement ;
+* chiffre d’affaires ;
+* commande.
 
-Elle doit utiliser les données réelles disponibles dans le compte.
-
-Lorsqu’une information n’est pas disponible :
+Si l’information n’existe pas :
 
 « Je ne dispose pas de cette information. »
 
-⸻
-
-36. V2 — Assistant de vente
-
-L’IA peut aider à :
-
-* créer une description produit ;
-* catégoriser un produit ;
-* répondre à des questions simples ;
-* préparer des messages clients ;
-* proposer une réponse WhatsApp ;
-* résumer une commande ;
-* identifier des produits similaires.
-
-Toute action sensible doit nécessiter une validation humaine.
+Toute opération financière ou sensible nécessitant une action doit être validée par l’utilisateur.
 
 ⸻
 
-37. V2 — Analyse commerciale
+41. V2 — ANALYSE COMMERCIALE
 
-Afficher des indicateurs tels que :
+Prévoir :
 
 * évolution des ventes ;
 * produits les plus vendus ;
 * produits peu vendus ;
 * stock dormant ;
-* fréquence de réapprovisionnement ;
 * créances ;
 * évolution des commandes ;
-* périodes de forte activité.
+* périodes d’activité ;
+* fréquence de réapprovisionnement.
 
-Ne pas présenter une estimation comme une donnée comptable certifiée.
-
-⸻
-
-38. ADMINISTRATION CENTRALE
-
-Le back-office doit permettre :
-
-* gestion utilisateurs ;
-* gestion commerces ;
-* vérification ;
-* catégories ;
-* produits signalés ;
-* commandes ;
-* paiements ;
-* remboursements ;
-* litiges ;
-* avis ;
-* promotions ;
-* sécurité ;
-* logs ;
-* statistiques ;
-* gestion des rôles administrateurs.
-
-Toute action administrative sensible doit être journalisée.
+Les estimations doivent être clairement distinguées des données réelles.
 
 ⸻
 
-39. SYSTÈME DE LITIGES
+42. LITIGES
 
-Prévoir :
-
-Client → signalement
-
-Motifs :
+Le client peut signaler :
 
 * produit non reçu ;
 * mauvais produit ;
@@ -1013,24 +1020,51 @@ Motifs :
 
 Le commerçant peut répondre.
 
-L’administrateur peut examiner les preuves.
+L’administration peut examiner :
 
-Ne jamais prélever ou transférer automatiquement de l’argent sur la base d’une simple déclaration utilisateur sans mécanisme de vérification adapté.
+* historique ;
+* paiement ;
+* commande ;
+* preuve de livraison ;
+* échanges ;
+* éléments disponibles.
 
 ⸻
 
-40. ARCHITECTURE TECHNIQUE RECOMMANDÉE
+43. ADMINISTRATION
 
-L’agent de développement doit construire une architecture moderne, maintenable et évolutive.
+Back-office permettant :
+
+* gestion utilisateurs ;
+* commerces ;
+* produits ;
+* commandes ;
+* paiements ;
+* livraisons ;
+* litiges ;
+* avis ;
+* catégories ;
+* signalements ;
+* statistiques ;
+* sécurité ;
+* logs.
+
+Les actions administratives sensibles doivent être journalisées.
+
+⸻
+
+44. ARCHITECTURE TECHNIQUE
+
+L’application doit être modulaire et évolutive.
 
 Frontend
 
 Application mobile :
 
 * Android prioritaire ;
-* iOS ensuite ou simultanément selon ressources.
+* iOS prévu.
 
-Interface web responsive pour administration et éventuellement gestion commerçant.
+Interface web responsive pour administration.
 
 Backend
 
@@ -1040,7 +1074,7 @@ Base de données
 
 Base relationnelle robuste.
 
-Entités principales :
+Tables principales :
 
 * users ;
 * roles ;
@@ -1056,6 +1090,7 @@ Entités principales :
 * suppliers ;
 * sales ;
 * sale_items ;
+* expenses ;
 * orders ;
 * order_items ;
 * payments ;
@@ -1068,195 +1103,84 @@ Entités principales :
 * disputes ;
 * audit_logs.
 
-Prévoir une architecture permettant l’ajout ultérieur de :
+Architecture extensible vers :
 
 * wholesalers ;
-* B2B orders ;
+* B2B ;
 * drivers ;
 * promotions ;
 * loyalty ;
-* AI interactions.
+* AI.
 
 ⸻
 
-41. RÈGLE DE CONCEPTION
+45. PROTECTION DES SECRETS
 
-Le système doit être modulaire.
+Les clés API, secrets et credentials :
 
-Ne pas construire toute l’application dans un seul fichier.
+ne doivent jamais être placés dans le code client ou dans un dépôt GitHub public.
 
-Séparer :
+Utiliser :
 
-* authentification ;
-* utilisateurs ;
-* boutiques ;
-* produits ;
-* stocks ;
-* ventes ;
-* commandes ;
-* paiements ;
-* livraison ;
-* clients ;
-* fournisseurs ;
-* marketplace ;
-* notifications ;
-* administration.
-
-Le code doit être documenté et maintenable.
-
-⸻
-
-42. SÉCURITÉ DES DONNÉES
-
-Mettre en place :
-
-* chiffrement des communications ;
-* contrôle d’accès ;
-* principe du moindre privilège ;
-* isolation des données ;
-* sauvegardes ;
-* restauration testée ;
-* logs ;
-* surveillance ;
-* protection des secrets ;
 * variables d’environnement ;
-* rotation des clés lorsque nécessaire ;
-* protection des endpoints sensibles.
-
-Les secrets/API keys ne doivent jamais être intégrés directement dans l’application cliente ou déposés publiquement dans GitHub.
-
-⸻
-
-43. PROTECTION CONTRE LA FRAUDE
-
-Prévoir progressivement :
-
-* détection des connexions inhabituelles ;
-* limitation des tentatives ;
-* détection des commandes suspectes ;
-* prévention des doubles paiements ;
-* prévention des doubles commandes ;
-* contrôle des remboursements ;
-* journal d’audit ;
-* vérification renforcée des opérations sensibles.
-
-⸻
-
-44. CONFIDENTIALITÉ
-
-Le système doit appliquer :
-
-* collecte minimale des données ;
-* accès limité ;
-* suppression lorsque légalement possible ;
-* export des données lorsque nécessaire ;
-* politique de confidentialité claire ;
-* consentement lorsque requis ;
-* gestion des données de localisation ;
-* protection des données de livraison.
-
-Le produit doit être conçu pour respecter les obligations réglementaires applicables au Sénégal et, lorsque nécessaire, aux utilisateurs ou opérations relevant d’autres juridictions.
-
-⸻
-
-45. MODÈLE ÉCONOMIQUE
-
-Prévoir plusieurs sources de revenus.
-
-Offre gratuite
-
-Fonctions essentielles avec limites raisonnables.
-
-Objectif :
-
-faire entrer les commerçants dans l’écosystème.
-
-Offre Pro
-
-Fonctions supplémentaires :
-
-* gestion avancée ;
-* statistiques ;
-* employés ;
-* catalogue plus important ;
-* automatisations.
-
-Offre Business
-
-Pour commerces plus importants :
-
-* plusieurs utilisateurs ;
-* plusieurs points de vente ;
-* fonctions avancées ;
-* B2B ;
-* rapports.
-
-Marketplace
-
-Possibilité de commission sur certaines transactions.
-
-B2B
-
-Possibilité de services ou commissions liés aux transactions professionnelles.
-
-Livraison
-
-Marge éventuelle lorsque GawDiaye organise ou intermédiarise la livraison.
-
-Le modèle économique exact doit être testé avec les premiers commerçants avant d’être figé.
+* secret manager ;
+* clés séparées par environnement ;
+* rotation des secrets ;
+* restrictions API.
 
 ⸻
 
 46. MULTI-BOUTIQUES
 
-Prévoir l’évolution vers :
+Prévoir l’évolution :
 
-1 propriétaire → plusieurs boutiques
+1 propriétaire → plusieurs commerces
 
 Exemple :
 
-Boutique Dakar
-Boutique Thiès
-Boutique Mbour
+* Boutique Dakar ;
+* Boutique Thiès ;
+* Boutique Mbour.
 
-Le propriétaire peut consulter chaque magasin séparément ou l’ensemble.
-
-⸻
-
-47. MULTI-UTILISATEURS
-
-Prévoir plusieurs employés par commerce.
-
-Chaque utilisateur doit avoir :
-
-* identité ;
-* rôle ;
-* permissions ;
-* historique des actions ;
-* statut actif/inactif.
+Le propriétaire peut consulter chaque commerce séparément ou l’ensemble.
 
 ⸻
 
-48. EXPÉRIENCE UTILISATEUR
+47. MODÈLE ÉCONOMIQUE
 
-L’application doit être :
+Prévoir plusieurs sources possibles :
 
-* simple ;
-* rapide ;
-* lisible ;
-* adaptée aux smartphones ;
-* utilisable par des personnes peu technophiles ;
-* optimisée pour des connexions variables.
+Gratuit
 
-Éviter les interfaces inutilement complexes.
+Fonctions essentielles.
 
-Le commerçant doit pouvoir enregistrer une vente en quelques secondes.
+Pro
+
+Fonctions avancées.
+
+Business
+
+Multi-utilisateurs, multi-boutiques et fonctionnalités professionnelles.
+
+Marketplace
+
+Commission éventuelle sur certaines transactions.
+
+B2B
+
+Services professionnels et/ou commissions.
+
+Livraison
+
+Marge éventuelle lorsque GawJaay intermédiarise la livraison.
+
+Le modèle tarifaire définitif doit être validé après expérimentation auprès de vrais commerçants.
 
 ⸻
 
-49. ÉCRANS PRINCIPAUX
+48. ÉCRANS PRINCIPAUX
 
-Application client
+Client
 
 1. Accueil
 2. Recherche
@@ -1265,15 +1189,16 @@ Application client
 5. Produit
 6. Boutique
 7. Panier
-8. Paiement
-9. Confirmation
-10. Suivi commande
-11. Historique
-12. Profil
+8. Livraison
+9. Paiement
+10. Confirmation
+11. Suivi
+12. Historique
 13. Favoris
-14. Notifications
+14. Profil
+15. Notifications
 
-Application commerçant
+Commerçant
 
 1. Tableau de bord
 2. Ventes
@@ -1292,7 +1217,7 @@ Application commerçant
 15. Statistiques
 16. Paramètres
 
-Administration
+Administrateur
 
 1. Dashboard
 2. Utilisateurs
@@ -1309,133 +1234,9 @@ Administration
 
 ⸻
 
-50. PRINCIPES ABSOLUS DU PRODUIT
+49. PARCOURS CENTRAL DU COMMERÇANT
 
-Règle 1
-
-Aucune donnée inventée.
-
-Règle 2
-
-Aucun paiement déclaré comme réussi sans confirmation fiable.
-
-Règle 3
-
-Aucun stock inventé.
-
-Règle 4
-
-Un commerçant ne peut accéder aux données d’un autre commerçant.
-
-Règle 5
-
-Toutes les opérations sensibles sont contrôlées côté serveur.
-
-Règle 6
-
-L’IA ne décide pas seule des opérations financières.
-
-Règle 7
-
-La sécurité doit être intégrée dès le développement initial.
-
-Règle 8
-
-Le produit doit pouvoir fonctionner avec une connexion faible.
-
-Règle 9
-
-L’interface doit rester simple malgré la puissance du backend.
-
-Règle 10
-
-Ne jamais construire une fonctionnalité uniquement parce qu’elle est techniquement possible. Elle doit résoudre un problème réel du commerçant ou du client.
-
-⸻
-
-51. ORDRE DE CONSTRUCTION
-
-Phase 1
-
-Infrastructure :
-
-* projet ;
-* base de données ;
-* authentification ;
-* sécurité ;
-* utilisateurs ;
-* rôles.
-
-Phase 2
-
-Commerce :
-
-* boutique ;
-* produits ;
-* stock ;
-* ventes ;
-* clients ;
-* fournisseurs.
-
-Phase 3
-
-Commerce numérique :
-
-* catalogue public ;
-* panier ;
-* commandes ;
-* notifications.
-
-Phase 4
-
-Paiements :
-
-* intégration progressive des moyens disponibles ;
-* confirmation serveur ;
-* historique ;
-* gestion des erreurs.
-
-Phase 5
-
-Livraison :
-
-* retrait ;
-* livraison commerçant ;
-* suivi.
-
-Phase 6
-
-Marketplace :
-
-* recherche ;
-* catégories ;
-* disponibilité ;
-* recherche géographique.
-
-Phase 7
-
-B2B :
-
-* grossistes ;
-* catalogues professionnels ;
-* commandes d’approvisionnement.
-
-Phase 8
-
-V2 avancée :
-
-* livreurs partenaires ;
-* avis ;
-* promotions ;
-* fidélité ;
-* analyses ;
-* IA.
-
-⸻
-
-52. OBJECTIF DU MVP
-
-Le MVP doit permettre à un vrai commerçant de faire ceci :
+Le MVP doit permettre :
 
 Créer son compte
 
@@ -1449,15 +1250,15 @@ Ajouter ses produits
 
 ↓
 
-Renseigner son stock
+Déclarer son stock
 
 ↓
 
-Vendre physiquement
+Vendre dans sa boutique
 
 ↓
 
-Voir son stock diminuer
+Le stock est automatiquement actualisé
 
 ↓
 
@@ -1469,11 +1270,11 @@ Recevoir une commande
 
 ↓
 
-Accepter la commande
+Accepter
 
 ↓
 
-Recevoir/confirmer le paiement
+Recevoir/faire confirmer le paiement
 
 ↓
 
@@ -1489,15 +1290,180 @@ Terminer la commande
 
 ↓
 
-Voir automatiquement la vente dans son tableau de bord
-
-Si cette boucle fonctionne parfaitement, GawDiaye possède déjà un produit utilisable.
+Le tableau de bord est automatiquement actualisé
 
 ⸻
 
-53. VISION LONG TERME
+50. PARCOURS CENTRAL DU CLIENT
 
-GawDiaye doit progressivement devenir :
+Rechercher un produit
+
+↓
+
+Voir les commerces disponibles
+
+↓
+
+Choisir une boutique
+
+↓
+
+Consulter le produit
+
+↓
+
+Ajouter au panier
+
+↓
+
+Choisir livraison ou retrait
+
+↓
+
+Choisir le paiement
+
+↓
+
+Confirmer
+
+↓
+
+Suivre la commande
+
+↓
+
+Recevoir
+
+↓
+
+Évaluer éventuellement
+
+⸻
+
+51. PRINCIPES ABSOLUS
+
+1.
+
+Aucune donnée inventée.
+
+2.
+
+Aucun paiement marqué comme réussi sans confirmation appropriée.
+
+3.
+
+Aucun stock inventé.
+
+4.
+
+Isolation stricte des données des commerçants.
+
+5.
+
+Toutes les opérations sensibles sont validées côté serveur.
+
+6.
+
+L’IA ne décide pas seule des opérations financières.
+
+7.
+
+La sécurité est intégrée dès le début.
+
+8.
+
+Le produit doit supporter les connexions faibles.
+
+9.
+
+L’interface reste simple.
+
+10.
+
+Les données doivent être traçables.
+
+11.
+
+Les utilisateurs doivent savoir clairement ce qui est réel, déclaré, estimé ou indisponible.
+
+12.
+
+Aucune fonctionnalité ne doit être développée simplement pour faire « plus moderne ». Chaque fonctionnalité doit répondre à un besoin réel.
+
+⸻
+
+52. ORDRE DE DÉVELOPPEMENT
+
+Étape 1 — Fondation
+
+* architecture ;
+* base de données ;
+* authentification ;
+* sécurité ;
+* rôles ;
+* permissions.
+
+Étape 2 — Gestion commerciale
+
+* boutique ;
+* produits ;
+* stock ;
+* ventes ;
+* clients ;
+* fournisseurs ;
+* dépenses ;
+* créances.
+
+Étape 3 — Commerce numérique
+
+* catalogue public ;
+* boutique ;
+* panier ;
+* commandes ;
+* notifications.
+
+Étape 4 — Paiements
+
+* intégrations ;
+* confirmation serveur ;
+* historique ;
+* erreurs ;
+* remboursements.
+
+Étape 5 — Livraison
+
+* retrait ;
+* livraison commerçant ;
+* suivi ;
+* preuve.
+
+Étape 6 — Marketplace
+
+* recherche ;
+* catégories ;
+* disponibilité ;
+* proximité.
+
+Étape 7 — B2B
+
+* grossistes ;
+* catalogues ;
+* commandes professionnelles.
+
+Étape 8 — V2
+
+* réseau de livreurs ;
+* avis ;
+* promotions ;
+* fidélité ;
+* analyse ;
+* IA.
+
+⸻
+
+53. OBJECTIF FINAL
+
+GawJaay doit progressivement devenir :
 
 L’infrastructure numérique du commerce sénégalais.
 
@@ -1513,27 +1479,19 @@ son magasin
 * ses commandes
 * ses paiements
 * ses livraisons
-* ses achats professionnels
+* ses approvisionnements
 * son activité commerciale
 
-sans devoir utiliser cinq ou dix applications différentes.
+sans devoir utiliser une multitude d’applications.
 
 ⸻
 
-54. SLOGAN
+54. POSITIONNEMENT
 
-GawDiaye
+GAWJAAY
 
 Vendre vite. Gérer mieux.
 
-Variantes possibles :
+Du magasin physique à la boutique numérique.
 
-GawDiaye — Ton commerce, partout.
-
-GawDiaye — Ton commerce ne ferme jamais.
-
-GawDiaye — Du magasin au numérique.
-
-GawDiaye — Gère. Vends. Livre.
-
-Le slogan principal recommandé pour le lancement doit rester simple et compréhensible.
+Une plateforme pensée pour le commerce sénégalais, construite pour commencer simplement et évoluer vers une véritable infrastructure commerciale nationale.
