@@ -5,9 +5,9 @@
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   key TEXT NOT NULL,
   endpoint TEXT NOT NULL,
-  userid TEXT,
+  userid TEXT NOT NULL DEFAULT '',
   status INTEGER NOT NULL,
   responsejson TEXT NOT NULL,
   createdat TEXT DEFAULT now()::text,
-  PRIMARY KEY (key, endpoint)
+  PRIMARY KEY (key, endpoint, userid)
 );

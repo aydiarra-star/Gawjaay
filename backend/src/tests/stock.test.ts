@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { cuid, initDb } from '../lib/db';
+import { resetDatabase } from './helpers';
 
 function nowIso(){ return new Date().toISOString(); }
 
 beforeAll(()=>{
   initDb();
-  db.exec('PRAGMA foreign_keys = OFF; DELETE FROM inventory_movements; DELETE FROM inventories; DELETE FROM products; DELETE FROM stores; DELETE FROM merchants; DELETE FROM users; PRAGMA foreign_keys = ON;');
+  resetDatabase(db);
   const userId = cuid();
   db.prepare('INSERT INTO users (id, phone, passwordHash, role, createdAt, updatedAt) VALUES (?,?,?,?,?,?)').run(userId, '+221test', 'hash', 'MERCHANT', nowIso(), nowIso());
   const merchantId = cuid();

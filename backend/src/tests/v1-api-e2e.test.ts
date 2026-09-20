@@ -1,10 +1,10 @@
 // Baseline V1 — Tests API E2E (37+) — HTTP réel via buildApp(), DB isolée.
 import { vi } from 'vitest';
-vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v1-api.db'; });
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-v1-api.db'; });
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import db, { bootstrap } from '../lib/bootstrap';
-import { seedWorld, startApi, Http } from './helpers';
+import { seedWorld, startApi, Http , resetDatabase } from './helpers';
 
 let W: any;
 let api: Http;
@@ -12,14 +12,7 @@ let tokens: { admin?: string; merchantA?: string; merchantB?: string; client?: s
 
 beforeAll(async () => {
   bootstrap();
-  db.exec(`PRAGMA foreign_keys = OFF;
-    DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees;
-    DELETE FROM deliveries; DELETE FROM payments; DELETE FROM debt_payments; DELETE FROM debts;
-    DELETE FROM order_items; DELETE FROM orders; DELETE FROM sale_items; DELETE FROM sales;
-    DELETE FROM purchase_items; DELETE FROM purchases; DELETE FROM expenses;
-    DELETE FROM inventory_movements; DELETE FROM inventories; DELETE FROM products;
-    DELETE FROM stores; DELETE FROM merchants; DELETE FROM users; DELETE FROM categories;
-    PRAGMA foreign_keys = ON;`);
+  resetDatabase(db);
   W = await seedWorld(db);
   api = await startApi();
 

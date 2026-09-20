@@ -1,4 +1,6 @@
 import db, { cuid } from '../../lib/db';
+import { withoutCostPrice } from '../../lib/publicPayload';
+import { canViewInternalFields } from '../../middlewares/optionalAuth';
 import { slugify } from '../../utils/slug';
 
 function nowIso() { return new Date().toISOString(); }
@@ -48,11 +50,15 @@ export async function listMyStores(user: any) {
   return [];
 }
 
-export async function getStoreBySlug(slug: string) {
+export async function getStoreBySlug(slug: string, viewer?: any) {
   const store = db.prepare('SELECT * FROM stores WHERE slug = ?').get(slug) as any;
   if (!store) return null;
-  const products = db.prepare('SELECT * FROM products WHERE storeId = ? AND isActive = 1 AND isOnline = 1 LIMIT 100').all(store.id);
-  return { ...store, products };
+  const products = db.prepare('SELECT * FROM products WHERE storeId = ? AND isActive = 1 AND isOnline = 1 LIMIT 100').all(store.id) as any[];
+  // SÉCURITÉ (audit pilote) : la vitrine est PUBLIQUE — `costPrice` (prix d'achat du marchand)
+  // ne doit jamais sortir vers un anonyme. Le propriétaire (merchant/employé) et l'ADMIN le voient.
+  const canSeeCost = canViewInternalFields(viewer, store.id);
+  const safeProducts = canSeeCost ? products : withoutCostPrice(products);
+  return { ...store, products: safeProducts };
 }
 
 export async function getStoreById(id: string, user?: any) {

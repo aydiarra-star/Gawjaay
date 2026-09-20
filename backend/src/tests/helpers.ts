@@ -1,5 +1,35 @@
 import bcrypt from 'bcryptjs';
-import { cuid } from '../lib/db';
+import { cuid, isPostgres } from '../lib/db';
+
+
+/**
+ * Vide la base entre deux fichiers de test — compatible SQLite ET PostgreSQL.
+ * SQLite : PRAGMA foreign_keys OFF + DELETE (comportement historique conservé).
+ * PostgreSQL : TRUNCATE ... CASCADE de toutes les tables du schéma public.
+ */
+export function resetDatabase(db: any, opts: { keepMigrations?: boolean } = { keepMigrations: true }) {
+  const keep = opts.keepMigrations !== false;
+  if (isPostgres) {
+    const rows = db
+      .prepare("SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public'")
+      .all() as any[];
+    const tables = rows.map((t) => t.name).filter((n) => !(keep && n === '_migrations'));
+    if (tables.length) {
+      db.exec(`TRUNCATE TABLE ${tables.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE;`);
+    }
+    return;
+  }
+  // SQLite : suppression dynamique de toutes les tables (robuste à l'ajout de tables V2/V3)
+  db.exec('PRAGMA foreign_keys = OFF;');
+  const rows = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .all() as any[];
+  for (const r of rows) {
+    if (keep && r.name === '_migrations') continue;
+    db.exec(`DELETE FROM "${r.name}";`);
+  }
+  db.exec('PRAGMA foreign_keys = ON;');
+}
 
 export function nowIso() { return new Date().toISOString(); }
 

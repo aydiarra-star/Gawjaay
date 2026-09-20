@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../middlewares/auth';
+import { optionalAuth } from '../../middlewares/optionalAuth';
 import { authorize, requirePermission } from '../../middlewares/rbac';
 import { createHandler, listHandler, updateHandler, deleteHandler, getHandler } from './controller';
 
 const router = Router();
 
-router.get('/store/:storeId', listHandler);
-router.get('/:productId', getHandler);
+router.get('/store/:storeId', optionalAuth, listHandler);
+router.get('/:productId', optionalAuth, getHandler);
 
 router.use(authMiddleware);
 router.post('/store/:storeId', authorize(['MERCHANT','EMPLOYEE','ADMIN']), requirePermission('products','create'), createHandler);

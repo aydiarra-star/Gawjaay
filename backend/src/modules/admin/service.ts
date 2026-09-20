@@ -2,7 +2,9 @@ import db from '../../lib/db';
 function nowIso(){ return new Date().toISOString(); }
 
 export async function listUsers(take=50) {
-  return db.prepare('SELECT * FROM users ORDER BY createdAt DESC LIMIT ?').all(take);
+  // SÉCURITÉ : jamais de passwordHash dans une réponse API (même ADMIN).
+  return (db.prepare('SELECT * FROM users ORDER BY createdAt DESC LIMIT ?').all(take) as any[])
+    .map(({ passwordHash, ...rest }: any) => rest);
 }
 export async function listStores(take=50) {
   const stores = db.prepare('SELECT * FROM stores ORDER BY createdAt DESC LIMIT ?').all(take) as any[];
@@ -35,7 +37,8 @@ export async function toggleUser(userId: string) {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
   if (!u) throw Object.assign(new Error('Utilisateur introuvable'), { status: 404 });
   db.prepare('UPDATE users SET isActive = ?, updatedAt = ? WHERE id = ?').run(u.isActive ? 0 : 1, nowIso(), userId);
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  const { passwordHash: _ph, ...safe } = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+  return safe;
 }
 export async function verifyStore(storeId: string) {
   db.prepare('UPDATE stores SET isVerified = 1, updatedAt = ? WHERE id = ?').run(nowIso(), storeId);

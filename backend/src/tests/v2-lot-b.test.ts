@@ -1,27 +1,17 @@
 // Tests V2 — LOT B : Codes-barres, Inventaires, Stock avancé, Analytics, Exports.
 import { vi } from 'vitest';
-vi.hoisted(() => { process.env.DATABASE_URL = 'file:./test-v2-lotb.db'; });
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-v2-lotb.db'; });
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { bootstrap } from '../lib/bootstrap';
-import { seedWorld, nowIso } from './helpers';
+import { seedWorld, nowIso , resetDatabase } from './helpers';
 
 let W: any;
 let counts: any, barcodes: any, analytics: any, exportsSvc: any, products: any, sales: any, orders: any, inventory: any;
 
 beforeAll(async () => {
   bootstrap();
-  db.exec(`PRAGMA foreign_keys = OFF;
-    DELETE FROM sessions; DELETE FROM audit_logs; DELETE FROM notifications; DELETE FROM employees;
-    DELETE FROM deliveries; DELETE FROM payments; DELETE FROM debt_payments; DELETE FROM debts;
-    DELETE FROM order_items; DELETE FROM orders; DELETE FROM sale_items; DELETE FROM sales;
-    DELETE FROM coupon_redemptions; DELETE FROM coupons; DELETE FROM promotion_products; DELETE FROM promotions;
-    DELETE FROM review_reports; DELETE FROM moderation_actions; DELETE FROM reviews;
-    DELETE FROM inventory_count_items; DELETE FROM inventory_counts;
-    DELETE FROM purchase_items; DELETE FROM purchases; DELETE FROM expenses;
-    DELETE FROM inventory_movements; DELETE FROM inventories; DELETE FROM products;
-    DELETE FROM stores; DELETE FROM merchants; DELETE FROM users; DELETE FROM categories;
-    PRAGMA foreign_keys = ON;`);
+  resetDatabase(db);
   counts = await import('../modules/inventoryCounts/service');
   barcodes = await import('../modules/barcodes/service');
   analytics = await import('../modules/analytics/service');
