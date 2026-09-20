@@ -1,94 +1,117 @@
 import db, { cuid } from '../../lib/db';
 import { applyPromotions, consumePromotion } from '../promotions/service';
 import { validateCoupon, consumeCoupon } from '../coupons/service';
-import { maybeNotifyLowStock } from '../inventory/service';
+import { notifyLowStockSync } from '../inventory/service';
 import * as loyalty from '../loyalty/service';
+import { withTransaction } from '../../lib/transaction';
+import { recordAudit } from '../../lib/audit';
+import { parseOrThrow } from '../../lib/validate';
+import { saleCreateSchema } from '../../utils/validators';
 function nowIso(){ return new Date().toISOString(); }
 
-export async function createSale(storeId: string, data: any, userId: string) {
+/**
+ * Vente physique (POS). V3 :
+ *  - entrées validées par Zod (quantités strictement positives, montants ≥ 0, méthode de paiement connue) ;
+ *  - le client (`customerId`) doit appartenir à la boutique (isolation tenant) ;
+ *  - une vente à crédit ou partiellement payée EXIGE un client (la dette lui est rattachée) ;
+ *  - tout le bloc (vente, lignes, stock, mouvements, promotions, coupon, fidélité, dette) est ATOMIQUE :
+ *    la moindre erreur annule l'ensemble — aucun stock décrémenté sans vente enregistrée.
+ */
+export async function createSale(storeId: string, rawData: any, userId: string) {
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId) as any;
   if (!store) throw Object.assign(new Error('Boutique introuvable'), { status: 404 });
+  const data = parseOrThrow(saleCreateSchema, rawData);
 
-  // V2 : prix promotionnels calculés serveur (sauf prix POS surchargé par le commerçant)
-  const promoResult = applyPromotions(storeId, data.items);
-  const lineByProduct = new Map(promoResult.lines.map((l: any) => [l.productId, l]));
+  if (data.customerId) {
+    const customer = db.prepare('SELECT id, storeId FROM customers WHERE id = ?').get(data.customerId) as any;
+    if (!customer || customer.storeId !== storeId) throw Object.assign(new Error('Client introuvable dans cette boutique'), { status: 404 });
+  }
 
-  let total = 0;
-  const itemsData: any[] = [];
-  const usedPromotionIds: string[] = [];
-  for (const it of data.items) {
-    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(it.productId) as any;
-    if (!product || product.storeId !== storeId) throw Object.assign(new Error(`Produit ${it.productId} introuvable`), { status: 404 });
-    const inv = db.prepare('SELECT * FROM inventories WHERE storeId = ? AND productId = ?').get(storeId, it.productId) as any;
-    if (!inv || inv.quantity < it.quantity) throw Object.assign(new Error(`Stock insuffisant pour ${product.name}`), { status: 400 });
-    const line: any = lineByProduct.get(it.productId);
-    let unitPrice: number;
-    if (it.unitPrice !== undefined && it.unitPrice !== null) {
-      unitPrice = it.unitPrice; // prix POS négocié par le commerçant (jamais par un client : route réservée MERCHANT/EMPLOYEE)
-    } else {
-      unitPrice = line.unitPriceFinal; // prix serveur (promo appliquée si avantageuse)
-      if (line.promotionId) usedPromotionIds.push(line.promotionId);
+  return withTransaction(() => {
+    // V2 : prix promotionnels calculés serveur (sauf prix POS surchargé par le commerçant)
+    const promoResult = applyPromotions(storeId, data.items);
+    const lineByProduct = new Map(promoResult.lines.map((l: any) => [l.productId, l]));
+
+    let total = 0;
+    const itemsData: any[] = [];
+    const usedPromotionIds: string[] = [];
+    for (const it of data.items) {
+      const product = db.prepare('SELECT * FROM products WHERE id = ?').get(it.productId) as any;
+      if (!product || product.storeId !== storeId) throw Object.assign(new Error(`Produit ${it.productId} introuvable`), { status: 404 });
+      const inv = db.prepare('SELECT * FROM inventories WHERE storeId = ? AND productId = ?').get(storeId, it.productId) as any;
+      if (!inv || inv.quantity < it.quantity) throw Object.assign(new Error(`Stock insuffisant pour ${product.name}`), { status: 400 });
+      const line: any = lineByProduct.get(it.productId);
+      let unitPrice: number;
+      if (it.unitPrice !== undefined && it.unitPrice !== null) {
+        unitPrice = it.unitPrice; // prix POS négocié par le commerçant (jamais par un client : route réservée MERCHANT/EMPLOYEE)
+      } else {
+        unitPrice = line ? line.unitPriceFinal : product.price; // prix serveur (promo appliquée si avantageuse)
+        if (line?.promotionId) usedPromotionIds.push(line.promotionId);
+      }
+      const lineTotal = unitPrice * it.quantity;
+      total += lineTotal;
+      itemsData.push({ productId: it.productId, quantity: it.quantity, unitPrice, total: lineTotal });
     }
-    const lineTotal = unitPrice * it.quantity;
-    total += lineTotal;
-    itemsData.push({ productId: it.productId, quantity: it.quantity, unitPrice, total: lineTotal });
-  }
 
-  // V2 : coupon validé côté serveur puis consommé immédiatement (vente = définitive)
-  let coupon: any = null;
-  let couponDiscount = 0;
-  if (data.couponCode) {
-    const subtotal = total;
-    const check = validateCoupon(storeId, data.couponCode, { subtotal });
-    if (!check.ok) throw Object.assign(new Error(check.reason || 'Coupon invalide'), { status: 400 });
-    coupon = check.coupon;
-    couponDiscount = check.discount || 0;
-  }
+    // V2 : coupon validé côté serveur puis consommé immédiatement (vente = définitive)
+    let coupon: any = null;
+    let couponDiscount = 0;
+    if (data.couponCode) {
+      const subtotal = total;
+      const check = validateCoupon(storeId, data.couponCode, { subtotal });
+      if (!check.ok) throw Object.assign(new Error(check.reason || 'Coupon invalide'), { status: 400 });
+      coupon = check.coupon;
+      couponDiscount = check.discount || 0;
+    }
 
-  const discount = data.discount || 0;
-  const finalTotal = Math.max(0, total - couponDiscount - discount);
-  const amountPaid = data.amountPaid ?? finalTotal;
-  const change = amountPaid - finalTotal;
+    const discount = data.discount || 0;
+    const finalTotal = Math.max(0, total - couponDiscount - discount);
+    const paymentMethod = data.paymentMethod || 'CASH';
+    const amountPaid = paymentMethod === 'CREDIT' ? (data.amountPaid ?? 0) : (data.amountPaid ?? finalTotal);
+    const change = amountPaid - finalTotal;
 
-  if (data.paymentMethod === 'CREDIT' && !data.customerId) throw Object.assign(new Error('Client requis pour vente à crédit'), { status: 400 });
-
-  const saleId = cuid();
-  db.prepare('INSERT INTO sales (id, storeId, customerId, totalAmount, discount, paymentMethod, amountPaid, change, notes, createdById, promotionIds, couponId, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(saleId, storeId, data.customerId || null, finalTotal, discount + couponDiscount, data.paymentMethod || 'CASH', amountPaid, change > 0 ? change : 0, data.notes || null, userId,
-      usedPromotionIds.length ? JSON.stringify([...new Set(usedPromotionIds)]) : null,
-      coupon ? coupon.id : null, nowIso());
-
-  for (const it of itemsData) {
-    const itemId = cuid();
-    db.prepare('INSERT INTO sale_items (id, saleId, productId, quantity, unitPrice, total) VALUES (?,?,?,?,?,?)')
-      .run(itemId, saleId, it.productId, it.quantity, it.unitPrice, it.total);
-    const inv = db.prepare('SELECT * FROM inventories WHERE storeId = ? AND productId = ?').get(storeId, it.productId) as any;
-    db.prepare('UPDATE inventories SET quantity = ?, updatedAt = ? WHERE id = ?').run(inv.quantity - it.quantity, nowIso(), inv.id);
-    db.prepare('INSERT INTO inventory_movements (id, storeId, productId, quantity, type, referenceId, reason, userId, createdAt) VALUES (?,?,?,?,?,?,?,?,?)')
-      .run(cuid(), storeId, it.productId, -it.quantity, 'SALE', saleId, 'Vente physique', userId, nowIso());
-    await maybeNotifyLowStock(storeId, it.productId, userId);
-  }
-
-  for (const pid of [...new Set(usedPromotionIds)]) {
-    if (!consumePromotion(pid)) throw Object.assign(new Error('Promotion devenue indisponible'), { status: 400 });
-  }
-  if (coupon) consumeCoupon(coupon.id, saleId, storeId, data.customerId || null, couponDiscount);
-
-  // V2 LOT C : points sur le montant réellement encaissé (hors crédit partiel)
-  if (amountPaid > 0 && data.paymentMethod !== 'CREDIT' && data.clientUserId) {
-    loyalty.earnForPurchase(storeId, data.clientUserId, Math.min(amountPaid, finalTotal), saleId, data.customerId || null);
-  }
-
-  if (data.paymentMethod === 'CREDIT' || amountPaid < finalTotal) {
     const balance = finalTotal - amountPaid;
+    if (paymentMethod === 'CREDIT' && !data.customerId) throw Object.assign(new Error('Client requis pour vente à crédit'), { status: 400 });
+    if (balance > 0 && !data.customerId) throw Object.assign(new Error('Client requis pour un paiement partiel (dette à rattacher)'), { status: 400 });
+
+    const saleId = cuid();
+    db.prepare('INSERT INTO sales (id, storeId, customerId, totalAmount, discount, paymentMethod, amountPaid, change, notes, createdById, promotionIds, couponId, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(saleId, storeId, data.customerId || null, finalTotal, discount + couponDiscount, paymentMethod, amountPaid, change > 0 ? change : 0, data.notes || null, userId,
+        usedPromotionIds.length ? JSON.stringify([...new Set(usedPromotionIds)]) : null,
+        coupon ? coupon.id : null, nowIso());
+
+    for (const it of itemsData) {
+      const itemId = cuid();
+      db.prepare('INSERT INTO sale_items (id, saleId, productId, quantity, unitPrice, total) VALUES (?,?,?,?,?,?)')
+        .run(itemId, saleId, it.productId, it.quantity, it.unitPrice, it.total);
+      const inv = db.prepare('SELECT * FROM inventories WHERE storeId = ? AND productId = ?').get(storeId, it.productId) as any;
+      if (!inv || inv.quantity < it.quantity) throw Object.assign(new Error('Stock insuffisant'), { status: 400 });
+      db.prepare('UPDATE inventories SET quantity = ?, updatedAt = ? WHERE id = ?').run(inv.quantity - it.quantity, nowIso(), inv.id);
+      db.prepare('INSERT INTO inventory_movements (id, storeId, productId, quantity, type, referenceId, reason, userId, createdAt) VALUES (?,?,?,?,?,?,?,?,?)')
+        .run(cuid(), storeId, it.productId, -it.quantity, 'SALE', saleId, 'Vente physique', userId, nowIso());
+      notifyLowStockSync(storeId, it.productId);
+    }
+
+    for (const pid of [...new Set(usedPromotionIds)]) {
+      if (!consumePromotion(pid)) throw Object.assign(new Error('Promotion devenue indisponible'), { status: 400 });
+    }
+    if (coupon) consumeCoupon(coupon.id, saleId, storeId, data.customerId || null, couponDiscount);
+
+    // V2 LOT C : points sur le montant réellement encaissé (hors crédit partiel)
+    if (amountPaid > 0 && paymentMethod !== 'CREDIT' && data.clientUserId) {
+      loyalty.earnForPurchase(storeId, data.clientUserId, Math.min(amountPaid, finalTotal), saleId, data.customerId || null);
+    }
+
     if (balance > 0) {
       const debtId = cuid();
       db.prepare('INSERT INTO debts (id, customerId, totalAmount, paidAmount, balance, notes, createdAt, updatedAt) VALUES (?,?,?,?,?,?,?,?)')
         .run(debtId, data.customerId, finalTotal, amountPaid, balance, `Vente ${saleId}`, nowIso(), nowIso());
     }
-  }
 
-  return db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId);
+    recordAudit(userId, 'SALE_CREATE', 'Sale', saleId, { storeId, total: finalTotal, paymentMethod, items: itemsData.length });
+
+    return db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId);
+  });
 }
 
 export async function listSales(storeId: string, take=50, skip=0) {
@@ -98,6 +121,6 @@ export async function listSales(storeId: string, take=50, skip=0) {
 export async function getSale(id: string) {
   const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(id) as any;
   if (!sale) return null;
-  const items = db.prepare('SELECT * FROM sale_items WHERE saleId = ?').all(id);
+  const items = db.prepare(`SELECT si.*, p.name AS productName FROM sale_items si LEFT JOIN products p ON p.id = si.productId WHERE si.saleId = ?`).all(id);
   return { ...sale, items };
 }

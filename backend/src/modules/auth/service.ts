@@ -30,7 +30,7 @@ export async function register(data: { phone: string; password: string; email?: 
   const tempRefresh = 'temp';
   db.prepare('INSERT INTO sessions (id, userId, refreshToken, expiresAt, createdAt) VALUES (?,?,?,?,?)')
     .run(sessionId, userId, tempRefresh, new Date(Date.now()+7*24*3600*1000).toISOString(), nowIso());
-  const refreshToken = signRefresh({ userId, sessionId });
+  const refreshToken = signRefresh({ userId, sessionId, jti: cuid() });
   db.prepare('UPDATE sessions SET refreshToken = ? WHERE id = ?').run(refreshToken, sessionId);
 
   const user = { id: userId, phone: data.phone, email: data.email, role };
@@ -65,7 +65,7 @@ export async function login(phone: string, password: string, ip?: string, ua?: s
   const sessionId = cuid();
   db.prepare('INSERT INTO sessions (id, userId, refreshToken, ip, userAgent, expiresAt, createdAt) VALUES (?,?,?,?,?,?,?)')
     .run(sessionId, user.id, 'temp', ip || null, ua || null, new Date(Date.now()+7*24*3600*1000).toISOString(), nowIso());
-  const refreshToken = signRefresh({ userId: user.id, sessionId });
+  const refreshToken = signRefresh({ userId: user.id, sessionId, jti: cuid() });
   db.prepare('UPDATE sessions SET refreshToken = ? WHERE id = ?').run(refreshToken, sessionId);
 
   db.prepare('UPDATE users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?').run(nowIso(), nowIso(), user.id);
@@ -75,20 +75,37 @@ export async function login(phone: string, password: string, ip?: string, ua?: s
   return { user: { id: user.id, phone: user.phone, email: user.email, role: user.role, merchantId: merchant?.id }, accessToken, refreshToken };
 }
 
-export async function refresh(refreshToken: string) {
+export async function refresh(refreshToken: string, ip?: string) {
   const { verifyRefresh } = await import('../../utils/jwt');
   let decoded;
   try { decoded = verifyRefresh(refreshToken); } catch { throw Object.assign(new Error('Refresh invalide'), { status: 401 }); }
   const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(decoded.sessionId) as any;
-  if (!session || session.revoked || session.refreshToken !== refreshToken || new Date(session.expiresAt) < new Date()) {
+  if (!session || session.revoked || new Date(session.expiresAt) < new Date()) {
     throw Object.assign(new Error('Session expirée'), { status: 401 });
   }
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(session.userId) as any;
   if (!user) throw Object.assign(new Error('Utilisateur introuvable'), { status: 404 });
+  // V3 (audit S10) : un compte désactivé (employé retiré, compte suspendu par l'ADMIN) ne peut plus
+  // rafraîchir son accès — la session est révoquée immédiatement.
+  if (!user.isActive) {
+    db.prepare('UPDATE sessions SET revoked = 1 WHERE userId = ?').run(user.id);
+    throw Object.assign(new Error('Compte désactivé'), { status: 403 });
+  }
+  // V3 (audit S9) — ROTATION : chaque refresh émet un nouveau refresh token et invalide le précédent.
+  // La présentation d'un ancien token (déjà consommé) pour une session encore vivante est le signe
+  // d'un vol/rejeu : la session entière est révoquée et l'événement est journalisé.
+  if (session.refreshToken !== refreshToken) {
+    db.prepare('UPDATE sessions SET revoked = 1 WHERE id = ?').run(session.id);
+    db.prepare('INSERT INTO audit_logs (id, userId, action, resource, resourceId, ip, createdAt) VALUES (?,?,?,?,?,?,?)')
+      .run(cuid(), user.id, 'REFRESH_REUSE_DETECTED', 'session', session.id, ip || null, nowIso());
+    throw Object.assign(new Error('Session expirée'), { status: 401 });
+  }
   const merchant = db.prepare('SELECT * FROM merchants WHERE userId = ?').get(user.id) as any;
   const payload: any = { userId: user.id, role: user.role, merchantId: merchant?.id };
   const accessToken = signAccess(payload);
-  return { accessToken };
+  const rotated = signRefresh({ userId: user.id, sessionId: session.id, jti: cuid() }); // jti : unicité garantie même dans la même seconde
+  db.prepare('UPDATE sessions SET refreshToken = ? WHERE id = ?').run(rotated, session.id);
+  return { accessToken, refreshToken: rotated };
 }
 
 export async function logout(refreshToken: string) {

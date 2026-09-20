@@ -209,6 +209,21 @@ export const COLUMN_MAPPING: Record<string, string> = {
   categoryslug: 'categorySlug',
   invqty: 'invQty',
   clientphonemasked: 'clientPhoneMasked',
+  // V3 — alias de requêtes (PostgreSQL replie les identifiants non cités en minuscules)
+  categoryname: 'categoryName',
+  customerphone: 'customerPhone',
+  debtbalance: 'debtBalance',
+  onlineproductcount: 'onlineProductCount',
+  productcount: 'productCount',
+  regionname: 'regionName',
+  departmentname: 'departmentName',
+  communename: 'communeName',
+  storecategory: 'storeCategory',
+  storequartier: 'storeQuartier',
+  suppliername: 'supplierName',
+  userisactive: 'userIsActive',
+  userlastloginat: 'userLastLoginAt',
+  userphone: 'userPhone',
 };
 
 export function remapRow<T = any>(row: any): T {

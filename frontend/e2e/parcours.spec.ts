@@ -201,3 +201,160 @@ test.describe('ADMIN', () => {
     await expect(page.getByText('CA Total')).toHaveCount(0);
   });
 });
+
+// ——— V3 : vitrine publique, suivi commande, proximité réelle, back-office (paramètres/dépenses/employé)
+test.describe('CLIENT mobile — V3 vitrine, suivi de commande, proximité', () => {
+  test.skip(() => !isMobile(), 'parcours client = mobile uniquement');
+
+  test('vitrine publique /store/:slug : QR code, contact/horaires, commande depuis la boutique', async ({ page }) => {
+    await login(page, CLIENT);
+    await page.waitForURL('**/marketplace');
+    await page.goto('/store/boutique-a');
+    await expect(page.getByRole('heading', { name: 'Boutique A' })).toBeVisible();
+    await expect(page.getByText('Scannez pour ouvrir la boutique')).toBeVisible();
+    await expect(page.getByLabel(/QR code de la boutique Boutique A/)).toBeVisible();
+    await expect(page.getByText('Contact', { exact: true })).toBeVisible();
+    await expect(page.getByText('Horaires', { exact: true })).toBeVisible();
+    // produit hors ligne jamais exposé côté public (filtré serveur)
+    await expect(page.getByText('Produit Hors Ligne')).toHaveCount(0);
+    await expect(page.getByText('Riz 25kg').first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Ajouter', exact: true }).first().click();
+    await expect(page.getByText('Panier (1)')).toBeVisible();
+    const dialogPromise = page.waitForEvent('dialog');
+    const cmd = page.getByRole('button', { name: 'Commander', exact: true });
+    await cmd.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await cmd.click({ force: true });
+    const dialog = await dialogPromise;
+    expect(dialog.message()).toMatch(/Commande GJ-.* créée/);
+    expect(dialog.message()).toMatch(/FCFA/);
+    await dialog.accept();
+  });
+
+  test('mes commandes : statut réel, annulation autorisée par le serveur, aucun paiement fictif', async ({ page, request }) => {
+    // commande créée via l'API réelle (client authentifié)
+    const created = await request.post(`${API}/orders`, {
+      headers: { Authorization: `Bearer ${tokens.client}` },
+      data: { storeId: storeA, items: [{ productId: rizId, quantity: 1 }], deliveryType: 'RETRAIT' },
+    });
+    expect(created.status()).toBe(201);
+    const order = await created.json();
+    expect(order.allowedTransitions).toContain('ANNULEE');
+    const capabilities = await (await request.get(`${API}/payments/capabilities`)).json();
+    expect(capabilities.productionProviderConnected).toBe(false);
+
+    await login(page, CLIENT);
+    await page.waitForURL('**/marketplace');
+    await page.goto('/orders');
+    await expect(page.getByRole('heading', { name: 'Mes commandes' })).toBeVisible();
+    await expect(page.getByText(/Paiement mobile \(Wave \/ Orange Money \/ carte\)/)).toBeVisible();
+    // état des paiements affiché honnêtement selon le serveur : jamais un "succès" simulé
+    if (capabilities.mode === 'disabled') {
+      await expect(page.getByText(/NON CONNECTÉ/)).toBeVisible();
+      await expect(page.getByRole('button', { name: /^Payer/ })).toHaveCount(0);
+    } else {
+      await expect(page.getByText(/mode simulation \(aucun débit réel\)/)).toBeVisible();
+    }
+
+    const card = page.locator('div.space-y-3 > div.bg-white', { hasText: order.orderNumber });
+    await expect(card).toBeVisible();
+    await expect(card.getByText('EN_ATTENTE')).toBeVisible();
+    await expect(card.getByText(/Paiement : espèces · en attente/)).toBeVisible();
+    page.once('dialog', (d) => d.accept()); // confirm('Annuler cette commande ?')
+    await card.getByRole('button', { name: 'Annuler' }).click();
+    await expect(card.getByText('ANNULEE')).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Annuler' })).toHaveCount(0);
+    await expect(card.getByRole('button', { name: /^Payer/ })).toHaveCount(0);
+
+    // le serveur reste la source de vérité : la commande annulée (état terminal) ne peut plus être
+    // modifiée par le client → refus (403 : le client ne peut agir que sur SA commande EN_ATTENTE)
+    const again = await request.patch(`${API}/orders/${order.id}/status`, {
+      headers: { Authorization: `Bearer ${tokens.client}` },
+      data: { status: 'ANNULEE' },
+    });
+    expect([400, 403, 409]).toContain(again.status());
+    const stillCancelled = await (await request.get(`${API}/orders/${order.id}`, { headers: { Authorization: `Bearer ${tokens.client}` } })).json();
+    expect(stillCancelled.status).toBe('ANNULEE');
+  });
+
+  test('marketplace : proximité réelle (Haversine serveur) et rayon', async ({ page, context }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 14.78, longitude: -17.38 }); // position de Boutique A (seed)
+    await login(page, CLIENT);
+    await page.waitForURL('**/marketplace');
+    await page.getByRole('button', { name: '📍 Près de moi' }).click();
+    await expect(page.getByRole('button', { name: /Proximité active/ })).toBeVisible();
+    await expect(page.getByText(/distance réelle calculée par le serveur/)).toBeVisible();
+    // Boutique A à 0.0 km, Boutique B (14.79, -17.39) à ~1.5 km : les deux dans 10 km
+    await expect(page.getByText(/Riz 25kg/).first()).toBeVisible();
+    await expect(page.getByText(/Boutique A · 0\.0 km/).first()).toBeVisible();
+    await expect(page.getByText(/Boutique B · 1\.[3-7] km/).first()).toBeVisible();
+    // rayon 1 km → seule la boutique A (Produit B disparaît), calcul serveur
+    await page.getByLabel(/Rayon/).fill('1');
+    await page.getByRole('button', { name: 'Rechercher' }).click();
+    await expect(page.getByText('Produit B')).toHaveCount(0);
+    await expect(page.getByText(/Riz 25kg/).first()).toBeVisible();
+  });
+});
+
+test.describe('MERCHANT desktop — V3 paramètres, dépenses, employé', () => {
+  test.skip(() => !isDesktop(), 'back-office = desktop');
+
+  test('paramètres boutique (contact/horaires) publiés sur la vitrine + dépense enregistrée', async ({ page, request }) => {
+    await login(page, MERCHANT_A);
+    await page.waitForURL('**/merchant');
+    await page.goto(`/merchant/store/${storeA}/settings`);
+    await expect(page.getByRole('heading', { name: /Paramètres — Boutique A/ })).toBeVisible();
+    const whatsapp = `+22177${String(Date.now()).slice(-7)}`;
+    await page.getByLabel('WhatsApp').fill(whatsapp);
+    await page.getByPlaceholder('ex. 08:00-20:00 ou Fermé').first().fill('08:00-20:00');
+    await page.getByRole('button', { name: 'Enregistrer les paramètres' }).click();
+    await expect(page.getByRole('status')).toContainText('Paramètres enregistrés.');
+    // la vitrine publique (sans authentification) reflète les paramètres réels
+    const pub = await (await request.get(`${API}/stores/slug/boutique-a`)).json();
+    expect(pub.whatsapp).toBe(whatsapp);
+    const hours = typeof pub.openingHours === 'string' ? JSON.parse(pub.openingHours) : pub.openingHours;
+    expect(hours?.mon).toBe('08:00-20:00');
+    expect(pub).not.toHaveProperty('merchantId');
+    expect(JSON.stringify(pub)).not.toMatch(/passwordHash|costPrice/);
+
+    await page.goto(`/merchant/store/${storeA}/expenses`);
+    await expect(page.getByRole('heading', { name: 'Dépenses' })).toBeVisible();
+    await page.getByPlaceholder('Montant (FCFA)').fill('12500');
+    await page.getByPlaceholder('Description (optionnel)').fill('Électricité E2E');
+    await page.getByRole('button', { name: 'Ajouter dépense' }).click();
+    await expect(page.getByText('Électricité E2E')).toBeVisible();
+    await expect(page.getByText('Dépenses du mois')).toBeVisible();
+  });
+
+  test('employé créé par le marchand : connexion, commandes de sa boutique, stock B refusé', async ({ page, request }) => {
+    await login(page, MERCHANT_A);
+    await page.waitForURL('**/merchant');
+    await page.goto(`/merchant/store/${storeA}/employees`);
+    await expect(page.getByRole('heading', { name: 'Employés' })).toBeVisible();
+    const phone = `+2217${String(Date.now()).slice(-8)}`;
+    const password = 'Employe123!';
+    await page.getByPlaceholder('Téléphone +221...').fill(phone);
+    await page.getByPlaceholder(/Mot de passe initial/).fill(password);
+    await page.getByPlaceholder('Poste (ex. Vendeur, Caissier)').fill('Caissier E2E');
+    await page.getByRole('button', { name: "Créer l'employé" }).click();
+    await expect(page.getByRole('status')).toContainText('Employé créé');
+    await expect(page.getByText('Caissier E2E')).toBeVisible();
+
+    // l'employé se connecte : redirigé vers le back-office, voit uniquement Boutique A
+    await page.evaluate(() => localStorage.clear());
+    await login(page, { phone, password });
+    await page.waitForURL('**/merchant');
+    await expect(page.getByText('Boutique A').first()).toBeVisible();
+    await expect(page.getByText('Boutique B')).toHaveCount(0);
+    await page.goto(`/merchant/store/${storeA}/orders`);
+    await expect(page.getByRole('heading', { name: /Commandes en ligne/ })).toBeVisible();
+    await expect(page.getByText(/EN_ATTENTE|Aucune commande/).first()).toBeVisible();
+
+    // isolation : le stock de la boutique B est refusé côté serveur (403) → liste vide, aucun produit B
+    const forbidden = page.waitForResponse((r) => r.url().includes(`/inventory/${storeB}`) && r.status() === 403);
+    await page.goto(`/merchant/store/${storeB}/inventory`);
+    await forbidden;
+    await expect(page.getByText('Produit B')).toHaveCount(0);
+  });
+});

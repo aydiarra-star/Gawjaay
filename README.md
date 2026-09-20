@@ -528,6 +528,11 @@ PAYÉ
 
 Le paiement doit être confirmé côté serveur par le mécanisme approprié du prestataire.
 
+État d'implémentation (V3, 20/09/2026) — NOT CONNECTED TO PRODUCTION PAYMENT PROVIDER
+
+* espèces (CASH) et paiement au retrait / à la livraison : implémentés — le paiement reste PENDING jusqu'à confirmation par le marchand côté serveur (POST /payments/:id/confirm-cash) ;
+* Wave, Orange Money, carte : abstraction serveur (PaymentProvider) et capacités réelles exposées par GET /payments/capabilities ; aucun prestataire de production n'est connecté — en production PAYMENTS_MODE=disabled (valeur imposée), ces méthodes répondent 503 et l'interface n'affiche aucun bouton de paiement mobile. Procédure de connexion : deploy/DEPLOYMENT.md §5.
+
 Prévoir :
 
 * réussi ;

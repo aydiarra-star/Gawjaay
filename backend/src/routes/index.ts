@@ -31,6 +31,7 @@ import favoriteRoutes from '../modules/favorites/routes';
 import loyaltyRoutes from '../modules/loyalty/routes';
 import b2bRoutes from '../modules/b2b/routes';
 import replenishmentRoutes from '../modules/replenishment/routes';
+import categoryRoutes from '../modules/categories/routes';
 
 const router = Router();
 
@@ -66,7 +67,8 @@ router.use('/favorites', favoriteRoutes);
 router.use('/loyalty', loyaltyRoutes);
 router.use('/b2b', b2bRoutes);
 router.use('/replenishment', replenishmentRoutes);
+router.use('/categories', categoryRoutes);
 
-router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.5.0-lot-f', timestamp: new Date().toISOString() }));
+router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '3.0.0', timestamp: new Date().toISOString() }));
 
 export default router;

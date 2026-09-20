@@ -15,6 +15,13 @@ export default function Marketplace() {
   const [favorites, setFavorites] = useState<any[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [regions, setRegions] = useState<any[]>([]);
+  const [category, setCategory] = useState('');
+  const [region, setRegion] = useState('');
+  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
+  const [radiusKm, setRadiusKm] = useState('10');
+  const [info, setInfo] = useState('');
 
   const isFav = (type: string, id: string) => favorites.some((f) => f.targetType === type && f.targetId === id);
 
@@ -22,19 +29,35 @@ export default function Marketplace() {
     api.get('/favorites').then((r) => setFavorites(r.data)).catch(() => {});
   };
 
-  const search = async () => {
+  // Recherche serveur : catégorie, zone déclarée (région), prix, promo, tri, proximité réelle (Haversine côté serveur).
+  const search = async (override?: { geo?: { lat: number; lng: number } | null }) => {
+    const g = override && 'geo' in override ? override.geo : geo;
     const params: any = { q, take: 50 };
     if (minPrice) params.minPrice = minPrice;
     if (maxPrice) params.maxPrice = maxPrice;
     if (promo) params.promo = 'true';
     if (sort) params.sort = sort;
-    const res = await api.get('/marketplace/products', { params });
-    setProducts(res.data);
-    const res2 = await api.get('/marketplace/stores', { params: { q } });
-    setStores(res2.data);
+    if (category) params.category = category;
+    if (region) params.region = region;
+    if (g) { params.lat = g.lat; params.lng = g.lng; params.radiusKm = Number(radiusKm) || 10; }
+    try {
+      const res = await api.get('/marketplace/products', { params });
+      setProducts(res.data);
+      const storeParams: any = { q };
+      if (region) storeParams.region = region;
+      if (g) { storeParams.lat = g.lat; storeParams.lng = g.lng; storeParams.radiusKm = Number(radiusKm) || 10; }
+      const res2 = await api.get('/marketplace/stores', { params: storeParams });
+      setStores(res2.data);
+    } catch (e: any) {
+      setInfo(e.response?.data?.error || 'Recherche indisponible');
+    }
   };
 
-  useEffect(() => { search(); loadFavorites(); }, []);
+  useEffect(() => {
+    search(); loadFavorites();
+    api.get('/categories').then((r) => setCategories(r.data)).catch(() => setCategories([]));
+    api.get('/regions').then((r) => setRegions(r.data)).catch(() => setRegions([]));
+  }, []);
 
   const toggleFav = async (type: 'PRODUCT' | 'STORE', id: string) => {
     if (isFav(type, id)) {
@@ -68,11 +91,18 @@ export default function Marketplace() {
   };
 
   const nearby = async () => {
-    if (!navigator.geolocation) { alert('Géoloc non supportée'); return; }
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const res = await api.get('/marketplace/products', { params: { lat: pos.coords.latitude, lng: pos.coords.longitude, radiusKm: 10, q: undefined } });
-      setProducts(res.data);
-    });
+    if (geo) { setGeo(null); setInfo(''); search({ geo: null }); return; }
+    if (!navigator.geolocation) { setInfo('Géolocalisation non supportée par cet appareil.'); return; }
+    setInfo('Recherche de votre position…');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const g = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGeo(g);
+        setInfo(`Résultats dans un rayon de ${Number(radiusKm) || 10} km autour de votre position (distance réelle calculée par le serveur ; seules les boutiques géolocalisées apparaissent).`);
+        await search({ geo: g });
+      },
+      () => setInfo('Position refusée : recherche sans proximité.'),
+    );
   };
 
   return (
@@ -106,12 +136,24 @@ export default function Marketplace() {
       )}
 
       <div className="bg-white p-4 rounded shadow mb-6 space-y-3">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input className="border p-2 flex-1" placeholder="Produit, référence, code-barres, boutique..." value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && search()} />
-          <button onClick={search} className="bg-green-700 text-white px-4 rounded">Rechercher</button>
-          <button onClick={nearby} className="border px-4 rounded">📍 Près de moi</button>
+          <div className="flex gap-2">
+            <button onClick={() => search()} className="bg-green-700 text-white px-4 py-2 rounded flex-1">Rechercher</button>
+            <button onClick={nearby} className={`border px-4 py-2 rounded ${geo ? 'bg-green-50 border-green-700 text-green-800' : ''}`}>{geo ? '📍 Proximité active ✕' : '📍 Près de moi'}</button>
+          </div>
         </div>
+        {info && <p className="text-xs text-gray-600" role="status">{info}</p>}
         <div className="flex flex-wrap gap-2 text-sm items-center">
+          <select className="border p-1" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Catégorie">
+            <option value="">Toutes catégories</option>
+            {categories.map((c: any) => <option key={c.id} value={c.slug}>{c.name}{typeof c.productCount === 'number' ? ` (${c.productCount})` : ''}</option>)}
+          </select>
+          <select className="border p-1" value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Région">
+            <option value="">Toutes régions</option>
+            {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+          {geo && <label className="flex items-center gap-1">Rayon <input className="border p-1 w-16" type="number" min="1" max="100" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value)} /> km</label>}
           <input className="border p-1 w-24" placeholder="Prix min" type="number" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
           <input className="border p-1 w-24" placeholder="Prix max" type="number" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
           <label className="flex items-center gap-1"><input type="checkbox" checked={promo} onChange={(e) => setPromo(e.target.checked)} /> En promo</label>
@@ -120,8 +162,9 @@ export default function Marketplace() {
             <option value="price_asc">Prix croissant</option>
             <option value="price_desc">Prix décroissant</option>
             <option value="name">Nom A→Z</option>
+            {geo && <option value="distance">Distance</option>}
           </select>
-          <button onClick={search} className="border px-3 py-1 rounded">Appliquer</button>
+          <button onClick={() => search()} className="border px-3 py-1 rounded">Appliquer</button>
         </div>
       </div>
 
@@ -135,7 +178,8 @@ export default function Marketplace() {
                   <h4 className="font-bold">{p.name}</h4>
                   <button onClick={() => toggleFav('PRODUCT', p.id)} className={`text-xl ${isFav('PRODUCT', p.id) ? 'text-red-500' : 'text-gray-300'}`}>♥</button>
                 </div>
-                <p className="text-sm text-gray-500">{p.store?.name} {p.distance ? `- ${p.distance.toFixed(1)} km` : ''}</p>
+                <p className="text-sm text-gray-500">{p.store?.name}{p.store?.quartier ? ` · ${p.store.quartier}` : ''}{typeof p.distance === 'number' ? ` · ${p.distance.toFixed(1)} km` : ''}</p>
+                {p.categoryName && <p className="text-xs text-gray-400">{p.categoryName}</p>}
                 <p className="font-bold text-green-700">{p.price} FCFA</p>
                 <p className="text-xs">Stock: {p.inventories?.[0]?.quantity ?? '?'}</p>
                 <div className="mt-2 flex gap-2">
@@ -153,7 +197,7 @@ export default function Marketplace() {
                 <button onClick={() => toggleFav('STORE', s.id)} className={`absolute top-2 right-2 text-lg ${isFav('STORE', s.id) ? 'text-red-500' : 'text-gray-300'}`}>♥</button>
                 <Link to={`/store/${s.slug}`}>
                   <p className="font-bold">{s.name}</p>
-                  <p className="text-xs text-gray-500">{s.category} - {s.quartier}</p>
+                  <p className="text-xs text-gray-500">{[s.category, s.quartier].filter(Boolean).join(' - ')}{typeof s.distance === 'number' ? ` · ${s.distance.toFixed(1)} km` : ''}</p>
                 </Link>
               </div>
             ))}

@@ -70,24 +70,64 @@ function ReviewForm({ order, onDone }: { order: any; onDone: () => void }) {
   );
 }
 
+const STEPS = ['EN_ATTENTE', 'CONFIRMEE', 'EN_PREPARATION', 'PRETE', 'EN_LIVRAISON', 'LIVREE'];
+const STEP_LABELS: Record<string, string> = {
+  EN_ATTENTE: 'En attente', CONFIRMEE: 'Confirmée', EN_PREPARATION: 'En préparation', PRETE: 'Prête',
+  EN_LIVRAISON: 'En livraison', LIVREE: 'Livrée', ANNULEE: 'Annulée', REJETEE: 'Rejetée par la boutique', RETOURNEE: 'Retournée',
+};
+const PAYMENT_STATUS_LABELS: Record<string, string> = { PENDING: 'en attente', SUCCESS: 'payé', FAILED: 'échoué', CANCELLED: 'annulé' };
+
+/** Frise d'avancement : uniquement le statut réel renvoyé par le serveur (RETRAIT saute l'étape livraison). */
+function Timeline({ order }: { order: any }) {
+  const terminal = ['ANNULEE', 'REJETEE', 'RETOURNEE'].includes(order.status);
+  const steps = order.deliveryType === 'RETRAIT' ? STEPS.filter((s) => s !== 'EN_LIVRAISON') : STEPS;
+  const idx = steps.indexOf(order.status);
+  return (
+    <div className="mt-2">
+      <ol className="flex flex-wrap gap-1 text-xs">
+        {steps.map((st, i) => (
+          <li key={st} className={`px-2 py-1 rounded ${!terminal && i <= idx ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-500'}`}>{STEP_LABELS[st]}</li>
+        ))}
+      </ol>
+      {terminal && <p className="text-xs text-red-700 mt-1">{STEP_LABELS[order.status]}</p>}
+    </div>
+  );
+}
+
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, any>>({});
+  const [capabilities, setCapabilities] = useState<any>(null);
+  const [msg, setMsg] = useState('');
+  const [busyId, setBusyId] = useState('');
 
-  const load = () => api.get('/orders').then((r) => setOrders(r.data));
-  useEffect(() => { load(); }, []);
+  const load = () => api.get('/orders').then((r) => setOrders(r.data)).catch(() => setOrders([]));
+  useEffect(() => {
+    load();
+    // Capacités réelles de paiement : on n'affiche JAMAIS un bouton de paiement mobile si le fournisseur n'est pas connecté.
+    api.get('/payments/capabilities').then((r) => setCapabilities(r.data)).catch(() => setCapabilities(null));
+  }, []);
+
+  const mobileMethods: any[] = (capabilities?.methods || []).filter((m: any) => m.code !== 'CASH' && m.code !== 'CREDIT');
+  const availableMobile = mobileMethods.filter((m: any) => m.available);
 
   const pay = async (order: any, provider: string) => {
-    const idempotencyKey = `${order.id}-${provider}-${Date.now()}`;
-    const res = await api.post('/payments/initiate', { orderId: order.id, provider }, { headers: { 'Idempotency-Key': idempotencyKey } });
-    alert(`Paiement ${provider} initié ${res.data.transactionId}. Simulation sandbox - vérification...`);
-    const verify = await api.post(`/payments/${res.data.id}/verify`);
-    alert(`Paiement status: ${verify.data.status}`);
-    load();
+    if (busyId) return;
+    setMsg(''); setBusyId(order.id);
+    try {
+      const idempotencyKey = `${order.id}-${provider}-${Date.now()}`;
+      const res = await api.post('/payments/initiate', { orderId: order.id, provider }, { headers: { 'Idempotency-Key': idempotencyKey } });
+      const verify = await api.post(`/payments/${res.data.id}/verify`);
+      setMsg(`Paiement ${provider} : statut ${PAYMENT_STATUS_LABELS[verify.data.status] || verify.data.status} (confirmé par le serveur${capabilities?.mode === 'sandbox' ? ', mode simulation' : ''}).`);
+      load();
+    } catch (e: any) {
+      setMsg(e.response?.data?.error || 'Paiement indisponible');
+    } finally { setBusyId(''); }
   };
 
   const openReview = async (orderId: string) => {
+    if (reviewing === orderId) { setReviewing(null); return; }
     setReviewing(orderId);
     if (!details[orderId]) {
       const r = await api.get(`/orders/${orderId}`);
@@ -97,43 +137,60 @@ export default function Orders() {
 
   const cancel = async (orderId: string) => {
     if (!confirm('Annuler cette commande ?')) return;
+    setMsg('');
     try {
       await api.patch(`/orders/${orderId}/status`, { status: 'ANNULEE' });
       load();
     } catch (e: any) {
-      alert(e.response?.data?.error || 'Erreur');
+      setMsg(e.response?.data?.error || 'Annulation refusée');
+      load();
     }
   };
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Mes commandes</h1>
+      {capabilities && !capabilities.productionProviderConnected && (
+        <p className="text-xs text-orange-800 bg-orange-50 border border-orange-200 p-2 rounded mb-3">
+          Paiement mobile (Wave / Orange Money / carte) : {availableMobile.length ? 'mode simulation (aucun débit réel)' : 'NON CONNECTÉ — réglez en espèces à la livraison ou au retrait, la boutique confirme l\'encaissement.'}
+        </p>
+      )}
+      {msg && <p className="text-sm bg-gray-50 border p-2 rounded mb-3" role="status">{msg}</p>}
       <div className="space-y-3">
-        {orders.map((o: any) => (
-          <div key={o.id} className="bg-white p-4 rounded shadow">
-            <div className="flex justify-between flex-wrap gap-2">
-              <span className="font-bold">{o.orderNumber} - {o.totalAmount} FCFA</span>
-              <span className="text-sm bg-gray-100 px-2 py-1 rounded">{o.status}</span>
+        {orders.map((o: any) => {
+          const cancellable = (o.allowedTransitions || []).includes('ANNULEE');
+          const payable = o.payment?.status !== 'SUCCESS' && !['ANNULEE', 'REJETEE'].includes(o.status);
+          return (
+            <div key={o.id} className="bg-white p-4 rounded shadow">
+              <div className="flex justify-between flex-wrap gap-2">
+                <span className="font-bold">{o.orderNumber} - {o.totalAmount} FCFA</span>
+                <span className="text-sm bg-gray-100 px-2 py-1 rounded" title={o.statusCode}>{o.status}</span>
+              </div>
+              <p className="text-sm">Boutique: {o.store?.name} | {o.deliveryType === 'RETRAIT' ? 'Retrait en boutique' : 'Livraison'} | {new Date(o.createdAt).toLocaleString('fr-FR')}</p>
+              {!!o.items?.length && <p className="text-xs text-gray-600">{o.items.map((it: any) => `${it.name} ×${it.quantity}`).join(', ')}</p>}
+              <p className="text-sm">
+                Paiement : {o.payment?.provider === 'CASH' ? 'espèces' : o.payment?.provider} · {PAYMENT_STATUS_LABELS[o.payment?.status] || o.payment?.status || '—'}
+                {o.payment?.provider === 'CASH' && o.payment?.status === 'PENDING' && payable && <span className="text-gray-500"> (à régler à la boutique, qui confirme l\'encaissement)</span>}
+              </p>
+              {o.discount > 0 && <p className="text-sm text-green-700">Remise appliquée : -{o.discount} FCFA</p>}
+              <Timeline order={o} />
+              <div className="mt-2 flex flex-wrap gap-2">
+                {payable && availableMobile.map((m: any) => (
+                  <button key={m.code} onClick={() => pay(o, m.code)} disabled={busyId === o.id} className="bg-blue-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50">
+                    Payer {m.code === 'ORANGE_MONEY' ? 'Orange Money' : m.code === 'WAVE' ? 'Wave' : m.code === 'CARD' ? 'par carte' : m.code}{capabilities?.mode === 'sandbox' ? ' (simulation)' : ''}
+                  </button>
+                ))}
+                {cancellable && <button onClick={() => cancel(o.id)} className="border border-red-300 text-red-600 px-3 py-1 rounded text-sm">Annuler</button>}
+                {o.status === 'LIVREE' && (
+                  <button onClick={() => openReview(o.id)} className="bg-yellow-500 text-white px-3 py-1 rounded text-sm">
+                    {reviewing === o.id ? 'Fermer' : '⭐ Laisser un avis'}
+                  </button>
+                )}
+              </div>
+              {reviewing === o.id && <ReviewForm order={details[o.id] || { id: o.id, items: o.items || [] }} onDone={() => setReviewing(null)} />}
             </div>
-            <p className="text-sm">Boutique: {o.store?.name} | Paiement: {o.payment?.status} ({o.payment?.provider})</p>
-            {o.discount > 0 && <p className="text-sm text-green-700">Remise appliquée : -{o.discount} FCFA</p>}
-            <div className="mt-2 flex flex-wrap gap-2">
-              {o.payment?.status !== 'SUCCESS' && o.status !== 'ANNULEE' && (
-                <>
-                  <button onClick={() => pay(o, 'WAVE')} className="bg-blue-500 text-white px-3 py-1 rounded text-sm">Payer Wave (sandbox)</button>
-                  <button onClick={() => pay(o, 'ORANGE_MONEY')} className="bg-orange-500 text-white px-3 py-1 rounded text-sm">Payer OM (sandbox)</button>
-                  {o.status === 'EN_ATTENTE' && <button onClick={() => cancel(o.id)} className="border border-red-300 text-red-600 px-3 py-1 rounded text-sm">Annuler</button>}
-                </>
-              )}
-              {o.status === 'LIVREE' && (
-                <button onClick={() => openReview(o.id)} className="bg-yellow-500 text-white px-3 py-1 rounded text-sm">
-                  {reviewing === o.id ? 'Fermer' : '⭐ Laisser un avis'}
-                </button>
-              )}
-            </div>
-            {reviewing === o.id && <ReviewForm order={details[o.id] || { id: o.id, items: [] }} onDone={() => setReviewing(null)} />}
-          </div>
-        ))}
+          );
+        })}
         {!orders.length && <p className="text-gray-500">Aucune commande. Visitez la <a href="/marketplace" className="text-green-700">marketplace</a> !</p>}
       </div>
     </div>

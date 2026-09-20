@@ -19,3 +19,6 @@ export async function readHandler(req: AuthRequest, res: Response, next: NextFun
 export async function readAllHandler(req: AuthRequest, res: Response, next: NextFunction) {
   try { await service.markAllRead(req.user!.userId); res.json({ message: 'Tout marqué lu' }); } catch (e) { next(e); }
 }
+export async function channelsHandler(req: AuthRequest, res: Response, next: NextFunction) {
+  try { res.json({ channels: service.channelStatuses() }); } catch (e) { next(e); }
+}

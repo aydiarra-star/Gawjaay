@@ -1,8 +1,8 @@
 import db, { initDb, cuid } from './db';
-import { runAllMigrations } from '../migrations/versions/008_idempotency';
+import { runAllMigrations } from '../migrations/versions/009_v3_categories_indexes';
 
 /**
- * Bootstrap complet du schéma : base V1 (initDb) + migrations versionnées V2.
+ * Bootstrap complet du schéma : base V1 (initDb) + migrations versionnées V2/V3 (001→009).
  * Point d'entrée unique (app, seed, tests) — idempotent.
  */
 export function bootstrap() {

@@ -1,4 +1,4 @@
-# GawJaay V2 — Backup & Restauration
+# GawJaay V3 — Backup & Restauration
 
 ## 1. Politique
 
@@ -42,7 +42,7 @@ DATABASE_URL=postgresql://…/gawjaay_restore_test node deploy/pg-restore.mjs /t
 #  → OK ventes ↔ lignes de vente (0 anomalie)
 #  → OK commandes ↔ lignes (0 anomalie)
 #  → OK stock jamais négatif
-#  → OK migrations présentes (8)
+#  → OK migrations présentes (8 à cette date ; 9 depuis la V3)
 #  → lignes : users=20 stores=15 products=15 inventories=15 sales=15 orders=5 payments=5 audit_logs=64
 #  → RESTAURATION VÉRIFIÉE — aucune divergence détectée
 ```
@@ -54,6 +54,33 @@ restauration. Corrigé : contraintes émises en **deux passes** (PK/UNIQUE/CHECK
 **Sur le VPS**, `deploy/backup.sh` reste la référence : il utilise `pg_dump -Fc` (format custom) et
 `pg_restore --list` comme contrôle (échec si < 50 tables). Le fallback `deploy/pg-backup.mjs` sert
 lorsque les binaires PostgreSQL ne sont pas installables.
+
+## 2.3 Test de restauration PostgreSQL 16.6 — REJOUÉ en V3 (preuve, 2026-09-20, schéma 009)
+
+Rejoué de bout en bout sur un serveur PostgreSQL **16.6** réel (version cible de production), avec des
+données produites par l'API **en mode production** (`NODE_ENV=production`, `PAYMENTS_MODE=disabled`) :
+commandes confirmées / livrées / en attente, encaissement espèces, vente, dépense, client, référentiel
+géographique chargé au démarrage, valeurs contenant apostrophes, guillemets, point-virgule et emoji.
+
+```bash
+DATABASE_URL=postgresql://…/gawjaay_smoke node deploy/pg-backup.mjs backups/gawjaay-20260920-205721.sql
+#  → [pg-backup] tables=54 lignes=479 taille=129.2 Ko   (+ manifeste .manifest.json, 9 migrations)
+
+DATABASE_URL=postgresql://…/gawjaay_restore_test node deploy/pg-restore.mjs backups/gawjaay-20260920-205721.sql
+#  → dump rejoué en 207 ms
+#  → OK ventes ↔ lignes de vente → 0 · OK commandes ↔ lignes → 0 · OK stock jamais négatif → 0
+#  → OK migrations présentes → 9
+#  → lignes : users=11 stores=7 products=9 inventories=9 sales=4 sale_items=4 orders=5 order_items=5 payments=5 audit_logs=38
+#  → RESTAURATION VÉRIFIÉE — aucune divergence détectée
+```
+
+Contrôle fonctionnel supplémentaire : l'API démarrée **sur la base restaurée** (mode production, port
+distinct) renvoie, pour le même marchand, des réponses **strictement identiques** à l'API source
+(`/health`, connexion, commandes + paiements + notes, stock, dépenses, clients, 14 régions, 16 catégories,
+tableau de bord) — comparaison JSON automatique : `IDENTIQUE`.
+
+Limite : `pg_dump`/`pg_restore` ne sont toujours pas disponibles dans le bac à sable → le chemin
+`deploy/backup.sh` (format custom) doit être validé sur le VPS lors de la mise en service (`§3`).
 
 ## 3. Procédure de restauration (incident)
 
@@ -69,7 +96,7 @@ gunzip -c /var/backups/gawjaay/gawjaay-<stamp>.db.gz > /var/lib/gawjaay/gawjaay.
 
 # 4. VÉRIFIER avant redémarrage (obligatoire)
 sqlite3 /var/lib/gawjaay/gawjaay.db "PRAGMA integrity_check; SELECT COUNT(*) FROM _migrations;"
-# attendu : ok + 8
+# attendu : ok + 9 (migrations 001→009)
 
 # 5. Redémarrer et contrôler
 pm2 start gawjaay-api
