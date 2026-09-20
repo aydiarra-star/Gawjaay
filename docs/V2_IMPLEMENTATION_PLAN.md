@@ -74,14 +74,16 @@ Chaque lot : modèle → migration → API → permissions → logique métier �
 
 ## 7. Baseline V1 (à jour de ce document)
 
-- PHASE 1 terminée : suites réelles reconstruites — `npx vitest run` : **261/261 PASS**
-  (v1-db 84, v1-api 43, v1-unit 23, auth 3, stock 2, payment 1, v2-lot-a 38, v2-lot-b 27, v2-lot-c 22, v2-lot-d 18).
+- PHASE 1 terminée : suites réelles reconstruites — `npx vitest run` : **284/284 PASS**
+  (v1-db 84, v1-api 43, v1-unit 23, auth 3, stock 2, payment 1, v2-lot-a 38, v2-lot-b 27, v2-lot-c 22, v2-lot-d 18, v2-lot-e 23).
 - Build backend `tsc` : OK. Build frontend `tsc` + `vite build` : OK (~303 kB, gzip ~92 kB).
-- Smoke HTTP réel exécuté sur serveur démarré (LOT B, C et D) : barcodes, analytics, exports CSV,
+- Smoke HTTP réel exécuté sur serveur démarré (LOT B, C, D et E) : barcodes, analytics, exports CSV,
   marketplace recherche/filtres, favoris, fidélité, notifications, flux B2B complet
   (catalogue → commande → ACCEPTEE → PREPARATION → PRETE → EXPEDIEE → RECUE, stocks des deux côtés,
-  mouvements tracés) et suggestions de réapprovisionnement.
-- Version API : `2.3.0-lot-d`.
+  mouvements tracés), suggestions de réapprovisionnement et flux livreur complet
+  (livreur + compte DRIVER, A_PREPARER → PRET → assignation OTP → EN_LIVRAISON → LIVRE avec preuves
+  OTP+GPS, commande LIVREE, échec livraison avec motif, isolation tenant).
+- Version API : `2.4.0-lot-e`.
 
 ### État des lots
 
@@ -91,7 +93,7 @@ Chaque lot : modèle → migration → API → permissions → logique métier �
 | B | Codes-barres, inventaires, stock avancé, analytics, exports | ✅ |
 | C | Favoris, recherche avancée, notifications étendues, fidélité | ✅ |
 | D | B2B (grossistes, catalogues pro, commandes) + réapprovisionnement | ✅ |
-| E | Livraison, livreurs, preuves de livraison | ⏳ |
+| E | Livraison, livreurs, preuves de livraison | ✅ |
 | F | IA assistant (strict no-invention) + actions contrôlées | ⏳ |
 
 ## 8. Hors périmètre V2 (cahier §36)

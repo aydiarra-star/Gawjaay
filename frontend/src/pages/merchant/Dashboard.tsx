@@ -97,6 +97,8 @@ function QuickLinks({ storeId }: { storeId: string }) {
       <Link to={`/merchant/store/${storeId}/inventory-count`} className="block text-green-700">→ Inventaire (comptage)</Link>
       <Link to={`/merchant/store/${storeId}/loyalty`} className="block text-green-700">→ Fidélité</Link>
 
+      <Link to={`/merchant/store/${storeId}/deliveries`} className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Livraisons</span><br /><span className="text-sm text-gray-600">Livreurs, courses et preuves</span></Link>
+
       <Link to="/merchant/b2b" className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Grossiste B2B</span><br /><span className="text-sm text-gray-600">Catalogues pro et commandes reçues</span></Link>
 
       <Link to="/merchant/b2b/orders" className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Commander en gros</span><br /><span className="text-sm text-gray-600">Catalogues fournisseurs et suivi</span></Link>
