@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SQL_FILES = ['000_base.sql', '001_lot_a.sql', '002_lot_b.sql', '003_lot_c.sql', '004_lot_d.sql', '005_lot_e.sql', '006_lot_f.sql'];
+const SQL_FILES = ['000_base.sql', '001_lot_a.sql', '002_lot_b.sql', '003_lot_c.sql', '004_lot_d.sql', '005_lot_e.sql', '006_lot_f.sql', '007_prod_indexes.sql'];
 const SQLITE_REF = join(HERE, 'reference-schema.sqlite');
 
 // ---------- 1. Fresh PostgreSQL ----------

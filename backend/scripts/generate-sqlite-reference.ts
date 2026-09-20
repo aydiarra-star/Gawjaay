@@ -4,6 +4,8 @@
  * Usage : npx tsx scripts/generate-sqlite-reference.ts  (depuis backend/)
  */
 process.env.DATABASE_URL = 'file:./reference-gen.db';
+import { rmSync } from 'node:fs';
+rmSync('../deploy/postgres/reference-schema.sqlite', { force: true }); // VACUUM INTO exige une cible absente
 import db from '../src/lib/db';
 import { bootstrap } from '../src/lib/bootstrap';
 
