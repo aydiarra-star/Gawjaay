@@ -6,7 +6,7 @@ module.exports = {
       name: 'gawjaay-api',
       cwd: '/opt/gawjaay/backend',
       script: 'dist/index.js', // build produit : npm run build (tsc)
-      instances: 1, // SQLite : 1 processus en écriture ; passer à PG + cluster pour scaler
+      instances: 1, // 1 processus : l'adaptateur PG utilise une connexion unique (pool max: 1) pour garantir BEGIN/COMMIT sur la même session. Ne PAS passer en cluster sans avoir revu ce point.
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
