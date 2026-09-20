@@ -1,0 +1,615 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+  // For production Postgres: provider = "postgresql"
+}
+
+enum Role {
+  CLIENT
+  MERCHANT
+  EMPLOYEE
+  ADMIN
+}
+
+enum StoreStatusPhysical {
+  OPEN
+  CLOSED
+}
+
+enum StoreStatusDigital {
+  OPEN
+  CLOSED
+  SUSPENDED
+}
+
+enum InventoryMovementType {
+  INITIAL
+  SALE
+  ONLINE_ORDER
+  PURCHASE_RECEIPT
+  ADJUSTMENT
+  RETURN
+  TRANSFER
+}
+
+enum SalePaymentMethod {
+  CASH
+  WAVE
+  ORANGE_MONEY
+  CARD
+  CREDIT
+}
+
+enum OrderStatus {
+  EN_ATTENTE
+  CONFIRMEE
+  EN_PREPARATION
+  PRETE
+  EN_LIVRAISON
+  LIVREE
+  ANNULEE
+  RETOURNEE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+  DUPLICATE
+}
+
+enum PaymentProvider {
+  WAVE
+  ORANGE_MONEY
+  CASH
+  CARD
+}
+
+enum DeliveryType {
+  LIVRAISON
+  RETRAIT
+}
+
+enum DeliveryStatus {
+  A_PREPARER
+  PRET
+  EN_LIVRAISON
+  LIVRE
+  ANNULE
+}
+
+model User {
+  id               String    @id @default(cuid())
+  phone            String    @unique
+  email            String?   @unique
+  passwordHash     String
+  role             Role      @default(CLIENT)
+  isPhoneVerified  Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  merchant         Merchant?
+  employee         Employee?
+  addresses        Address[]
+  orders           Order[]   @relation("ClientOrders")
+  debts            Debt[]    @relation("ClientDebts")
+  reviews          Review[]
+  disputes         Dispute[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  sessions         Session[]
+
+  @@index([phone])
+  @@index([role])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ip           String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  revoked      Boolean  @default(false)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model Merchant {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  businessName String?
+  ninea     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stores    Store[]
+  suppliers Supplier[]
+}
+
+model Region {
+  id          String   @id @default(cuid())
+  name        String   @unique // Dakar, Thiès...
+  code        String   @unique
+  createdAt   DateTime @default(now())
+  departments Department[]
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String
+  regionId  String
+  region    Region   @relation(fields: [regionId], references: [id])
+  communes  Commune[]
+  @@unique([name, regionId])
+}
+
+model Commune {
+  id           String   @id @default(cuid())
+  name         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  stores       Store[]
+  @@unique([name, departmentId])
+}
+
+model Store {
+  id                    String               @id @default(cuid())
+  merchantId            String
+  name                  String
+  slug                  String               @unique
+  description           String?
+  logoUrl               String?
+  category              String?
+  phone                 String?
+  whatsapp              String?
+  email                 String?
+  addressText           String?
+  regionId              String?
+  departmentId          String?
+  communeId             String?
+  quartier              String?
+  latitude              Float?
+  longitude             Float?
+  physicalStatus        StoreStatusPhysical  @default(OPEN)
+  digitalStatus         StoreStatusDigital   @default(OPEN)
+  deliveryZones         String? // JSON stringified
+  deliveryFees          Float?               @default(0)
+  deliveryDelayMinutes  Int?                 @default(60)
+  allowPickup           Boolean              @default(true)
+  allowDelivery         Boolean              @default(true)
+  paymentMethods        String? // JSON array
+  openingHours          String? // JSON
+  isVerified            Boolean              @default(false)
+  isActive              Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  merchant              Merchant             @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  commune               Commune?             @relation(fields: [communeId], references: [id])
+  products              Product[]
+  inventories           Inventory[]
+  sales                 Sale[]
+  orders                Order[]
+  employees             Employee[]
+  customers             Customer[]
+  expenses              Expense[]
+  deliveries            Delivery[]
+
+  @@index([merchantId])
+  @@index([slug])
+  @@index([communeId])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  parentId    String?
+  parent      Category? @relation("CategoryParent", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryParent")
+  products    Product[]
+  createdAt   DateTime  @default(now())
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  storeId     String
+  categoryId  String?
+  name        String
+  slug        String
+  description String?
+  sku         String?
+  barcode     String?
+  price       Float
+  costPrice   Float?   // prix d'achat
+  unit        String?  @default("piece")
+  isActive    Boolean  @default(true)
+  isOnline    Boolean  @default(true)
+  lowStockThreshold Int @default(5)
+  images      String? // JSON array urls
+  variants    String? // JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category    Category? @relation(fields: [categoryId], references: [id])
+  inventories Inventory[]
+  movements   InventoryMovement[]
+  saleItems   SaleItem[]
+  orderItems  OrderItem[]
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+  @@index([categoryId])
+}
+
+model Inventory {
+  id        String   @id @default(cuid())
+  storeId   String
+  productId String
+  quantity  Float    @default(0)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, productId])
+  @@index([storeId])
+}
+
+model InventoryMovement {
+  id          String                @id @default(cuid())
+  storeId     String
+  productId   String
+  quantity    Float // positive for IN, negative for OUT, but we store delta
+  type        InventoryMovementType
+  reason      String?
+  referenceId String? // saleId, orderId, etc
+  userId      String?
+  createdAt   DateTime              @default(now())
+
+  product     Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([productId])
+  @@index([type])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  phone     String
+  email     String?
+  address   String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sales     Sale[]
+  debts     Debt[]
+  orders    Order[]
+
+  @@unique([storeId, phone])
+  @@index([storeId])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  merchantId String
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  merchant  Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+
+  @@index([merchantId])
+}
+
+model Purchase {
+  id          String   @id @default(cuid())
+  supplierId  String
+  storeId     String
+  totalAmount Float
+  notes       String?
+  createdAt   DateTime @default(now())
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  items       PurchaseItem[]
+}
+
+model PurchaseItem {
+  id         String  @id @default(cuid())
+  purchaseId String
+  productId  String
+  quantity   Float
+  unitPrice  Float
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+}
+
+model Sale {
+  id            String            @id @default(cuid())
+  storeId       String
+  customerId    String?
+  totalAmount   Float
+  discount      Float             @default(0)
+  paymentMethod SalePaymentMethod @default(CASH)
+  amountPaid    Float
+  change        Float             @default(0)
+  notes         String?
+  createdById   String
+  createdAt     DateTime          @default(now())
+
+  store         Store             @relation(fields: [storeId], references: [id])
+  customer      Customer?         @relation(fields: [customerId], references: [id])
+  items         SaleItem[]
+
+  @@index([storeId])
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  productId String
+  quantity  Float
+  unitPrice Float
+  total     Float
+
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+}
+
+model Debt {
+  id          String   @id @default(cuid())
+  storeId     String? // for merchant view, but relation via customer
+  customerId  String
+  clientUserId String? // link to User if CLIENT
+  totalAmount Float
+  paidAmount  Float    @default(0)
+  balance     Float
+  dueDate     DateTime?
+  notes       String?
+  isSettled   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer    Customer @relation(fields: [customerId], references: [id])
+  clientUser  User?    @relation("ClientDebts", fields: [clientUserId], references: [id])
+  payments    DebtPayment[]
+
+  @@index([customerId])
+}
+
+model DebtPayment {
+  id        String   @id @default(cuid())
+  debtId    String
+  amount    Float
+  method    SalePaymentMethod @default(CASH)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  storeId     String
+  category    String // loyer, transport, salaire...
+  amount      Float
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  store       Store    @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([date])
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String? // maison, bureau
+  region    String?
+  city      String?
+  quartier  String?
+  street    String?
+  latitude  Float?
+  longitude Float?
+  phone     String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]
+
+  @@index([userId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  storeId         String
+  clientId        String // User.id
+  customerId      String? // Customer record
+  addressId       String?
+  status          OrderStatus @default(EN_ATTENTE)
+  totalAmount     Float
+  deliveryFees    Float       @default(0)
+  discount        Float       @default(0)
+  deliveryType    DeliveryType @default(LIVRAISON)
+  notes           String?
+  cancellationReason String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  store           Store       @relation(fields: [storeId], references: [id])
+  client          User        @relation("ClientOrders", fields: [clientId], references: [id])
+  customer        Customer?   @relation(fields: [customerId], references: [id])
+  address         Address?    @relation(fields: [addressId], references: [id])
+  items           OrderItem[]
+  payment         Payment?
+  delivery        Delivery?
+
+  @@index([storeId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Float
+  unitPrice Float
+  total     Float
+
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model Payment {
+  id              String          @id @default(cuid())
+  orderId         String          @unique
+  provider        PaymentProvider
+  status          PaymentStatus   @default(PENDING)
+  amount          Float
+  transactionId   String?         @unique
+  providerRef     String?
+  idempotencyKey  String          @unique
+  rawResponse     String? // JSON
+  verifiedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  order           Order           @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@index([provider])
+}
+
+model Delivery {
+  id              String         @id @default(cuid())
+  orderId         String         @unique
+  storeId         String
+  type            DeliveryType
+  status          DeliveryStatus @default(A_PREPARER)
+  assignedToId    String? // Employee user
+  addressText     String?
+  latitude        Float?
+  longitude       Float?
+  proofUrl        String?
+  notes           String?
+  deliveredAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  order           Order          @relation(fields: [orderId], references: [id])
+  store           Store          @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([status])
+}
+
+model Employee {
+  id          String   @id @default(cuid())
+  storeId     String
+  userId      String   @unique
+  roleLabel   String // vendeur, caissier...
+  permissions String // JSON array of "resource:action"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String // ORDER, PAYMENT, STOCK, etc
+  data      String? // JSON
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  orderId   String
+  storeId   String
+  clientId  String
+  rating    Int // 1-5
+  comment   String?
+  isVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  client    User     @relation(fields: [clientId], references: [id])
+
+  @@index([storeId])
+}
+
+model Dispute {
+  id          String   @id @default(cuid())
+  orderId     String
+  clientId    String
+  storeId     String
+  reason      String
+  description String?
+  status      String   @default("OPEN") // OPEN, RESOLVED, REJECTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      User     @relation(fields: [clientId], references: [id])
+
+  @@index([storeId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // LOGIN, SALE_CREATE, STOCK_ADJUST, PAYMENT_VERIFY...
+  resource  String?
+  resourceId String?
+  details   String? // JSON
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}

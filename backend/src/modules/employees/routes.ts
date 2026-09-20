@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { authMiddleware } from '../../middlewares/auth';
+import { authorize } from '../../middlewares/rbac';
+import { createHandler, listHandler, permHandler, deactivateHandler } from './controller';
+const router = Router();
+router.use(authMiddleware);
+router.post('/store/:storeId', authorize(['MERCHANT','ADMIN']), createHandler);
+router.get('/store/:storeId', authorize(['MERCHANT','ADMIN']), listHandler);
+router.patch('/:id/permissions', authorize(['MERCHANT','ADMIN']), permHandler);
+router.post('/:id/deactivate', authorize(['MERCHANT','ADMIN']), deactivateHandler);
+export default router;
