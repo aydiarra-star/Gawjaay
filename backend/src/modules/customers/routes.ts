@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { authMiddleware } from '../../middlewares/auth';
+import { createHandler, listHandler, getHandler, updateHandler } from './controller';
+const router = Router();
+router.use(authMiddleware);
+router.post('/', createHandler);
+router.get('/store/:storeId', listHandler);
+router.get('/:id', getHandler);
+router.put('/:id', updateHandler);
+export default router;

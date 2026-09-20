@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { authMiddleware } from '../../middlewares/auth';
+import { authorize } from '../../middlewares/rbac';
+import { createHandler, listHandler, receiveHandler } from './controller';
+const router = Router();
+router.use(authMiddleware);
+router.post('/', authorize(['MERCHANT','ADMIN']), createHandler);
+router.get('/', authorize(['MERCHANT','ADMIN']), listHandler);
+router.post('/:supplierId/receive', authorize(['MERCHANT','ADMIN']), receiveHandler);
+export default router;
