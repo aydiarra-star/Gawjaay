@@ -25,7 +25,12 @@ export async function listHandler(req: AuthRequest, res: Response, next: NextFun
       skip: req.query.skip ? parseInt(req.query.skip as string) : 0,
       onlineOnly: req.query.onlineOnly === 'true',
     });
-    res.json(products);
+    // SÉCURITÉ (audit pilote) : costPrice (prix d'achat) = donnée commerciale confidentielle.
+    // La liste est publique (vitrine boutique) — on la masque comme pour le détail
+    // sauf pour le propriétaire / ADMIN (l'anonyme ne doit JAMAIS voir les marges).
+    const isOwner = req.user?.role === 'ADMIN' || !!req.user?.storeIds?.includes(storeId);
+    const safe = isOwner ? products : products.map(({ costPrice, ...rest }: any) => rest);
+    res.json(safe);
   } catch (e) { next(e); }
 }
 export async function updateHandler(req: AuthRequest, res: Response, next: NextFunction) {
