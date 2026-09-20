@@ -266,12 +266,15 @@ test.describe('CLIENT mobile — V3 vitrine, suivi de commande, proximité', () 
     await expect(card.getByRole('button', { name: 'Annuler' })).toHaveCount(0);
     await expect(card.getByRole('button', { name: /^Payer/ })).toHaveCount(0);
 
-    // le serveur reste la source de vérité : la commande annulée ne peut plus être ré-annulée
+    // le serveur reste la source de vérité : la commande annulée (état terminal) ne peut plus être
+    // modifiée par le client → refus (403 : le client ne peut agir que sur SA commande EN_ATTENTE)
     const again = await request.patch(`${API}/orders/${order.id}/status`, {
       headers: { Authorization: `Bearer ${tokens.client}` },
       data: { status: 'ANNULEE' },
     });
-    expect([400, 409]).toContain(again.status());
+    expect([400, 403, 409]).toContain(again.status());
+    const stillCancelled = await (await request.get(`${API}/orders/${order.id}`, { headers: { Authorization: `Bearer ${tokens.client}` } })).json();
+    expect(stillCancelled.status).toBe('ANNULEE');
   });
 
   test('marketplace : proximité réelle (Haversine serveur) et rayon', async ({ page, context }) => {
