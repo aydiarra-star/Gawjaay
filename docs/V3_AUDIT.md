@@ -101,13 +101,15 @@
 | Référentiel | `lib/referenceData.ts#ensureReferenceData` : les 14 régions / 46 départements / communes sont chargés au démarrage du serveur si absents (base de production vierge) | `v3-features.test.ts` §P2 |
 | API commandes | `GET /orders` (liste) renvoie `client {id, phone}` (jamais côté CLIENT) et `allowedTransitions` par rôle ; `POST /orders` et `PATCH /orders/:id/status` renvoient aussi `allowedTransitions` | `v3-security.test.ts` §S9 |
 
-## 5. Reste à faire (mesuré, au 20/09/2026)
+## 5. État final (mesuré, au 20/09/2026 — voir `docs/V3_FINAL_REPORT.md`)
 
-- **Documentation d'exploitation** : `PAYMENTS_MODE` absent de `deploy/.env.production.example`, `deploy/DEPLOYMENT.md`,
-  `docs/PRODUCTION_RUNBOOK.md`.
-- **Non rejoué dans cette session** : test réel de sauvegarde/restauration (`deploy/pg-backup.mjs`). Playwright E2E :
-  exécuté par la CI GitHub à chaque push (navigateur non téléchargeable depuis le bac à sable) ; localement, les pages ont
-  été rendues dans happy-dom contre l'API seedée (mêmes gestes que les parcours : Confirmer → Préparation → Prête,
-  Ajouter panier → Commander).
+- **Documentation d'exploitation** : FAIT — `PAYMENTS_MODE` documenté dans `deploy/.env.production.example`,
+  `deploy/DEPLOYMENT.md` §5 (« NOT CONNECTED TO PRODUCTION PAYMENT PROVIDER »), `docs/PRODUCTION_RUNBOOK.md`,
+  `README.md` §20 ; migrations 001→009 et référentiel au démarrage documentés.
+- **Sauvegarde / restauration** : REJOUÉ pour de vrai sur PostgreSQL 16.6 avec des données produites en mode production
+  (54 tables, 479 lignes ; restauration vérifiée ; API sur base restaurée identique à la source) — `docs/BACKUP_RESTORE.md` §2.3.
+- **E2E Playwright** : 13 parcours (8 d'origine + 5 V3 : vitrine + commande, suivi/annulation client sans paiement fictif,
+  proximité Haversine + rayon, paramètres boutique → vitrine + dépense, employé créé/connexion/isolation) — verts en CI
+  (Chromium réel, Pixel 7 + desktop). Localement, harnais happy-dom (22 vérifications) faute de navigateur téléchargeable.
 - **Frontend, volontairement hors périmètre** : édition des livreurs/permissions avancées, upload d'images produit
   (aucun stockage de fichiers connecté), tableau de bord temps réel.
