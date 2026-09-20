@@ -120,13 +120,13 @@ Date : 2026-09-20 · Commit audité : **0f9dcc2** (mission 2 « Infrastructure P
 | Élément | État |
 |---|---|
 | Procédure VPS complète | `deploy/DEPLOYMENT.md` (clone→build→PM2→Nginx→certbot) |
-| PM2 | `deploy/ecosystem.config.cjs` (fork ×1 — cohérent SQLite) |
-| Nginx + HTTPS | `deploy/nginx.conf.example` (TLS 1.2/1.3, headers, cache, SPA fallback, proxy /api) |
-| `.env` production | `deploy/.env.production.example` — **variables nommées, aucune valeur secrète** |
-| **[À FOURNIR]** | VPS (2 vCPU/4 Go), domaine + DNS, Sentry DSN, bucket S3 + clé IAM `s3:PutObject`, clés Wave/OM si sortie de sandbox |
-| Sentry | **non intégré au code** (aucun SDK installé) — DSN à fournir puis brancher (`@sentry/node`) |
+| PM2 | `deploy/ecosystem.config.cjs` (fork ×1 — l'adaptateur PG utilise une connexion unique, pool `max: 1`) |
+| Nginx + HTTPS | `deploy/nginx.conf.example` (TLS 1.2/1.3, headers, cache, SPA fallback, proxy `/api/`) — ⚠️ ne proxifie **pas** `/health` à la racine : surveiller `https://<domaine>/api/v1/health`, ou ajouter une location `/health` |
+| `.env` production | `deploy/.env.production.example` — **variables nommées, aucune valeur secrète**, `DATABASE_URL` PostgreSQL |
+| **[À FOURNIR]** | VPS Hetzner CPX32 (4 vCPU/8 Go/160 Go), domaine + DNS, Sentry DSN, bucket S3 + clé IAM `s3:PutObject`, clés Wave/OM si sortie de sandbox |
+| Sentry | **intégré au code** (`@sentry/node` 10.75.0) : `Sentry.init` conditionnel dans `backend/src/app.ts`, `captureException` sur 5xx dans `backend/src/middlewares/errorHandler.ts`. **Inactif tant que `SENTRY_DSN` est vide** → DSN **[À FOURNIR]** |
 | Monitoring | PM2 logs `/var/log/gawjaay/` + `/health` versionné ; métriques avancées à brancher (cf §I) |
-| Base de données pilote | SQLite fichier (justifié §4 DEPLOYMENT.md) — PostgreSQL = portage documenté, non réalisé exprès |
+| Base de données | **PostgreSQL en production** (runtime réalisé, driver `pg`, suite complète verte, job CI `backend-postgres` sur `postgres:16`) — SQLite réservé au dev/tests/CI. Voir `deploy/DEPLOYMENT.md` §4 |
 
 ## G. Payments
 

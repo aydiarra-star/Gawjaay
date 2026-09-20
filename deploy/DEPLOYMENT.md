@@ -8,7 +8,7 @@
 
 | Ressource | Détail | Statut |
 |---|---|---|
-| VPS | 2 vCPU / 4 Go RAM / 40 Go SSD, Ubuntu 22.04+, accès SSH | **[À FOURNIR]** |
+| VPS | **Hetzner Cloud CPX32** (4 vCPU / 8 Go RAM / 160 Go disque / 20 To trafic), région Europe. **Auditer la configuration réelle (`nproc`, `free -h`, `df -h`, `cat /etc/os-release`) avant toute modification — ne pas redimensionner automatiquement.** | **[À FOURNIR]** |
 | Domaine | ex. `gawjaay.example.com`, DNS A → IP du VPS | **[À FOURNIR]** |
 | Node.js | v22 LTS (`curl -fsSL https://deb.nodesource.com/setup_22.x \| sudo -E bash -`) | à installer |
 | Nginx | `apt install nginx` + config `deploy/nginx.conf.example` | à installer |
@@ -16,7 +16,7 @@
 | PM2 | `npm i -g pm2` + `deploy/ecosystem.config.cjs` | à installer |
 | Sentry | créer un projet sur sentry.io → DSN | **[À FOURNIR]** |
 | Bucket S3 backups | + clé IAM limitée `s3:PutObject` (ou équivalent Scaleway/OVH) | **[À FOURNIR]** |
-| PostgreSQL | **NON requis pour le pilote** (SQLite embarqué) — voir §4 | décision §4 |
+| PostgreSQL | **16+ requis en production** (moteur de production — voir §4). Ne pas exposer le port 5432 publiquement si l'API et la base sont sur le même VPS. | à installer sur le VPS |
 
 ## 2. Déploiement application
 
@@ -30,7 +30,8 @@ cp ../deploy/.env.production.example .env    # REMPLIR les valeurs [À FOURNIR]
 chmod 600 .env
 mkdir -p /var/lib/gawjaay /var/log/gawjaay /var/backups/gawjaay
 
-# Premier démarrage : migrations 001→006 appliquées automatiquement au boot.
+# Premier démarrage : schéma de base + migrations 001→008 appliquées automatiquement au boot
+# (journal `_migrations` ; forward-only, idempotent — un redémarrage ne rejoue rien).
 pm2 start ../deploy/ecosystem.config.cjs && pm2 save && pm2 startup
 
 # Frontend
@@ -45,28 +46,54 @@ sudo nginx -t && sudo systemctl reload nginx && sudo certbot --nginx -d <domaine
 
 ## 3. Backups (quotidien + restauration testée)
 
+Production = PostgreSQL → la référence est **`pg_dump`** (`deploy/backup.sh`, format custom,
+rétention `BACKUP_RETENTION_DAYS` = 14 par défaut, upload S3 optionnel si `AWS_S3_BUCKET`).
+
 ```bash
-# Cron : 0 2 * * *  BACKUP_DIR=/var/backups/gawjaay DB_PATH=/var/lib/gawjaay/gawjaay.db /opt/gawjaay/deploy/backup.sh
-# Restauration (testée le 2026-09-20, voir rapport §C) :
-#   gunzip -c /var/backups/gawjaay/gawjaay-<stamp>.db.gz > /var/lib/gawjaay/gawjaay.db
-#   pm2 restart gawjaay-api   # integrity_check = ok requis avant redémarrage
+# Cron : 0 2 * * *  BACKUP_DIR=/var/backups/gawjaay DATABASE_URL=postgresql://… /opt/gawjaay/deploy/backup.sh
+# Restauration : pg_restore -d gawjaay_restore_test <dump>   (base SÉPARÉE, jamais la prod directe)
+#                puis contrôles d'intégrité — voir docs/BACKUP_RESTORE.md
 ```
 
-Monitoring du backup : le script sort en `exit 1` si `integrity_check != ok` → brancher
+Règles : la copie ne doit pas rester uniquement sur le disque du VPS (upload S3 ou copie externe) ;
+**un backup n'est pas déclaré opérationnel sans test de restauration réussi** dans une base séparée.
+
+> Fallback sans `pg_dump` : `deploy/pg-backup.mjs` / `deploy/pg-restore.mjs` (dump SQL en deux
+> passes, PK avant FK) — utile si `postgresql-client` n'est pas encore installé.
+
+Monitoring du backup : le script sort en `exit 1` en cas d'échec → brancher
 un `node_exporter`/cron-mail ou Sentry cron monitor **[À FOURNIR]**.
 
-## 4. Base de données — décision à acter
+## 4. Base de données — PostgreSQL en production (décision actée)
 
-La V2 tourne sur **SQLite** (node:sqlite, WAL). Pour le pilote (1 VPS, faible volumétrie),
-SQLite est **adapté** : transactions ACID, backup à chaud (VACUUM INTO), un seul writer.
+**Le runtime PostgreSQL est réalisé et prouvé.** Le moteur est choisi par `DATABASE_URL`
+(`backend/src/lib/db.ts`) :
 
-Le passage à PostgreSQL (cahier long terme) nécessite un travail d'adaptation **non réalisé**
-(fait exprès, hors périmètre « readiness ») :
-- dialecte SQL : `datetime('now')` → `now()`, `AUTOINCREMENT` → `IDENTITY`, dates TEXT ISO → `timestamptz`, `PRAGMA` → n/a ;
-- driver : `node:sqlite` → `pg`/`postgres` + pool ;
-- requêtes : `INSERT OR IGNORE` → `ON CONFLICT DO NOTHING`, `VACUUM INTO` → `pg_dump` ;
-- migration 001→006 à réécrire pour PG + outil (node-pg-migrate).
-Estimation : 2-4 jours de dev + revalidation complète des suites. Ne PAS improviser sur la prod.
+| `DATABASE_URL` | Moteur | Usage |
+|---|---|---|
+| `postgresql://…` / `postgres://` | **PostgreSQL via le driver `pg`** (pool `max: 1`, une session → transactions fiables) | **production** |
+| `pglite://…` | PostgreSQL compilé en WASM (PGlite) | tests / vérification locale sans serveur |
+| `file:…` ou vide | SQLite (`node:sqlite`) | développement, tests, CI SQLite |
+
+> ⚠️ **SQLite ne doit PAS être utilisé en production.** `deploy/.env.production.example`
+> fournit un `DATABASE_URL` PostgreSQL ; le remplacer par un `file:` en production est une erreur.
+
+Ce qui a été fait (et non « à faire ») :
+
+- **Dialecte** traduit à l'exécution (`backend/src/lib/postgresAdapter.ts` → `translateSql`) :
+  `PRAGMA` supprimés, `datetime('now')` → ISO-8601 UTC, `sqlite_master` → catalogue PG,
+  `?` → `$1…$n`, `LIKE` → `ILIKE`, `MAX(a,b)`/`MIN(a,b)` scalaires → `GREATEST`/`LEAST`.
+- **Parité de types** : `int8` (COUNT) et `numeric` (SUM) renvoyés en chaînes par `pg` → reparsés
+  en nombres (`postgresWorker.cjs`), sinon `'5' + 1 === '51'` dans les agrégats.
+- **Mapping de casse** : PostgreSQL replie les identifiants non quotés (`storeName` → `storename`) ;
+  la casse est restaurée à la lecture (`backend/src/lib/columnMapping.ts`, couvert par
+  `column-mapping.test.ts`).
+- **Migrations** : `000_base` + `001_lot_a` → `008_idempotency`, portées en dialecte PostgreSQL
+  dans `deploy/postgres/*.sql` et appliquées au boot par le runner applicatif.
+- **Preuves** : suite complète verte sur SQLite **et** sur PostgreSQL, job CI `backend-postgres`
+  (service `postgres:16`) exécutant suite + build + smoke HTTP.
+
+**Rollback** : forward-only ; retour arrière = restauration d'un backup (`docs/BACKUP_RESTORE.md`).
 
 ## 5. Paiements — règle pilote
 
