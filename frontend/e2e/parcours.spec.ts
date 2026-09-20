@@ -51,7 +51,13 @@ async function login(page: Page, who: { phone: string; password: string }) {
   await page.goto('/login');
   await page.getByPlaceholder('Téléphone +221...').fill(who.phone);
   await page.getByPlaceholder('Mot de passe').fill(who.password);
-  await page.getByRole('button', { name: 'Se connecter' }).click();
+  // Race condition constatée en CI : on clique ET on attend la réponse du POST /auth/login,
+  // sinon le goto suivant peut charger la page SANS token (liste vide).
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/auth/login') && r.status() === 200),
+    page.getByRole('button', { name: 'Se connecter' }).click(),
+  ]);
+  await page.waitForFunction(() => !!localStorage.getItem('accessToken'));
 }
 
 const isMobile = () => test.info().project.name === 'client-mobile';
@@ -143,12 +149,12 @@ test.describe('ASSISTANT — no-invention + action contrôlée', () => {
     await page.goto(`/merchant/store/${storeA}/assistant`);
 
     await page.getByPlaceholder('Posez votre question…').fill('Combien ai-je vendu ?');
-    await page.getByRole('button', { name: 'Envoyer' }).click();
+    await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
     // le chiffre affiché vient des ventes réelles de la boutique (seed + tests précédents)
     await expect(page.getByText(/FCFA/).first()).toBeVisible({ timeout: 15_000 });
 
     await page.getByPlaceholder('Posez votre question…').fill('Quelle est ma marge ?');
-    await page.getByRole('button', { name: 'Envoyer' }).click();
+    await page.getByRole('button', { name: 'Envoyer', exact: true }).click();
     await expect(page.getByText(/Je ne dispose pas de cette information/i).first()).toBeVisible({ timeout: 15_000 });
   });
 });

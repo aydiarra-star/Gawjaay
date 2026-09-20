@@ -160,7 +160,7 @@ export default function Marketplace() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded shadow h-fit sticky top-4">
+        <div className="bg-white p-4 rounded shadow h-fit lg:sticky lg:top-4 lg:z-10">
           <h3 className="font-bold mb-3">Panier ({cart.length})</h3>
           {cart.map((c: any) => <div key={c.productId} className="flex justify-between text-sm py-1"><span>{c.name} x{c.quantity}</span><span>{c.price * c.quantity}</span></div>)}
           <div className="mt-3 font-bold">Total: {cart.reduce((s, i) => s + i.quantity * i.price, 0)} FCFA</div>
