@@ -1,14 +1,15 @@
 # GawJaay V2 — PRODUCTION READINESS
 
-Date : 2026-09-20 · Commit audité : **664d057** (+ correctifs readiness listés §K) · Branche : `arena/01a0be50-gawjaay`
+Date : 2026-09-20 · Commit audité : **0f9dcc2** (mission 2 « Infrastructure Production + Ready for Pilot ») · Branche : `arena/01a0be50-gawjaay`
 
-> **STATUT FINAL : 2. TECHNICALLY READY / NOT DEPLOYED**
+> **STATUT FINAL : 2. TECHNICALLY READY / NOT DEPLOYED** (réévalué fin mission 2, preuves : `docs/V2_READY_FOR_PILOT.md`)
 >
-> Justification factuelle : la V2 applicative est complète et validée (305/305 tests, builds type-checkés,
-> audit sécurité/IA/DB concluant, backup + restauration réellement testés, infrastructure de déploiement
-> documentée et scripts prêts). **Aucun serveur réel n'est déployé** : VPS, domaine, HTTPS, Sentry, bucket S3
-> ne sont pas provisionnés (listés précisément §F et §I). Le passage au statut 4 « READY FOR PILOT »
-> demande l'exécution de `deploy/DEPLOYMENT.md` sur un VPS réel + les ressources [À FOURNIR].
+> Justification factuelle : la V2 applicative est complète et validée (313/313 tests, E2E Playwright
+> **VERT en CI** run 35510524010, builds type-checkés, parité PostgreSQL 53 tables/64 FK/247 CHECK,
+> audit sécurité 0 CRITICAL/HIGH — fuite costPrice corrigée 448cd1d, idempotence commandes/ventes,
+> backup avec restauration réellement testée, bugs mobiles bloquants corrigés). **Aucun serveur réel
+> n'est déployé** : VPS, domaine, HTTPS, Sentry, bucket S3 ne sont pas provisionnés ([À FOURNIR]).
+> Le passage au statut 4 « READY FOR PILOT » demande le déploiement réel (RUNBOOK) + pilote 7 j (PILOT.md).
 
 ---
 
@@ -27,7 +28,7 @@ Date : 2026-09-20 · Commit audité : **664d057** (+ correctifs readiness listé
 
 | Suite | Résultat |
 |---|---|
-| `npx vitest run` (suite complète) | **305/305 PASS, 12 fichiers** (v1-db 84, v1-api 43, v1-unit 23, auth 3, stock 2, payment 1, lot-A 38, lot-B 27, lot-C 22, lot-D 18, lot-E 23, lot-F 21) |
+| `npx vitest run` (suite complète) | **313/313 PASS, 13 fichiers** (305 préexistants + 6 v2-prod-hardening + 2 masquage costPrice) |
 | Tests désactivés/skippés | **0** (`grep skip/todo/only` : aucun) |
 | Build backend | `tsc --noEmit` OK |
 | Build frontend | `tsc --noEmit` (strict, **tsconfig ajouté** — voir §K) + `vite build` OK (317.5 kB, gzip 95.7) |
