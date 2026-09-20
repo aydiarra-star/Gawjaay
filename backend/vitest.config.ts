@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     pool: 'forks',
+    fileParallelism: false, // chaque fichier a sa propre DB SQLite isolée
+    testTimeout: 60000,
+    hookTimeout: 120000,
     server: {
       deps: {
         external: [/node:sqlite/],
