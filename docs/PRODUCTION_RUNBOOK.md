@@ -49,3 +49,28 @@ Attendu : 001→008 (le journal fait foi).
 - Rate-limits : global 500/min/IP · login 5/min · IA 30/15 min.
 - Aucun endpoint admin public : `/admin/*` exige le rôle ADMIN.
 - Paiements Wave/OM = **SANDBOX** ne jamais communiquer comme réels.
+
+## 7. Observabilité pilote (§22) — requêtes SQL prêtes à l'emploi
+
+Exécuter sur la base (ou via un cron quotidien qui exporte le résultat) :
+
+```sql
+-- Ventes du jour / montant
+SELECT DATE(createdAt) d, COUNT(*) n, SUM(total) total FROM sales GROUP BY d ORDER BY d DESC LIMIT 7;
+-- Commandes par statut (7 j)
+SELECT status, COUNT(*) FROM orders WHERE createdAt > datetime('now','-7 days') GROUP BY status;
+-- Produits / mouvements de stock (7 j)
+SELECT COUNT(*) FROM products;
+SELECT type, COUNT(*) FROM inventory_movements WHERE createdAt > datetime('now','-7 days') GROUP BY type;
+-- Annulations (ventes et commandes)
+SELECT COUNT(*) FROM orders WHERE status='ANNULEE' AND createdAt > datetime('now','-7 days');
+-- Erreurs paiement (journal applicatif / Sentry) — 0 attendu en sandbox
+-- Usage IA : conversations + actions par jour
+SELECT DATE(createdAt) d, COUNT(*) FROM ai_conversations GROUP BY d ORDER BY d DESC LIMIT 7;
+SELECT type, status, COUNT(*) FROM ai_actions GROUP BY type, status;
+-- Erreurs auth (logs) : tentatives échouées par IP (pm2 logs / fail2ban)
+```
+
+Frontend : Sentry FE non instrumenté (hors périmètre V2) — les remontées utilisateurs
+passent par le canal support du pilote (PILOT.md §6). Backend : Sentry capte les 5xx
+(uniquement), sans PII (`sendDefaultPii:false`).

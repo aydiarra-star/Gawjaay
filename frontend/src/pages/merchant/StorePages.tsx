@@ -136,12 +136,12 @@ export function InventoryPage() {
       <h1 className="text-xl font-bold mb-4">Stock - {storeId}</h1>
       <div className="bg-red-50 p-4 rounded mb-4">
         <h3 className="font-bold text-red-700">Alertes stock faible ({low.length})</h3>
-        {low.map((l:any)=><div key={l.id} className="text-sm">{l.product.name}: {l.quantity} restant (seuil {l.product.lowStockThreshold})</div>)}
+        {low.map((l:any)=><div key={l.id} className="text-sm">{l.productName}: {l.quantity} restant (seuil {l.lowStockThreshold})</div>)}
       </div>
       <div className="bg-white p-4 rounded shadow">
         <table className="w-full text-sm">
           <thead><tr><th className="text-left">Produit</th><th>Quantité</th><th>Seuil</th></tr></thead>
-          <tbody>{stock.map((s:any)=><tr key={s.id} className="border-t"><td>{s.product.name}</td><td>{s.quantity}</td><td>{s.product.lowStockThreshold}</td></tr>)}</tbody>
+          <tbody>{stock.map((s:any)=><tr key={s.id} className="border-t"><td>{s.productName}</td><td>{s.quantity}</td><td>{s.lowStockThreshold}</td></tr>)}</tbody>
         </table>
       </div>
     </div>
