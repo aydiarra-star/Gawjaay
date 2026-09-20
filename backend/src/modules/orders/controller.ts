@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth';
+import { assertOwnOrder } from '../../middlewares/tenant';
 import * as service from './service';
 
 export async function createHandler(req: AuthRequest, res: Response, next: NextFunction) {
@@ -37,5 +38,5 @@ export async function listHandler(req: AuthRequest, res: Response, next: NextFun
   } catch (e) { next(e); }
 }
 export async function getHandler(req: AuthRequest, res: Response, next: NextFunction) {
-  try { const order = await service.getOrder(req.params.id); if (!order) return res.status(404).json({ error: 'Commande non trouvée' }); res.json(order); } catch (e) { next(e); }
+  try { const order = await service.getOrder(req.params.id); if (!order) return res.status(404).json({ error: 'Commande non trouvée' }); assertOwnOrder(order as any, req.user); res.json(order); } catch (e) { next(e); }
 }

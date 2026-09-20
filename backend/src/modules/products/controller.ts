@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../../middlewares/auth';
+import { assertStoreAccess } from '../../middlewares/tenant';
 import * as service from './service';
 import db from '../../lib/db';
 
@@ -29,12 +30,18 @@ export async function listHandler(req: AuthRequest, res: Response, next: NextFun
 }
 export async function updateHandler(req: AuthRequest, res: Response, next: NextFunction) {
   try {
+    const existing = db.prepare('SELECT storeId FROM products WHERE id = ?').get(req.params.productId) as any;
+    if (!existing) return res.status(404).json({ error: 'Produit non trouvé' });
+    assertStoreAccess(existing.storeId, req.user);
     const product = await service.updateProduct(req.params.productId, req.body, req.user!.userId);
     res.json(product);
   } catch (e) { next(e); }
 }
 export async function deleteHandler(req: AuthRequest, res: Response, next: NextFunction) {
   try {
+    const existing = db.prepare('SELECT storeId FROM products WHERE id = ?').get(req.params.productId) as any;
+    if (!existing) return res.status(404).json({ error: 'Produit non trouvé' });
+    assertStoreAccess(existing.storeId, req.user);
     await service.deleteProduct(req.params.productId, req.user!.userId);
     res.json({ message: 'Produit supprimé' });
   } catch (e) { next(e); }
@@ -43,6 +50,9 @@ export async function getHandler(req: AuthRequest, res: Response, next: NextFunc
   try {
     const product = await service.getProduct(req.params.productId);
     if (!product) return res.status(404).json({ error: 'Produit non trouvé' });
+    // masque le prix d'achat (marge) aux non-propriétaires
+    const isOwner = req.user && (req.user.role === 'ADMIN' || req.user.storeIds?.includes(product.storeId));
+    if (!isOwner) { const { costPrice, ...rest } = product as any; return res.json(rest); }
     res.json(product);
   } catch (e) { next(e); }
 }

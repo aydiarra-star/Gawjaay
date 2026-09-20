@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../middlewares/auth';
+import { authorize } from '../../middlewares/rbac';
 import { createHandler, listHandler, getHandler, updateHandler } from './controller';
 const router = Router();
 router.use(authMiddleware);
-router.post('/', createHandler);
-router.get('/store/:storeId', listHandler);
-router.get('/:id', getHandler);
-router.put('/:id', updateHandler);
+router.post('/', authorize(['MERCHANT','EMPLOYEE','ADMIN']), createHandler);
+router.get('/store/:storeId', authorize(['MERCHANT','EMPLOYEE','ADMIN']), listHandler);
+router.get('/:id', authorize(['MERCHANT','EMPLOYEE','ADMIN']), getHandler);
+router.put('/:id', authorize(['MERCHANT','EMPLOYEE','ADMIN']), updateHandler);
 export default router;
