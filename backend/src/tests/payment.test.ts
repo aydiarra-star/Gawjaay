@@ -1,3 +1,7 @@
+// PHASE FINALE (§9) : exécuté aussi sur PostgreSQL via TEST_DATABASE_URL.
+import { vi } from 'vitest';
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-payment.db'; });
+
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { cuid, initDb } from '../lib/db';
 
