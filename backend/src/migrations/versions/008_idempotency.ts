@@ -23,11 +23,11 @@ const migration: Migration = {
       CREATE TABLE IF NOT EXISTS idempotency_keys (
         key TEXT NOT NULL,
         endpoint TEXT NOT NULL,
-        userId TEXT,
+        userId TEXT NOT NULL DEFAULT '',
         status INTEGER NOT NULL,
         responseJson TEXT NOT NULL,
         createdAt TEXT DEFAULT (datetime('now')),
-        PRIMARY KEY (key, endpoint)
+        PRIMARY KEY (key, endpoint, userId)
       );
     `);
   },

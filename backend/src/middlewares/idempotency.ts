@@ -17,9 +17,9 @@ export function idempotencyMiddleware(req: Request, res: Response, next: NextFun
   const key = req.header('Idempotency-Key');
   if (!key) return next();
   const endpoint = `${req.method} ${req.baseUrl}${req.route?.path || req.path}`;
-  const userId = (req as any).user?.userId || null;
+  const userId = (req as any).user?.userId || '';
 
-  const existing = db.prepare('SELECT status, responseJson FROM idempotency_keys WHERE key = ? AND endpoint = ? AND userId IS ?').get(key, endpoint, userId) as any;
+  const existing = db.prepare('SELECT status, responseJson FROM idempotency_keys WHERE key = ? AND endpoint = ? AND userId = ?').get(key, endpoint, userId) as any;
   if (existing) {
     res.status(existing.status).type('application/json').send(existing.responseJson);
     return;

@@ -1,39 +1,54 @@
 import fs from 'fs';
 import path from 'path';
+import { PostgresDatabase } from './postgresAdapter';
+import { POSTGRES_BASE_SCHEMA } from './postgresBaseSchema';
 
-// Use Node's experimental sqlite if available, otherwise fallback to simple in-memory mock for tests
-let DatabaseSync: any;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const sqliteModule = require('node:sqlite');
-  DatabaseSync = sqliteModule.DatabaseSync;
-} catch (e) {
-  console.warn('node:sqlite not available, using fallback mock - tests may be limited');
-  // Minimal mock that throws for non-test usage
-  DatabaseSync = class MockDB {
-    constructor() {}
-    exec() {}
-    prepare() {
-      return {
-        get: () => { throw new Error('DB mock - node:sqlite required'); },
-        all: () => { throw new Error('DB mock - node:sqlite required'); },
-        run: () => { throw new Error('DB mock - node:sqlite required'); },
-      };
-    }
-    close() {}
-  };
+const rawUrl = process.env.DATABASE_URL || '';
+export const isPostgres =
+  rawUrl.startsWith('postgres://') || rawUrl.startsWith('postgresql://') || rawUrl.startsWith('pglite:');
+
+let db: any;
+
+if (isPostgres) {
+  console.log(`[db] Runtime: PostgreSQL via ${rawUrl.split('@')[1] || rawUrl}`);
+  db = new PostgresDatabase(rawUrl);
+} else {
+  // SQLite runtime for development / unit tests
+  let DatabaseSync: any;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const sqliteModule = require('node:sqlite');
+    DatabaseSync = sqliteModule.DatabaseSync;
+  } catch (e) {
+    console.warn('node:sqlite not available, using fallback mock - tests may be limited');
+    DatabaseSync = class MockDB {
+      constructor() {}
+      exec() {}
+      prepare() {
+        return {
+          get: () => { throw new Error('DB mock - node:sqlite required'); },
+          all: () => { throw new Error('DB mock - node:sqlite required'); },
+          run: () => { throw new Error('DB mock - node:sqlite required'); },
+        };
+      }
+      close() {}
+    };
+  }
+
+  const dbPath = rawUrl.replace('file:', '') || './dev.db';
+  const absolutePath = path.isAbsolute(dbPath) ? dbPath : path.join(process.cwd(), dbPath);
+
+  console.log(`Using SQLite DB at ${absolutePath}`);
+  db = new DatabaseSync(absolutePath);
 }
-
-const dbPath = process.env.DATABASE_URL?.replace('file:', '') || './dev.db';
-const absolutePath = path.isAbsolute(dbPath) ? dbPath : path.join(process.cwd(), dbPath);
-
-console.log(`Using SQLite DB at ${absolutePath}`);
-
-const db = new DatabaseSync(absolutePath);
 
 export function initDb() {
   try {
-    db.exec(`
+    if (isPostgres) {
+      db.exec(POSTGRES_BASE_SCHEMA);
+      console.log('DB initialized (PostgreSQL)');
+    } else {
+      db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
 
@@ -423,7 +438,8 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_orders_store ON orders(storeId);
     CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(clientId);
   `);
-    console.log('DB initialized');
+      console.log('DB initialized');
+    }
   } catch (e) {
     console.log('DB init skipped (mock mode)', e);
   }

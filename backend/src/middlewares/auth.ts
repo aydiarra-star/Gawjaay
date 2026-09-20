@@ -24,21 +24,20 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
     if (!user || !user.isActive) return res.status(401).json({ error: 'Utilisateur inactif' });
 
     let merchantId = (payload as any).merchantId;
-    let storeIds: string[] = (payload as any).storeIds || [];
-
     if (!merchantId) {
       const merchant = db.prepare('SELECT id FROM merchants WHERE userId = ?').get(user.id) as any;
       merchantId = merchant?.id;
     }
-    if (!storeIds.length) {
-      if (merchantId) {
-        const stores = db.prepare('SELECT id FROM stores WHERE merchantId = ?').all(merchantId) as any[];
-        storeIds = stores.map(s=>s.id);
-      }
-      if (user.role === 'EMPLOYEE') {
-        const emp = db.prepare('SELECT storeId FROM employees WHERE userId = ?').get(user.id) as any;
-        if (emp) storeIds = [emp.storeId];
-      }
+
+    // Source de vérité : les storeIds sont toujours relus depuis la base de données
+    // afin qu'un magasin créé après émission du token soit immédiatement accessible.
+    let storeIds: string[] = [];
+    if (merchantId) {
+      const stores = db.prepare('SELECT id FROM stores WHERE merchantId = ?').all(merchantId) as any[];
+      storeIds = stores.map((s: any) => s.id);
+    } else if (user.role === 'EMPLOYEE') {
+      const emp = db.prepare('SELECT storeId FROM employees WHERE userId = ?').get(user.id) as any;
+      if (emp) storeIds = [emp.storeId];
     }
 
     req.user = {
