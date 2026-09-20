@@ -1,4 +1,4 @@
-# GawJaay V2 — RUNBOOK PRODUCTION
+# GawJaay V3 — RUNBOOK PRODUCTION
 
 > Qui : exploitant de garde. Quand : quotidien / sur alerte.
 > Prérequis : accès SSH au VPS, accès PM2 (`pm2`), accès Sentry, accès S3.
@@ -17,6 +17,7 @@ Le moteur est choisi **par la variable `DATABASE_URL`** — aucun code à change
 #   [db] Runtime: PostgreSQL via host:5432/gawjaay
 #   DB initialized (PostgreSQL)
 #   [migrations] appliquée: … / [migrations] à jour   ← idempotent à chaque redémarrage
+#   [référentiel] 14/14 régions du Sénégal insérées   ← uniquement au 1er démarrage sur une base vierge
 pm2 logs gawjaay-api --lines 30
 
 # Contrôle de santé applicative
@@ -26,9 +27,20 @@ curl -s https://<domaine>/health            # { "status": "ok", … }
 SMOKE_BASE_URL=https://<domaine> npx tsx backend/scripts/smoke.ts
 
 # Contrôle de la base
-psql "$DATABASE_URL" -c "SELECT count(*) FROM _migrations;"          # 8
+psql "$DATABASE_URL" -c "SELECT count(*) FROM _migrations;"          # 9
 psql "$DATABASE_URL" -c "SELECT count(*) FROM pg_tables WHERE schemaname='public';"  # 54
+psql "$DATABASE_URL" -c "SELECT count(*) FROM regions;"              # 14 (référentiel chargé au démarrage)
+
+# Paiements : vérifier que rien n'est promis (mode attendu en production : disabled)
+curl -s https://<domaine>/api/v1/payments/capabilities
+#   { "mode": "disabled", "productionProviderConnected": false, "methods": [ { "code": "CASH", "available": true }, … ] }
 ```
+
+- **Paiements — NOT CONNECTED TO PRODUCTION PAYMENT PROVIDER** : `PAYMENTS_MODE=disabled` est obligatoire
+  (l'API refuse de démarrer en production avec `sandbox`). WAVE / ORANGE_MONEY / CARD répondent **503**
+  `SERVICE_UNAVAILABLE` ; seul l'encaissement en **espèces** existe, confirmé par le marchand
+  (`POST /payments/:id/confirm-cash`). Si un client signale « bouton de paiement mobile absent », c'est le
+  comportement attendu tant qu'aucun fournisseur n'est contractualisé et intégré (`deploy/DEPLOYMENT.md` §5).
 
 - **Transactions** : l'adaptateur utilise une connexion unique (`Pool max: 1`) → `BEGIN/COMMIT`
   portent bien sur la même session. Le déploiement est **mono-processus** (`instances: 1` dans
@@ -84,7 +96,7 @@ Attendu : 001→008 (le journal fait foi).
 
 - Rate-limits : global 500/min/IP · login 5/min · IA 30/15 min.
 - Aucun endpoint admin public : `/admin/*` exige le rôle ADMIN.
-- Paiements Wave/OM = **SANDBOX** ne jamais communiquer comme réels.
+- Paiements Wave / Orange Money / carte = **NON CONNECTÉS** en production (`PAYMENTS_MODE=disabled`, 503) ; les fournisseurs `sandbox` n'existent qu'en développement. Ne jamais communiquer un paiement mobile comme possible.
 
 ## 7. Observabilité pilote (§22) — requêtes SQL prêtes à l'emploi
 

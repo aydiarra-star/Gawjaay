@@ -30,7 +30,8 @@ cp ../deploy/.env.production.example .env    # REMPLIR les valeurs [À FOURNIR]
 chmod 600 .env
 mkdir -p /var/lib/gawjaay /var/log/gawjaay /var/backups/gawjaay
 
-# Premier démarrage : schéma de base + migrations 001→008 appliquées automatiquement au boot
+# Premier démarrage : schéma de base + migrations 001→009 appliquées automatiquement au boot
+# + référentiel géographique (14 régions / 46 départements / communes) chargé s'il est absent
 # (journal `_migrations` ; forward-only, idempotent — un redémarrage ne rejoue rien).
 pm2 start ../deploy/ecosystem.config.cjs && pm2 save && pm2 startup
 
@@ -95,15 +96,24 @@ Ce qui a été fait (et non « à faire ») :
 
 **Rollback** : forward-only ; retour arrière = restauration d'un backup (`docs/BACKUP_RESTORE.md`).
 
-## 5. Paiements — règle pilote
+## 5. Paiements — NOT CONNECTED TO PRODUCTION PAYMENT PROVIDER
 
-- **CASH (espèces) + retrait boutique** = seuls paiements « réels » du pilote.
-- Wave / Orange Money : intégrations **SANDBOX** (`WaveSandbox`, `OrangeMoneySandbox`,
-  `provider: 'WAVE_SANDBOX'`) — jamais présenter comme production tant que les contrats
-  officiels et clés réelles ne sont pas obtenus.
+- **Aucun fournisseur de paiement de production n'est connecté** (ni Wave, ni Orange Money, ni carte). Le dépôt ne
+  contient que des abstractions (`PaymentProvider`) et des fournisseurs **simulés** réservés au développement.
+- `PAYMENTS_MODE=disabled` (**obligatoire et valeur par défaut en production**) :
+  - `POST /payments/initiate` avec `WAVE` / `ORANGE_MONEY` / `CARD` → **503** `{ code: "SERVICE_UNAVAILABLE" }` ;
+  - `GET /payments/capabilities` (public) → `productionProviderConnected: false`, seules les méthodes `available: true`
+    sont proposées par l'interface (le client voit « paiement mobile NON CONNECTÉ ») ;
+  - **CASH** (espèces) : la commande est créée avec un paiement `CASH / PENDING` ; seul le marchand (ou un employé
+    autorisé) le passe à `SUCCESS` via `POST /payments/:id/confirm-cash`. Un client ne peut jamais marquer un paiement payé.
+- `PAYMENTS_MODE=sandbox` est **refusé au démarrage** quand `NODE_ENV=production` (fail-fast dans `config/env.ts`).
+- Connecter un vrai fournisseur = contrat signé + implémentation d'un `PaymentProvider` (initiation, vérification,
+  webhook signé) + tests, puis renseigner les clés dans `.env`. Tant que ce n'est pas fait, ne rien promettre aux
+  utilisateurs : l'UI et l'API disent explicitement « non connecté ».
 
 ## 6. Secrets — checklist
 
 - [ ] `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` : `openssl rand -hex 32` (l'app **refuse de démarrer** en production avec les défauts de dev — fail-fast ajouté).
 - [ ] `FRONTEND_URL` = domaine HTTPS réel (CORS : en production, seul ce domaine est autorisé).
+- [ ] `PAYMENTS_MODE=disabled` (toute autre valeur bloque le démarrage en production) — voir §5.
 - [ ] Fichier `.env` en `chmod 600`, jamais committé (vérifié : aucun secret dans Git).
