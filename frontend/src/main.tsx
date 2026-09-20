@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -18,6 +18,10 @@ import Replenishment from './pages/merchant/Replenishment';
 import Deliveries from './pages/merchant/Deliveries';
 import DriverApp from './pages/driver/DriverApp';
 import Assistant from './pages/merchant/Assistant';
+import Expenses from './pages/merchant/Expenses';
+import Employees from './pages/merchant/Employees';
+import Suppliers from './pages/merchant/Suppliers';
+import StoreSettings from './pages/merchant/StoreSettings';
 import Marketplace from './pages/client/Marketplace';
 import StorePublic from './pages/client/StorePublic';
 import Orders from './pages/client/Orders';
@@ -28,10 +32,10 @@ function Home() {
     <div className="text-center py-20">
       <h1 className="text-4xl font-bold text-green-700">GawJaay</h1>
       <p className="text-xl mt-2">Vendre vite. Gérer mieux.</p>
-      <p className="mt-4 text-gray-600 max-w-2xl mx-auto">Plateforme sénégalaise tout-en-un : gestion boutique physique, boutique en ligne partageable WhatsApp, marketplace "Acheter près de moi" basée sur stock réel, commandes, paiements Wave & Orange Money sandbox, livraisons, dettes, fournisseurs, dépenses, tableau de bord.</p>
-      <div className="mt-8 flex justify-center gap-4">
-        <a href="/marketplace" className="bg-green-700 text-white px-6 py-3 rounded">Voir Marketplace</a>
-        <a href="/login" className="border border-green-700 text-green-700 px-6 py-3 rounded">Connexion commerçant</a>
+      <p className="mt-4 text-gray-600 max-w-2xl mx-auto">Plateforme sénégalaise tout-en-un : gestion boutique physique, boutique en ligne partageable WhatsApp, marketplace "Acheter près de moi" basée sur stock réel, commandes, paiements (espèces confirmées par le marchand ; Wave / Orange Money prêts à connecter), livraisons, dettes, fournisseurs, dépenses, tableau de bord.</p>
+      <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4 px-4">
+        <Link to="/marketplace" className="bg-green-700 text-white px-6 py-3 rounded">Voir Marketplace</Link>
+        <Link to="/login" className="border border-green-700 text-green-700 px-6 py-3 rounded">Connexion commerçant</Link>
       </div>
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-left max-w-5xl mx-auto">
         <div className="bg-white p-4 rounded shadow"><h3 className="font-bold">🛒 Stock Unique</h3><p className="text-sm">Une seule source de vérité serveur. Vente physique + commande en ligne = stock décrémenté transactionnellement.</p></div>
@@ -67,6 +71,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/merchant/store/:storeId/deliveries" element={<Deliveries />} />
           <Route path="/driver" element={<DriverApp />} />
           <Route path="/merchant/store/:storeId/assistant" element={<Assistant />} />
+          <Route path="/merchant/store/:storeId/expenses" element={<Expenses />} />
+          <Route path="/merchant/store/:storeId/employees" element={<Employees />} />
+          <Route path="/merchant/store/:storeId/suppliers" element={<Suppliers />} />
+          <Route path="/merchant/store/:storeId/settings" element={<StoreSettings />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/store/:slug" element={<StorePublic />} />
           <Route path="/orders" element={<Orders />} />

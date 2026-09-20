@@ -151,7 +151,9 @@ export async function createOrder(clientId: string, rawData: any) {
     }
     recordAudit(clientId, 'ORDER_CREATE', 'Order', orderId, { storeId: data.storeId, total: finalTotal, deliveryType });
 
-    return decorateOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as any);
+    const updated = decorateOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as any);
+    // Le créateur est le client de la commande : sa seule action possible est l'annulation tant qu'elle est EN_ATTENTE
+    return { ...updated, allowedTransitions: allowedTransitions(updated.status, 'CLIENT', true) };
   });
 }
 
@@ -269,7 +271,9 @@ export async function updateStatus(orderId: string, requestedStatus: string, use
 
     recordAudit(user.userId, 'ORDER_STATUS', 'Order', orderId, { from: order.status, to: newStatus, role: user.role, reason: reason || null });
 
-    return decorateOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as any);
+    const updated = decorateOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as any);
+    // Prochaines actions valides pour l'appelant (l'UI se resynchronise sans requête supplémentaire)
+    return { ...updated, allowedTransitions: allowedTransitions(updated.status, user.role, user.role === 'CLIENT' && updated.clientId === user.userId) };
   });
 }
 
@@ -303,6 +307,12 @@ export async function listOrders(filters: any) {
   const payments = db.prepare(`SELECT * FROM payments WHERE orderId IN (${placeholders(ids.length)}) ORDER BY createdAt ASC`).all(...ids) as any[];
   const deliveries = db.prepare(`SELECT * FROM deliveries WHERE orderId IN (${placeholders(ids.length)}) ORDER BY createdAt ASC`).all(...ids) as any[];
   const items = db.prepare(`SELECT oi.*, p.name FROM order_items oi JOIN products p ON p.id = oi.productId WHERE oi.orderId IN (${placeholders(ids.length)})`).all(...ids) as any[];
+  // Vue marchand/admin : identité minimale du client (id + téléphone) — jamais exposée à un autre CLIENT.
+  const clientIds = [...new Set(orders.map((o) => o.clientId).filter(Boolean))];
+  const clients = filters.viewerRole === 'CLIENT' || !clientIds.length
+    ? []
+    : (db.prepare(`SELECT id, phone FROM users WHERE id IN (${placeholders(clientIds.length)})`).all(...clientIds) as any[]);
+  const clientById = new Map(clients.map((c) => [c.id, c]));
   const storeById = new Map(stores.map((s) => [s.id, filters.publicStore ? toPublicStore(s) : s]));
   const paymentByOrder = new Map<string, any>();
   for (const p of payments) if (!paymentByOrder.has(p.orderId)) paymentByOrder.set(p.orderId, p);
@@ -319,6 +329,9 @@ export async function listOrders(filters: any) {
     payment: paymentByOrder.get(o.id) || null,
     delivery: deliveryByOrder.get(o.id) || null,
     items: itemsByOrder.get(o.id) || [],
+    client: clientById.get(o.clientId) || null,
+    // L'UI n'affiche que les actions valides pour CE rôle (le serveur reste seul juge à l'exécution).
+    allowedTransitions: allowedTransitions(o.status, filters.viewerRole, filters.viewerRole === 'CLIENT' && o.clientId === filters.clientId),
   }));
 }
 

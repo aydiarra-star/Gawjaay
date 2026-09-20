@@ -97,14 +97,17 @@
 | S9 (suite) | Rotation des refresh tokens + détection de rejeu (`REFRESH_REUSE_DETECTED`) | `v3-security.test.ts` §S10 |
 | S10 (suite) | `PAYMENTS_MODE=disabled` : WAVE/OM/CARD → **503** explicite (le build de production renvoyait 500 : corrigé dans `errorHandler`) | `v3-payments-disabled.test.ts` |
 | Règle pagination | `take` plafonné à 50 sur toutes les listes paginées | — |
+| F10 | Frontend : routes `expenses` / `employees` / `suppliers` / `settings` + pages (dépenses, employés & permissions depuis le catalogue serveur, fournisseurs & réceptions, paramètres boutique : contact, horaires, région→département→commune, GPS, livraison/retrait, moyens de paiement annoncés, ouverture) ; édition produit (catégorie, SKU, code-barres, seuil, en ligne/actif) ; création client ; ajustement de stock par ligne ; commandes marchand pilotées par `allowedTransitions` (+ `REJETEE`, motif, encaissement espèces) ; commandes client : `payments/capabilities` (aucun bouton mobile si non connecté, mention « NON CONNECTÉ »), frise de statut, annulation selon `allowedTransitions` ; vitrine : QR code (`qrcode.react`), horaires, contact, catégories réelles, modes de commande selon la boutique, rupture affichée ; marketplace : catégorie, région, rayon, distance serveur ; connexion sans identifiants pré-remplis, redirection EMPLOYEE→`/merchant`, DRIVER→`/driver` ; navigation responsive (menu mobile) ; intercepteur 401 sans redirection pour les visiteurs anonymes | Playwright E2E (CI) + harnais DOM local (happy-dom contre l'API seedée, 22 vérifications) |
+| Référentiel | `lib/referenceData.ts#ensureReferenceData` : les 14 régions / 46 départements / communes sont chargés au démarrage du serveur si absents (base de production vierge) | `v3-features.test.ts` §P2 |
+| API commandes | `GET /orders` (liste) renvoie `client {id, phone}` (jamais côté CLIENT) et `allowedTransitions` par rôle ; `POST /orders` et `PATCH /orders/:id/status` renvoient aussi `allowedTransitions` | `v3-security.test.ts` §S9 |
 
 ## 5. Reste à faire (mesuré, au 20/09/2026)
 
-- **Frontend** (F10) : liens `/merchant/store/:id/expenses` et `/employees` sans route ; aucune page fournisseurs,
-  paramètres boutique, édition produit, création client ; vitrine sans QR/horaires/contact ; identifiants pré-remplis
-  sur `/login` ; navigation non responsive ; EMPLOYEE/DRIVER mal redirigés ; aucun écran n'exploite encore les
-  nouveaux endpoints (catégories, `allowedTransitions`, `payments/capabilities`, `confirm-cash`, canaux, filtres géo).
 - **Documentation d'exploitation** : `PAYMENTS_MODE` absent de `deploy/.env.production.example`, `deploy/DEPLOYMENT.md`,
   `docs/PRODUCTION_RUNBOOK.md`.
-- **Non rejoué dans cette session** : Playwright E2E, test réel de sauvegarde/restauration (`deploy/pg-backup.mjs`).
-
+- **Non rejoué dans cette session** : test réel de sauvegarde/restauration (`deploy/pg-backup.mjs`). Playwright E2E :
+  exécuté par la CI GitHub à chaque push (navigateur non téléchargeable depuis le bac à sable) ; localement, les pages ont
+  été rendues dans happy-dom contre l'API seedée (mêmes gestes que les parcours : Confirmer → Préparation → Prête,
+  Ajouter panier → Commander).
+- **Frontend, volontairement hors périmètre** : édition des livreurs/permissions avancées, upload d'images produit
+  (aucun stockage de fichiers connecté), tableau de bord temps réel.

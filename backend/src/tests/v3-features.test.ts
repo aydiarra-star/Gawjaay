@@ -26,6 +26,8 @@ import { haversineKm } from '../lib/geo';
 import { seedDefaultCategories, DEFAULT_CATEGORIES } from '../modules/categories/service';
 import { notify, listChannels } from '../modules/notifications/channels';
 import { runAllMigrations } from '../migrations/versions/009_v3_categories_indexes';
+import { ensureReferenceData } from '../lib/referenceData';
+import { SENEGAL_REGIONS, SENEGAL_DEPARTMENTS_COUNT } from '../modules/regions/service';
 
 let server: any;
 let apiPort = 0;
@@ -349,5 +351,25 @@ describe('P2 — Migration 009 : index FK + référentiel, idempotente', () => {
   it('seedDefaultCategories est idempotent (0 insertion au 2e appel) et ne duplique pas un nom existant', () => {
     expect(seedDefaultCategories(db)).toBe(0);
     expect(count("SELECT COUNT(*) c FROM categories WHERE slug = 'alimentaire'")).toBe(1);
+  });
+  it('référentiel géographique : ensureReferenceData() (démarrage serveur) charge les 14 régions si absentes, puis ne fait rien', async () => {
+    // Le référentiel a déjà été chargé par POST /regions/seed plus haut : aucun rechargement, aucun doublon.
+    const logs: string[] = [];
+    expect(await ensureReferenceData((m) => logs.push(m))).toEqual({ seeded: false, regions: SENEGAL_REGIONS.length });
+    expect(logs).toEqual([]);
+    expect(count('SELECT COUNT(*) c FROM departments')).toBe(SENEGAL_DEPARTMENTS_COUNT);
+    // Table vide (nouvelle base de production) → chargement complet et journalisé
+    db.prepare('UPDATE stores SET regionId = NULL, departmentId = NULL, communeId = NULL').run();
+    db.prepare('DELETE FROM communes').run();
+    db.prepare('DELETE FROM departments').run();
+    db.prepare('DELETE FROM regions').run();
+    expect(await ensureReferenceData((m) => logs.push(m))).toEqual({ seeded: true, regions: 14 });
+    expect(logs.length).toBe(1);
+    expect(count('SELECT COUNT(*) c FROM regions')).toBe(14);
+    expect(count('SELECT COUNT(*) c FROM departments')).toBe(SENEGAL_DEPARTMENTS_COUNT);
+    expect(count('SELECT COUNT(*) c FROM communes')).toBeGreaterThan(SENEGAL_DEPARTMENTS_COUNT);
+    // 2e appel : idempotent
+    expect((await ensureReferenceData((m) => logs.push(m))).seeded).toBe(false);
+    expect(count('SELECT COUNT(*) c FROM regions')).toBe(14);
   });
 });

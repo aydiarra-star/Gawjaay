@@ -24,6 +24,7 @@ export async function listHandler(req: AuthRequest, res: Response, next: NextFun
       status: typeof req.query.status === 'string' ? req.query.status : undefined,
       take: intParam(req.query.take, 50, { min: 1, max: 50 }),
       skip: intParam(req.query.skip, 0, { min: 0, max: 1000000 }),
+      viewerRole: user.role,
     };
     // Isolation tenant : appliquée DANS la requête SQL (jamais après coup)
     if (user.role === 'CLIENT') {

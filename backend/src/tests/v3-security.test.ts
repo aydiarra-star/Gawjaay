@@ -370,9 +370,23 @@ describe('S9 — Machine à états des commandes (contrôlée serveur, par rôle
     expect(c1.data.every((o: any) => o.clientId === C1.userId && typeof o.statusCode === 'string')).toBe(true);
     // la projection de la boutique dans la liste client est publique (pas de merchantId)
     expect(c1.data[0].store.merchantId).toBeUndefined();
+    // actions valides calculées PAR RÔLE : un client ne peut qu'annuler une commande EN_ATTENTE (la sienne)
+    for (const o of c1.data) {
+      expect(Array.isArray(o.allowedTransitions)).toBe(true);
+      expect(o.allowedTransitions).toEqual(o.status === 'EN_ATTENTE' ? ['ANNULEE'] : []);
+      expect(o.client).toBeNull(); // aucune identité d'autrui exposée côté client
+    }
     expect((await call('GET', `/orders?storeId=${A.storeId}`, { token: B.token })).status).toBe(403);
     const bList = await call('GET', '/orders', { token: B.token });
     expect(bList.data.every((o: any) => o.storeId === B.storeId)).toBe(true);
+    // vue marchand : téléphone du client + transitions de la machine à états
+    const aList = await call('GET', `/orders?storeId=${A.storeId}`, { token: A.token });
+    expect(aList.status).toBe(200);
+    const pending = aList.data.find((o: any) => o.status === 'EN_ATTENTE');
+    expect(pending.client.phone).toMatch(/^\+221/);
+    expect(pending.allowedTransitions).toEqual(expect.arrayContaining(['CONFIRMEE', 'ANNULEE', 'REJETEE']));
+    const delivered = aList.data.find((o: any) => o.status === 'LIVREE');
+    expect(delivered.allowedTransitions).toEqual([]);
   });
   it('la boutique décide des modes proposés : livraison désactivée → commande LIVRAISON refusée', async () => {
     const r = await call('POST', '/orders', { token: C1.token, body: { storeId: A.storeId, items: [{ productId: A.productId, quantity: 1 }], deliveryType: 'LIVRAISON' } });
