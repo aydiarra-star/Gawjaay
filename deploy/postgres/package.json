@@ -1,0 +1,8 @@
+{
+  "name": "gawjaay-postgres-migrations",
+  "private": true,
+  "description": "Portage PostgreSQL des migrations GawJaay V2 + validation de parité (PGlite = PostgreSQL 16 réel)",
+  "type": "module",
+  "scripts": { "validate": "node validate.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "^0.2.0" }
+}
