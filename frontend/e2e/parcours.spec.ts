@@ -84,7 +84,9 @@ test.describe('CLIENT mobile — marketplace → commande', () => {
     await expect(page.getByText('Panier (1)')).toBeVisible();
 
     const dialogPromise = page.waitForEvent('dialog');
-    await page.getByRole('button', { name: 'Commander', exact: true }).click();
+    const cmd = page.getByRole('button', { name: 'Commander', exact: true });
+    await cmd.evaluate((el) => el.scrollIntoView({ block: 'center' })); // viewport mobile : le panier est en bas de page
+    await cmd.click();
     const dialog = await dialogPromise;
     expect(dialog.message()).toContain('Commande créée');
     expect(dialog.message()).toMatch(/FCFA/);
