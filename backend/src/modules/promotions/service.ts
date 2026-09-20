@@ -23,6 +23,7 @@ export interface PromoLine {
 
 function isActiveNow(p: any, at: Date = new Date()): boolean {
   if (p.status !== 'ACTIVE') return false;
+  // comparaisons via Date (robustes aux formats ISO mixtes, avec/sans millisecondes)
   if (new Date(p.dateStart) > at) return false;
   if (p.dateEnd && new Date(p.dateEnd) < at) return false;
   return true;

@@ -42,7 +42,11 @@ router.use('/notifications', notificationRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/admin', adminRoutes);
 router.use('/regions', regionRoutes);
+router.use('/promotions', promotionRoutes);
+router.use('/coupons', couponRoutes);
+router.use('/reviews', reviewRoutes);
+router.use('/admin/moderation', moderationRoutes);
 
-router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '1.0.0', timestamp: new Date().toISOString() }));
+router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.0.0-lot-a', timestamp: new Date().toISOString() }));
 
 export default router;

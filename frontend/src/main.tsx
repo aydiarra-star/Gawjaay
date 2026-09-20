@@ -6,6 +6,9 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import MerchantDashboard from './pages/merchant/Dashboard';
 import { SalesPage, OrdersPage as MerchantOrders, InventoryPage, CustomersPage } from './pages/merchant/StorePages';
+import Promotions from './pages/merchant/Promotions';
+import Coupons from './pages/merchant/Coupons';
+import MerchantReviews from './pages/merchant/MerchantReviews';
 import Marketplace from './pages/client/Marketplace';
 import StorePublic from './pages/client/StorePublic';
 import Orders from './pages/client/Orders';
@@ -43,6 +46,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/merchant/store/:storeId/orders" element={<MerchantOrders />} />
           <Route path="/merchant/store/:storeId/inventory" element={<InventoryPage />} />
           <Route path="/merchant/store/:storeId/customers" element={<CustomersPage />} />
+          <Route path="/merchant/store/:storeId/promotions" element={<Promotions />} />
+          <Route path="/merchant/store/:storeId/coupons" element={<Coupons />} />
+          <Route path="/merchant/store/:storeId/reviews" element={<MerchantReviews />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/store/:slug" element={<StorePublic />} />
           <Route path="/orders" element={<Orders />} />

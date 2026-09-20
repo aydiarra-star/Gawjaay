@@ -90,6 +90,9 @@ function QuickLinks({ storeId }: { storeId: string }) {
       <Link to={`/merchant/store/${storeId}/customers`} className="block text-green-700">→ Clients & dettes</Link>
       <Link to={`/merchant/store/${storeId}/expenses`} className="block text-green-700">→ Dépenses</Link>
       <Link to={`/merchant/store/${storeId}/employees`} className="block text-green-700">→ Employés</Link>
+      <Link to={`/merchant/store/${storeId}/promotions`} className="block text-green-700">→ Promotions</Link>
+      <Link to={`/merchant/store/${storeId}/coupons`} className="block text-green-700">→ Coupons</Link>
+      <Link to={`/merchant/store/${storeId}/reviews`} className="block text-green-700">→ Avis clients</Link>
     </div>
   );
 }
