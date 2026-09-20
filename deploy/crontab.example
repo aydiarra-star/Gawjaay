@@ -1,0 +1,11 @@
+# GawJaay V2 — planification backup + vérification de restauration
+# Installer avec : crontab -u gawjaay deploy/crontab.example  (adapter les chemins)
+#
+# Backup quotidien 02:00 (backup.sh détecte SQLite/PostgreSQL via DATABASE_URL)
+0 2 * * * BACKUP_DIR=/var/backups/gawjaay DB_PATH=/var/lib/gawjaay/gawjaay.db /opt/gawjaay/deploy/backup.sh >> /var/log/gawjaay/backup.log 2>&1
+
+# Vérification MENSUELLE de restauration sur base de test (procédure : docs/BACKUP_RESTORE.md §test)
+0 3 1 * * /opt/gawjaay/deploy/restore-check.sh >> /var/log/gawjaay/backup.log 2>&1
+
+# Monitoring : le backup en échec (exit != 0) doit être alerté — brancher Sentry Cron Monitor
+# (recommandé) ou un vérificateur de log. Le dernier backup OK est tracé dans backup.log.
