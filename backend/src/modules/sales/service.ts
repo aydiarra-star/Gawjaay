@@ -2,6 +2,7 @@ import db, { cuid } from '../../lib/db';
 import { applyPromotions, consumePromotion } from '../promotions/service';
 import { validateCoupon, consumeCoupon } from '../coupons/service';
 import { maybeNotifyLowStock } from '../inventory/service';
+import * as loyalty from '../loyalty/service';
 function nowIso(){ return new Date().toISOString(); }
 
 export async function createSale(storeId: string, data: any, userId: string) {
@@ -72,6 +73,11 @@ export async function createSale(storeId: string, data: any, userId: string) {
     if (!consumePromotion(pid)) throw Object.assign(new Error('Promotion devenue indisponible'), { status: 400 });
   }
   if (coupon) consumeCoupon(coupon.id, saleId, storeId, data.customerId || null, couponDiscount);
+
+  // V2 LOT C : points sur le montant réellement encaissé (hors crédit partiel)
+  if (amountPaid > 0 && data.paymentMethod !== 'CREDIT' && data.clientUserId) {
+    loyalty.earnForPurchase(storeId, data.clientUserId, Math.min(amountPaid, finalTotal), saleId, data.customerId || null);
+  }
 
   if (data.paymentMethod === 'CREDIT' || amountPaid < finalTotal) {
     const balance = finalTotal - amountPaid;

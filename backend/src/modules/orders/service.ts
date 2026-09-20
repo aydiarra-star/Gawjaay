@@ -3,6 +3,7 @@ import { generateOrderNumber } from '../../utils/slug';
 import { applyPromotions, consumePromotion, releasePromotion } from '../promotions/service';
 import { validateCoupon, consumeCoupon, releaseCoupon } from '../coupons/service';
 import { maybeNotifyLowStock } from '../inventory/service';
+import * as loyalty from '../loyalty/service';
 
 function nowIso(){ return new Date().toISOString(); }
 
@@ -54,16 +55,30 @@ export async function createOrder(clientId: string, data: any) {
     couponDiscount = check.discount || 0;
   }
 
+  // V2 LOT C : rachat de points fidélité (remise calculée serveur)
+  let pointsDiscount = 0;
+  let pointsToUse = 0;
+  if (data.pointsToUse && data.pointsToUse > 0) {
+    pointsDiscount = loyalty.redeem(data.storeId, clientId, Math.floor(data.pointsToUse), 'pending-' + cuid());
+    pointsToUse = pointsDiscount > 0 ? Math.floor(data.pointsToUse) : 0;
+  }
+
   const deliveryFees = data.deliveryType === 'LIVRAISON' ? (store.deliveryFees || 0) : 0;
-  const finalTotal = Math.max(0, total + deliveryFees - couponDiscount);
+  const finalTotal = Math.max(0, total + deliveryFees - couponDiscount - pointsDiscount);
   const orderId = cuid();
   const orderNumber = generateOrderNumber();
 
-  db.prepare(`INSERT INTO orders (id, orderNumber, storeId, clientId, addressId, totalAmount, deliveryFees, discount, deliveryType, notes, status, promotionIds, couponId, createdAt, updatedAt)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(orderId, orderNumber, data.storeId, clientId, data.addressId || null, finalTotal, deliveryFees,
-      (promoResult.totalDiscount || 0) + couponDiscount, data.deliveryType || 'LIVRAISON', data.notes || null, 'EN_ATTENTE',
+  db.prepare(`INSERT INTO orders (id, orderNumber, storeId, clientId, addressId, totalAmount, deliveryFees, discount, deliveryType, notes, status, promotionIds, couponId, pointsToUse, createdAt, updatedAt)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(orderId, orderNumber, data.storeId, clientId, data.addressId || null, finalTotal, deliveryFees,
+      (promoResult.totalDiscount || 0) + couponDiscount + pointsDiscount, data.deliveryType || 'LIVRAISON', data.notes || null, 'EN_ATTENTE',
       promoResult.promotionIds.length ? JSON.stringify([...new Set(promoResult.promotionIds)]) : null,
-      coupon ? coupon.id : null, nowIso(), nowIso());
+      coupon ? coupon.id : null, pointsToUse || null, nowIso(), nowIso());
+
+  if (pointsToUse > 0) {
+    // rattache la transaction 'pending' au vrai orderId (traçabilité complète)
+    db.prepare(`UPDATE loyalty_transactions SET referenceId = ? WHERE referenceId LIKE ?`)
+      .run(orderId, 'pending-%');
+  }
 
   for (const it of itemsData) {
     db.prepare('INSERT INTO order_items (id, orderId, productId, quantity, unitPrice, total) VALUES (?,?,?,?,?,?)')
@@ -140,9 +155,29 @@ export async function updateStatus(orderId: string, newStatus: string, user: any
     if (order.couponId) releaseCoupon(order.couponId, orderId);
   }
 
+  // V2 LOT C : points rachetés à la création → toujours restitués à l'annulation
+  if (newStatus === 'ANNULEE' && order.pointsToUse && order.pointsToUse > 0) {
+    const acc = db.prepare('SELECT * FROM loyalty_accounts WHERE storeId = ? AND clientUserId = ?').get(order.storeId, order.clientId) as any;
+    if (acc) {
+      const newBalance = acc.points + order.pointsToUse;
+      db.prepare('UPDATE loyalty_accounts SET points = ?, updatedAt = ? WHERE id = ?').run(newBalance, nowIso(), acc.id);
+      db.prepare('INSERT INTO loyalty_transactions (id, accountId, type, points, balanceAfter, referenceId, reason, createdAt) VALUES (?,?,?,?,?,?,?,?)')
+        .run(cuid(), acc.id, 'ADJUST', order.pointsToUse, newBalance, orderId, 'Restitution points (annulation commande)', nowIso());
+    }
+  }
+
   db.prepare('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?').run(newStatus, nowIso(), orderId);
   db.prepare('INSERT INTO notifications (id, userId, title, body, type, data, createdAt) VALUES (?,?,?,?,?,?,?)')
     .run(cuid(), order.clientId, `Commande ${newStatus}`, `Votre commande ${order.orderNumber} est ${newStatus}`, 'ORDER', JSON.stringify({ orderId }), nowIso());
+
+  // V2 LOT C : points de fidélité gagnés à la livraison (montant réel payé = totalAmount)
+  if (newStatus === 'LIVREE' && order.totalAmount > 0) {
+    const earned = loyalty.earnForPurchase(order.storeId, order.clientId, order.totalAmount, orderId);
+    if (earned > 0) {
+      db.prepare('INSERT INTO notifications (id, userId, title, body, type, data, createdAt) VALUES (?,?,?,?,?,?,?)')
+        .run(cuid(), order.clientId, 'Points fidélité', `+${earned} points pour votre commande ${order.orderNumber}`, 'LOYALTY', JSON.stringify({ orderId, points: earned }), nowIso());
+    }
+  }
 
   return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 }

@@ -11,6 +11,7 @@ import Coupons from './pages/merchant/Coupons';
 import MerchantReviews from './pages/merchant/MerchantReviews';
 import InventoryCount from './pages/merchant/InventoryCount';
 import Analytics from './pages/merchant/Analytics';
+import Loyalty from './pages/merchant/Loyalty';
 import Marketplace from './pages/client/Marketplace';
 import StorePublic from './pages/client/StorePublic';
 import Orders from './pages/client/Orders';
@@ -53,6 +54,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/merchant/store/:storeId/reviews" element={<MerchantReviews />} />
           <Route path="/merchant/store/:storeId/inventory-count" element={<InventoryCount />} />
           <Route path="/merchant/store/:storeId/analytics" element={<Analytics />} />
+          <Route path="/merchant/store/:storeId/loyalty" element={<Loyalty />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/store/:slug" element={<StorePublic />} />
           <Route path="/orders" element={<Orders />} />
