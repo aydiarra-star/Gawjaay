@@ -1,3 +1,8 @@
+// PHASE FINALE (§9) : ce fichier respecte TEST_DATABASE_URL comme les autres, afin que
+// l'authentification soit réellement exercée sur PostgreSQL en CI (et non plus seulement SQLite).
+import { vi } from 'vitest';
+vi.hoisted(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'file:./test-auth.db'; });
+
 import { describe, it, expect, beforeAll } from 'vitest';
 import db, { initDb } from '../lib/db';
 import { resetDatabase } from './helpers';

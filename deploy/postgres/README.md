@@ -22,13 +22,51 @@ Transformations de dialecte **uniquement** :
 1. **Fresh database** : base PG vierge → **9/9** fichiers appliqués dans l'ordre
    (`000_base` + `001`→`008`), journalisés dans `schema_migrations`.
 2. **Idempotence** : 2ᵉ exécution → **0** ré-application.
-3. **Intégrité** : **53 tables**, **64 FK**, **248 CHECK**.
-   ⚠️ Le compteur `CHECK` provient d'`information_schema.table_constraints`, qui en PostgreSQL
-   inclut les contraintes `NOT NULL` : sur ces 248, seulement **13** sont de vrais `CHECK` métier
-   (les 235 autres sont des `NOT NULL`).
+3. **Intégrité** : **54 tables** (53 tables métier + le journal), **64 FK**, **13 vrais CHECK**.
+   ⚠️ Le compteur affiché par `validate.mjs` provient d'`information_schema.table_constraints`, qui
+   en PostgreSQL **inclut les contraintes `NOT NULL`**. Ce nombre est **dépendant du moteur** :
+   mesuré **249** sur PostgreSQL 16.6 (236 NOT NULL + 13 CHECK) et **248** sur le PostgreSQL 18.3
+   embarqué par PGlite. La seule valeur stable et comparable entre moteurs est le nombre de
+   **vrais `CHECK` : 13** (identique à SQLite).
 4. **Parité** : comparaison systématique avec la référence SQLite
    (`reference-schema.sqlite`, régénérable) — tables, colonnes/classes de types,
-   NOT NULL, PK, FK, index explicites → **identique (53 tables)**.
+   NOT NULL, PK, FK, index explicites.
+
+### Parité mesurée sur PostgreSQL 16.6 réel (audit phase finale)
+
+Comparaison, sur le **même serveur**, du chemin **déploiement** (ces fichiers `.sql`) et du chemin
+**application** (`backend/src/lib/postgresBaseSchema.ts` + migrations TypeScript) :
+
+| Métrique | Chemin déploiement | Chemin application | Verdict |
+|---|---|---|---|
+| Tables | 54 | 54 | identique |
+| Colonnes (métier) | 488 | 489 | écart = journal seul |
+| Clés étrangères | 64 | 64 | identique |
+| Vrais `CHECK` | 13 | 13 | identique |
+| Clés primaires | 54 | 54 | identique |
+| Types de colonnes divergents | — | — | **aucune** |
+
+Le **schéma métier est strictement identique**. Le seul écart porte sur la table de journal :
+`schema_migrations` (2 colonnes, 1 PK) côté déploiement, `_migrations` (3 colonnes, 1 PK + 1 UNIQUE)
+côté application — d'où les écarts `-1` sur colonnes/index.
+
+### Vérification du chemin de déploiement de bout en bout
+
+```bash
+cd backend
+DATABASE_URL=postgresql://…/gawjaay_deploy_check \
+PG_ADMIN_URL=postgresql://…/postgres \
+node scripts/verify-deploy-path.mjs
+```
+
+Exécuté **en CI** (job `backend-postgres`, serveur `postgres:16` réel) et en local sur
+PostgreSQL 16.6 : base vierge → 9/9 fichiers → idempotence 0 → intégrité (54 tables, 64 FK,
+13 CHECK, 109 index) → **démarrage de l'API sur cette base**. Ce dernier point est une
+**régression corrigée** : le runner applicatif ne voyait pas le journal `schema_migrations`,
+rejouait la migration 001 et échouait au démarrage
+(`column "targetType" of relation "reviews" already exists`). Le runner détecte désormais ce
+journal externe, adopte les migrations déjà appliquées **sans les ré-exécuter**, puis les recopie
+dans `_migrations` (une seule source de vérité).
 
 ## Régénérer la référence SQLite
 

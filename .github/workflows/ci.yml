@@ -55,6 +55,12 @@ jobs:
       - name: Tests complets sur PostgreSQL (auth, multi-tenant, ventes, stock, IA, concurrence)
         working-directory: backend
         run: npx vitest run
+      - name: Chemin de déploiement réel (deploy/postgres/*.sql → démarrage de l API)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/gawjaay_deploy_check
+          PG_ADMIN_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/postgres
+        run: node scripts/verify-deploy-path.mjs
       - name: Build production
         working-directory: backend
         run: npm run build
