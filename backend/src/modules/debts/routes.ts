@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../middlewares/auth';
-import { listHandler, payHandler, getHandler } from './controller';
+import { authorize, requirePermission } from '../../middlewares/rbac';
+import { listHandler, payHandler, getHandler, createHandler } from './controller';
 const router = Router();
 router.use(authMiddleware);
+router.use(authorize(['MERCHANT','EMPLOYEE','ADMIN']));
 router.get('/store/:storeId', listHandler);
+router.post('/store/:storeId', requirePermission('customers','update'), createHandler);
 router.get('/:id', getHandler);
-router.post('/:id/pay', payHandler);
+router.post('/:id/pay', requirePermission('customers','update'), payHandler);
 export default router;

@@ -1,4 +1,14 @@
 import db from '../../lib/db';
+import { notify, listChannels, type ChannelName, type NotificationMessage } from './channels';
+
+/** Crée une notification via le registre de canaux (INTERNAL toujours ; externes = NOT_SENT tant que non branchés). */
+export async function createNotification(message: NotificationMessage, channels: ChannelName[] = ['INTERNAL']) {
+  return notify(message, channels);
+}
+
+export function channelStatuses() {
+  return listChannels();
+}
 
 export async function listNotifications(userId: string, onlyUnread = false, type?: string) {
   let sql = 'SELECT * FROM notifications WHERE userId = ?';

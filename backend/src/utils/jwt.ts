@@ -12,7 +12,7 @@ export function signAccess(payload: JwtPayload): string {
   return jwt.sign(payload, env.JWT_ACCESS_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRES } as any);
 }
 
-export function signRefresh(payload: { userId: string; sessionId: string }): string {
+export function signRefresh(payload: { userId: string; sessionId: string; jti?: string }): string {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRES } as any);
 }
 

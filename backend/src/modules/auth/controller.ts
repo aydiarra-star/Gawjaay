@@ -1,5 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { registerSchema, loginSchema } from '../../utils/validators';
+import { registerSchema, loginSchema, changePasswordSchema } from '../../utils/validators';
+import { env } from '../../config/env';
+
+/** Cookie refresh : httpOnly toujours ; `secure` en production (HTTPS obligatoire, PROJECT_RULES §2). */
+export const REFRESH_COOKIE_OPTIONS = { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'lax' as const, maxAge: 7*24*3600*1000, path: '/' };
 import * as service from './service';
 import { AuthRequest } from '../../middlewares/auth';
 import db from '../../lib/db';
@@ -16,7 +20,7 @@ export async function loginHandler(req: Request, res: Response, next: NextFuncti
   try {
     const { phone, password } = loginSchema.parse(req.body);
     const result = await service.login(phone, password, req.ip, req.headers['user-agent']);
-    res.cookie('refreshToken', result.refreshToken, { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 7*24*3600*1000 });
+    res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
     res.json(result);
   } catch (e) { next(e); }
 }
@@ -25,7 +29,9 @@ export async function refreshHandler(req: Request, res: Response, next: NextFunc
   try {
     const token = (req as any).cookies?.refreshToken || req.body.refreshToken;
     if (!token) return res.status(401).json({ error: 'Refresh manquant' });
-    const result = await service.refresh(token);
+    const result = await service.refresh(token, req.ip);
+    // Rotation : le nouveau refresh token remplace l'ancien dans le cookie httpOnly.
+    res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
     res.json(result);
   } catch (e) { next(e); }
 }
@@ -34,7 +40,7 @@ export async function logoutHandler(req: Request, res: Response, next: NextFunct
   try {
     const token = (req as any).cookies?.refreshToken || req.body.refreshToken;
     if (token) await service.logout(token);
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', { path: '/' });
     res.json({ message: 'Déconnecté' });
   } catch (e) { next(e); }
 }
@@ -55,7 +61,7 @@ export async function meHandler(req: AuthRequest, res: Response, next: NextFunct
 
 export async function changePasswordHandler(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { oldPassword, newPassword } = req.body;
+    const { oldPassword, newPassword } = changePasswordSchema.parse(req.body);
     await service.changePassword(req.user!.userId, oldPassword, newPassword);
     res.json({ message: 'Mot de passe changé' });
   } catch (e) { next(e); }

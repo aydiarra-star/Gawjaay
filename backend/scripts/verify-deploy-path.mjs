@@ -44,6 +44,7 @@ const SQL_FILES = [
   '006_lot_f.sql',
   '007_prod_indexes.sql',
   '008_idempotency.sql',
+  '009_v3_categories_indexes.sql',
 ];
 
 const TARGET_URL = process.env.DATABASE_URL || '';
@@ -140,7 +141,7 @@ check(checks === 13, 'contraintes CHECK réelles = 13', checks);
 // 109 ici contre 110 sur le chemin applicatif : la seule différence est l'index de la clé primaire
 // du journal (`schema_migrations` a 2 colonnes/1 PK, `_migrations` en a 3 et porte en plus un UNIQUE).
 // Mesuré et réconcilié par l'audit de parité — le schéma métier est, lui, strictement identique.
-check(indexes === 109, 'index = 109 (schéma déployé, journal inclus)', indexes);
+check(indexes === 118, 'index = 118 (schéma déployé, journal inclus : 109 + 9 index V3)', indexes);
 
 await db.end();
 
@@ -179,7 +180,7 @@ const appJournal = (await db2.query('SELECT count(*)::int c FROM _migrations')).
 const adopted = (await db2.query('SELECT name FROM _migrations ORDER BY name')).rows.map((r) => r.name);
 await db2.end();
 console.log('\n=== 5. Journal applicatif après adoption ===');
-check(appJournal === SQL_FILES.length - 1, '_migrations = 8 migrations applicatives', appJournal);
+check(appJournal === SQL_FILES.length - 1, `_migrations = ${SQL_FILES.length - 1} migrations applicatives`, appJournal);
 console.log(`  migrations : ${adopted.join(', ')}`);
 
 console.log(

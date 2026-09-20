@@ -44,7 +44,7 @@ export function buildApp() {
   app.use('/api/v1', routes);
 
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'GawJaay API', version: '2.5.0-lot-f', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'GawJaay API', version: '3.0.0', timestamp: new Date().toISOString() });
   });
 
   app.get('/', (req, res) => {

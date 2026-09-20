@@ -1,7 +1,7 @@
 # GawJaay V2 — Migrations PostgreSQL
 
-Portage **fidèle** des migrations V2 (base V1 `db.ts` + 001→006, puis 007 index prod et
-008 idempotence) en dialecte PostgreSQL, **validé sur un moteur PostgreSQL réel** via PGlite
+Portage **fidèle** des migrations V2/V3 (base V1 `db.ts` + 001→006, puis 007 index prod,
+008 idempotence et 009 catégories/index V3) en dialecte PostgreSQL, **validé sur un moteur PostgreSQL réel** via PGlite
 (PostgreSQL compilé en WASM ; PGlite 0.5.8 embarque PostgreSQL 18.3).
 
 ## Contenu
@@ -12,15 +12,18 @@ Portage **fidèle** des migrations V2 (base V1 `db.ts` + 001→006, puis 007 ind
 | `001_lot_a.sql` … `006_lot_f.sql` | `backend/src/migrations/versions/00{1..6}_*.ts` |
 | `007_prod_indexes.sql` | `backend/src/migrations/versions/007_prod_indexes.ts` |
 | `008_idempotency.sql` | `backend/src/migrations/versions/008_idempotency.ts` |
+| `009_v3_categories_indexes.sql` | `backend/src/migrations/versions/009_v3_categories_indexes.ts` (V3 : référentiel catégories + 9 index FK) |
 
 Transformations de dialecte **uniquement** :
 - `datetime('now')` → `now()::text` (colonnes TEXT, l'application écrit des chaînes ISO) ;
-- lignes `PRAGMA` retirées (sans objet en PG).
+- lignes `PRAGMA` retirées (sans objet en PG) ;
+- `INSERT` conditionnels du référentiel (009) écrits en `INSERT … SELECT … WHERE NOT EXISTS` (identifiants
+  déterministes `cat_<slug>`, identiques au runner applicatif).
 
 ## Validation exécutée (`node validate.mjs`)
 
-1. **Fresh database** : base PG vierge → **9/9** fichiers appliqués dans l'ordre
-   (`000_base` + `001`→`008`), journalisés dans `schema_migrations`.
+1. **Fresh database** : base PG vierge → **10/10** fichiers appliqués dans l'ordre
+   (`000_base` + `001`→`009`), journalisés dans `schema_migrations`.
 2. **Idempotence** : 2ᵉ exécution → **0** ré-application.
 3. **Intégrité** : **54 tables** (53 tables métier + le journal), **64 FK**, **13 vrais CHECK**.
    ⚠️ Le compteur affiché par `validate.mjs` provient d'`information_schema.table_constraints`, qui
@@ -60,8 +63,8 @@ node scripts/verify-deploy-path.mjs
 ```
 
 Exécuté **en CI** (job `backend-postgres`, serveur `postgres:16` réel) et en local sur
-PostgreSQL 16.6 : base vierge → 9/9 fichiers → idempotence 0 → intégrité (54 tables, 64 FK,
-13 CHECK, 109 index) → **démarrage de l'API sur cette base**. Ce dernier point est une
+PostgreSQL 16.6 : base vierge → 10/10 fichiers → idempotence 0 → intégrité (54 tables, 64 FK,
+13 CHECK, 118 index dont 9 index V3) → **démarrage de l'API sur cette base**. Ce dernier point est une
 **régression corrigée** : le runner applicatif ne voyait pas le journal `schema_migrations`,
 rejouait la migration 001 et échouait au démarrage
 (`column "targetType" of relation "reviews" already exists`). Le runner détecte désormais ce

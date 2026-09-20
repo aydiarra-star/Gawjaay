@@ -1,20 +1,32 @@
 import db, { cuid } from '../../lib/db';
+import { withTransaction } from '../../lib/transaction';
+import { recordAudit } from '../../lib/audit';
 function nowIso(){ return new Date().toISOString(); }
 
 export async function getStock(storeId: string) {
   return db.prepare('SELECT i.*, p.name as productName, p.lowStockThreshold FROM inventories i JOIN products p ON p.id = i.productId WHERE i.storeId = ?').all(storeId);
 }
 
-export async function adjustStock(storeId: string, productId: string, quantity: number, type: any, reason: string, userId: string) {
-  const inv = db.prepare('SELECT * FROM inventories WHERE storeId = ? AND productId = ?').get(storeId, productId) as any;
-  if (!inv) throw Object.assign(new Error('Inventaire introuvable'), { status: 404 });
-  const newQty = inv.quantity + quantity;
-  if (newQty < 0) throw Object.assign(new Error('Stock insuffisant'), { status: 400 });
-  db.prepare('UPDATE inventories SET quantity = ?, updatedAt = ? WHERE id = ?').run(newQty, nowIso(), inv.id);
-  const movementId = cuid();
-  db.prepare('INSERT INTO inventory_movements (id, storeId, productId, quantity, type, reason, userId, createdAt) VALUES (?,?,?,?,?,?,?,?)')
-    .run(movementId, storeId, productId, quantity, type, reason, userId, nowIso());
-  return { inventory: { ...inv, quantity: newQty }, movement: db.prepare('SELECT * FROM inventory_movements WHERE id = ?').get(movementId) };
+/**
+ * Ajustement de stock (V3 : atomique + journalisé). Signature interne conservée (services, tests) ;
+ * les entrées HTTP sont validées en amont par `stockAdjustSchema` (controller).
+ * Le stock ne peut jamais devenir négatif — erreur 400 explicite.
+ */
+export async function adjustStock(storeId: string, productId: string, quantity: number, type: any, reason: string | null | undefined, userId: string) {
+  if (typeof quantity !== 'number' || !Number.isFinite(quantity)) throw Object.assign(new Error('Quantité invalide'), { status: 400 });
+  return withTransaction(() => {
+    const inv = db.prepare('SELECT * FROM inventories WHERE storeId = ? AND productId = ?').get(storeId, productId) as any;
+    if (!inv) throw Object.assign(new Error('Inventaire introuvable'), { status: 404 });
+    const newQty = inv.quantity + quantity;
+    if (newQty < 0) throw Object.assign(new Error('Stock insuffisant'), { status: 400 });
+    db.prepare('UPDATE inventories SET quantity = ?, updatedAt = ? WHERE id = ?').run(newQty, nowIso(), inv.id);
+    const movementId = cuid();
+    db.prepare('INSERT INTO inventory_movements (id, storeId, productId, quantity, type, reason, userId, createdAt) VALUES (?,?,?,?,?,?,?,?)')
+      .run(movementId, storeId, productId, quantity, type || 'ADJUSTMENT', reason ?? null, userId, nowIso());
+    recordAudit(userId, 'STOCK_ADJUST', 'Inventory', inv.id, { storeId, productId, quantity, type: type || 'ADJUSTMENT', reason: reason ?? null });
+    notifyLowStockSync(storeId, productId);
+    return { inventory: { ...inv, quantity: newQty }, movement: db.prepare('SELECT * FROM inventory_movements WHERE id = ?').get(movementId) };
+  });
 }
 
 export async function history(storeId: string, productId?: string, take=50) {
@@ -31,18 +43,25 @@ export async function lowStock(storeId: string) {
 /**
  * V2 — Alerte stock faible : notifie le marchand quand le stock passe sous le seuil.
  * Utilise uniquement les données réelles (inventories + products.lowStockThreshold).
+ * Version SYNCHRONE (V3) : utilisable à l'intérieur d'un bloc `withTransaction` (la notification
+ * interne est une écriture SQL, elle est donc annulée avec la transaction en cas d'échec).
  */
-export async function maybeNotifyLowStock(storeId: string, productId: string, userId?: string) {
+export function notifyLowStockSync(storeId: string, productId: string) {
   const row = db.prepare(`SELECT i.quantity, p.name, p.lowStockThreshold FROM inventories i
     JOIN products p ON p.id = i.productId WHERE i.storeId = ? AND i.productId = ?`).get(storeId, productId) as any;
-  if (!row) return;
+  if (!row) return false;
   const threshold = row.lowStockThreshold ?? 5;
-  if (row.quantity > threshold) return;
+  if (row.quantity > threshold) return false;
   const store = db.prepare('SELECT merchantId FROM stores WHERE id = ?').get(storeId) as any;
-  if (!store) return;
+  if (!store) return false;
   const merchant = db.prepare('SELECT userId FROM merchants WHERE id = ?').get(store.merchantId) as any;
-  if (!merchant) return;
-  const { cuid } = await import('../../lib/db');
+  if (!merchant) return false;
   db.prepare('INSERT INTO notifications (id, userId, title, body, type, data, createdAt) VALUES (?,?,?,?,?,?,?)')
     .run(cuid(), merchant.userId, 'Stock faible', `${row.name} : stock faible (${row.quantity} restant, seuil ${threshold})`, 'STOCK_ALERT', JSON.stringify({ storeId, productId, quantity: row.quantity }), new Date().toISOString());
+  return true;
+}
+
+/** Compatibilité V2 (signature asynchrone). */
+export async function maybeNotifyLowStock(storeId: string, productId: string, _userId?: string) {
+  return notifyLowStockSync(storeId, productId);
 }

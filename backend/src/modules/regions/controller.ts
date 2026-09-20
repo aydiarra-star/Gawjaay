@@ -4,6 +4,12 @@ import * as service from './service';
 export async function listHandler(req: Request, res: Response, next: NextFunction) {
   try { const regions = await service.listRegions(); res.json(regions); } catch (e) { next(e); }
 }
+export async function departmentsHandler(req: Request, res: Response, next: NextFunction) {
+  try { res.json(await service.listDepartments(typeof req.query.regionId === 'string' ? req.query.regionId : undefined)); } catch (e) { next(e); }
+}
+export async function communesHandler(req: Request, res: Response, next: NextFunction) {
+  try { res.json(await service.listCommunes(req.params.departmentId)); } catch (e) { next(e); }
+}
 export async function seedHandler(req: Request, res: Response, next: NextFunction) {
   try { await service.seedRegions(); res.json({ message: 'Régions seedées' }); } catch (e) { next(e); }
 }
