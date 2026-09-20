@@ -4,6 +4,13 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
+
+// Observabilité production : Sentry UNIQUEMENT si SENTRY_DSN est défini (no-op sinon).
+// Aucune donnée personnelle superflue : erreurs serveur seulement (5xx), pas de tracing req/res.
+import * as Sentry from '@sentry/node';
+if (env.SENTRY_DSN) {
+  Sentry.init({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV, sendDefaultPii: false });
+}
 import { bootstrap } from './lib/bootstrap';
 import routes from './routes';
 import { errorHandler } from './middlewares/errorHandler';
