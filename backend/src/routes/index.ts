@@ -13,6 +13,7 @@ import orderRoutes from '../modules/orders/routes';
 import paymentRoutes from '../modules/payments/routes';
 import deliveryRoutes from '../modules/deliveries/routes';
 import driverRoutes from '../modules/drivers/routes';
+import assistantRoutes from '../modules/assistant/routes';
 import marketplaceRoutes from '../modules/marketplace/routes';
 import notificationRoutes from '../modules/notifications/routes';
 import employeeRoutes from '../modules/employees/routes';
@@ -47,6 +48,7 @@ router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/deliveries', deliveryRoutes);
 router.use('/drivers', driverRoutes);
+router.use('/assistant', assistantRoutes);
 router.use('/marketplace', marketplaceRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/employees', employeeRoutes);
@@ -65,6 +67,6 @@ router.use('/loyalty', loyaltyRoutes);
 router.use('/b2b', b2bRoutes);
 router.use('/replenishment', replenishmentRoutes);
 
-router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.4.0-lot-e', timestamp: new Date().toISOString() }));
+router.get('/health', (req, res) => res.json({ status: 'ok', service: 'GawJaay API', version: '2.5.0-lot-f', timestamp: new Date().toISOString() }));
 
 export default router;

@@ -17,6 +17,7 @@ import B2BOrders from './pages/merchant/B2BOrders';
 import Replenishment from './pages/merchant/Replenishment';
 import Deliveries from './pages/merchant/Deliveries';
 import DriverApp from './pages/driver/DriverApp';
+import Assistant from './pages/merchant/Assistant';
 import Marketplace from './pages/client/Marketplace';
 import StorePublic from './pages/client/StorePublic';
 import Orders from './pages/client/Orders';
@@ -65,6 +66,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/merchant/b2b/orders" element={<B2BOrders />} />
           <Route path="/merchant/store/:storeId/deliveries" element={<Deliveries />} />
           <Route path="/driver" element={<DriverApp />} />
+          <Route path="/merchant/store/:storeId/assistant" element={<Assistant />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/store/:slug" element={<StorePublic />} />
           <Route path="/orders" element={<Orders />} />
