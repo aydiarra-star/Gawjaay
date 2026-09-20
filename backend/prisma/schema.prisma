@@ -13,6 +13,7 @@ enum Role {
   MERCHANT
   EMPLOYEE
   ADMIN
+  DRIVER
 }
 
 enum StoreStatusPhysical {

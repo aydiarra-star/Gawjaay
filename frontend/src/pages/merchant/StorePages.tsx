@@ -8,11 +8,28 @@ export function SalesPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [scanCode, setScanCode] = useState('');
+  const [scanError, setScanError] = useState('');
 
   useEffect(()=>{
     api.get(`/sales/store/${storeId}`).then(r=>setSales(r.data));
     api.get(`/products/store/${storeId}`).then(r=>setProducts(r.data));
   }, [storeId]);
+
+  // V2 LOT B : vente rapide par scan code-barres / SKU
+  const scan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scanCode.trim()) return;
+    setScanError('');
+    try {
+      const r = await api.get(`/barcodes/${encodeURIComponent(scanCode.trim())}?storeId=${storeId}`);
+      const p = r.data;
+      addToCart({ id: p.id, name: p.name, price: p.price });
+      setScanCode('');
+    } catch (err: any) {
+      setScanError(err.response?.status === 404 ? 'Code inconnu dans cette boutique' : 'Erreur de scan');
+    }
+  };
 
   const addToCart = (p:any)=>{
     const existing = cart.find(c=>c.productId===p.id);
@@ -30,9 +47,15 @@ export function SalesPage() {
   return (
     <div>
       <h1 className="text-xl font-bold mb-4">Ventes - {storeId}</h1>
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 bg-white p-4 rounded shadow">
-          <h3 className="font-bold mb-2">Produits</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white p-4 rounded shadow">
+          <h3 className="font-bold mb-2">🖥️ Scan code-barres (vente rapide)</h3>
+          <form onSubmit={scan} className="flex gap-2 mb-2">
+            <input className="border p-2 flex-1" placeholder="Scannez ou saisissez un code-barres / SKU puis Entrée" value={scanCode} onChange={(e)=>setScanCode(e.target.value)} autoFocus />
+            <button type="submit" className="bg-green-700 text-white px-4 rounded">Scan</button>
+          </form>
+          {scanError && <p className="text-red-600 text-sm mb-2">{scanError}</p>}
+          <h3 className="font-bold mb-2 mt-4">Produits</h3>
           <div className="grid grid-cols-2 gap-2">
             {products.map((p:any)=>(
               <div key={p.id} className="border p-2 rounded flex justify-between">

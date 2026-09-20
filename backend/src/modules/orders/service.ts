@@ -1,5 +1,9 @@
 import db, { cuid } from '../../lib/db';
 import { generateOrderNumber } from '../../utils/slug';
+import { applyPromotions, consumePromotion, releasePromotion } from '../promotions/service';
+import { validateCoupon, consumeCoupon, releaseCoupon } from '../coupons/service';
+import { maybeNotifyLowStock } from '../inventory/service';
+import * as loyalty from '../loyalty/service';
 
 function nowIso(){ return new Date().toISOString(); }
 
@@ -25,24 +29,56 @@ export async function createOrder(clientId: string, data: any) {
 
   let total = 0;
   const itemsData: any[] = [];
+  // V2 : le serveur applique les promotions actives — le client n'impose jamais un prix.
+  const promoResult = applyPromotions(data.storeId, data.items);
+  const lineByProduct = new Map(promoResult.lines.map((l: any) => [l.productId, l]));
   for (const it of data.items) {
     const product = db.prepare('SELECT * FROM products WHERE id = ?').get(it.productId) as any;
     if (!product || product.storeId !== data.storeId) throw Object.assign(new Error(`Produit ${it.productId} introuvable`), { status: 404 });
     if (!product.isActive || !product.isOnline) throw Object.assign(new Error(`Produit ${product.name} non disponible en ligne`), { status: 400 });
     const inv = db.prepare('SELECT * FROM inventories WHERE storeId = ? AND productId = ?').get(data.storeId, it.productId) as any;
     if (!inv || inv.quantity < it.quantity) throw Object.assign(new Error(`Stock insuffisant pour ${product.name} (disponible ${inv?.quantity||0})`), { status: 400 });
-    const lineTotal = product.price * it.quantity;
+    const line: any = lineByProduct.get(it.productId);
+    const unitPrice = line.unitPriceFinal; // prix serveur (promo ou prix normal)
+    const lineTotal = unitPrice * it.quantity;
     total += lineTotal;
-    itemsData.push({ productId: it.productId, quantity: it.quantity, unitPrice: product.price, total: lineTotal });
+    itemsData.push({ productId: it.productId, quantity: it.quantity, unitPrice, total: lineTotal });
+  }
+
+  // V2 : coupon validé et chiffré côté serveur
+  let coupon: any = null;
+  let couponDiscount = 0;
+  if (data.couponCode) {
+    const check = validateCoupon(data.storeId, data.couponCode, { subtotal: total, clientId });
+    if (!check.ok) throw Object.assign(new Error(check.reason || 'Coupon invalide'), { status: 400 });
+    coupon = check.coupon;
+    couponDiscount = check.discount || 0;
+  }
+
+  // V2 LOT C : rachat de points fidélité (remise calculée serveur)
+  let pointsDiscount = 0;
+  let pointsToUse = 0;
+  if (data.pointsToUse && data.pointsToUse > 0) {
+    pointsDiscount = loyalty.redeem(data.storeId, clientId, Math.floor(data.pointsToUse), 'pending-' + cuid());
+    pointsToUse = pointsDiscount > 0 ? Math.floor(data.pointsToUse) : 0;
   }
 
   const deliveryFees = data.deliveryType === 'LIVRAISON' ? (store.deliveryFees || 0) : 0;
-  const finalTotal = total + deliveryFees - (data.discount||0);
+  const finalTotal = Math.max(0, total + deliveryFees - couponDiscount - pointsDiscount);
   const orderId = cuid();
   const orderNumber = generateOrderNumber();
 
-  db.prepare(`INSERT INTO orders (id, orderNumber, storeId, clientId, addressId, totalAmount, deliveryFees, deliveryType, notes, status, createdAt, updatedAt)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(orderId, orderNumber, data.storeId, clientId, data.addressId || null, finalTotal, deliveryFees, data.deliveryType || 'LIVRAISON', data.notes || null, 'EN_ATTENTE', nowIso(), nowIso());
+  db.prepare(`INSERT INTO orders (id, orderNumber, storeId, clientId, addressId, totalAmount, deliveryFees, discount, deliveryType, notes, status, promotionIds, couponId, pointsToUse, createdAt, updatedAt)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(orderId, orderNumber, data.storeId, clientId, data.addressId || null, finalTotal, deliveryFees,
+      (promoResult.totalDiscount || 0) + couponDiscount + pointsDiscount, data.deliveryType || 'LIVRAISON', data.notes || null, 'EN_ATTENTE',
+      promoResult.promotionIds.length ? JSON.stringify([...new Set(promoResult.promotionIds)]) : null,
+      coupon ? coupon.id : null, pointsToUse || null, nowIso(), nowIso());
+
+  if (pointsToUse > 0) {
+    // rattache la transaction 'pending' au vrai orderId (traçabilité complète)
+    db.prepare(`UPDATE loyalty_transactions SET referenceId = ? WHERE referenceId LIKE ?`)
+      .run(orderId, 'pending-%');
+  }
 
   for (const it of itemsData) {
     db.prepare('INSERT INTO order_items (id, orderId, productId, quantity, unitPrice, total) VALUES (?,?,?,?,?,?)')
@@ -84,6 +120,21 @@ export async function updateStatus(orderId: string, newStatus: string, user: any
       db.prepare('UPDATE inventories SET quantity = ?, updatedAt = ? WHERE id = ?').run(inv.quantity - it.quantity, nowIso(), inv.id);
       db.prepare('INSERT INTO inventory_movements (id, storeId, productId, quantity, type, referenceId, reason, userId, createdAt) VALUES (?,?,?,?,?,?,?,?,?)')
         .run(cuid(), order.storeId, it.productId, -it.quantity, 'ONLINE_ORDER', orderId, 'Commande confirmée', user.userId, nowIso());
+      await maybeNotifyLowStock(order.storeId, it.productId, user.userId);
+    }
+    // V2 : consomption des promotions au moment de la confirmation (atomicité serveur)
+    if (order.promotionIds) {
+      for (const pid of JSON.parse(order.promotionIds)) {
+        if (!consumePromotion(pid)) {
+          throw Object.assign(new Error('Promotion devenue indisponible'), { status: 400 });
+        }
+      }
+    }
+    if (order.couponId) {
+      // remontée exacte de la remise coupon : remise = sous-total(promo inclus) + frais - total
+      const agg = db.prepare('SELECT COALESCE(SUM(total),0) as subtotal FROM order_items WHERE orderId = ?').get(orderId) as any;
+      const couponDiscount = Math.max(0, (agg.subtotal || 0) + (order.deliveryFees || 0) - order.totalAmount);
+      consumeCoupon(order.couponId, orderId, order.storeId, order.clientId, couponDiscount);
     }
   }
 
@@ -97,11 +148,36 @@ export async function updateStatus(orderId: string, newStatus: string, user: any
           .run(cuid(), order.storeId, it.productId, it.quantity, 'RETURN', orderId, 'Annulation commande', user.userId, nowIso());
       }
     }
+    // V2 : restitution promotions/coupon à l'annulation
+    if (order.promotionIds) {
+      for (const pid of JSON.parse(order.promotionIds)) releasePromotion(pid);
+    }
+    if (order.couponId) releaseCoupon(order.couponId, orderId);
+  }
+
+  // V2 LOT C : points rachetés à la création → toujours restitués à l'annulation
+  if (newStatus === 'ANNULEE' && order.pointsToUse && order.pointsToUse > 0) {
+    const acc = db.prepare('SELECT * FROM loyalty_accounts WHERE storeId = ? AND clientUserId = ?').get(order.storeId, order.clientId) as any;
+    if (acc) {
+      const newBalance = acc.points + order.pointsToUse;
+      db.prepare('UPDATE loyalty_accounts SET points = ?, updatedAt = ? WHERE id = ?').run(newBalance, nowIso(), acc.id);
+      db.prepare('INSERT INTO loyalty_transactions (id, accountId, type, points, balanceAfter, referenceId, reason, createdAt) VALUES (?,?,?,?,?,?,?,?)')
+        .run(cuid(), acc.id, 'ADJUST', order.pointsToUse, newBalance, orderId, 'Restitution points (annulation commande)', nowIso());
+    }
   }
 
   db.prepare('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?').run(newStatus, nowIso(), orderId);
   db.prepare('INSERT INTO notifications (id, userId, title, body, type, data, createdAt) VALUES (?,?,?,?,?,?,?)')
     .run(cuid(), order.clientId, `Commande ${newStatus}`, `Votre commande ${order.orderNumber} est ${newStatus}`, 'ORDER', JSON.stringify({ orderId }), nowIso());
+
+  // V2 LOT C : points de fidélité gagnés à la livraison (montant réel payé = totalAmount)
+  if (newStatus === 'LIVREE' && order.totalAmount > 0) {
+    const earned = loyalty.earnForPurchase(order.storeId, order.clientId, order.totalAmount, orderId);
+    if (earned > 0) {
+      db.prepare('INSERT INTO notifications (id, userId, title, body, type, data, createdAt) VALUES (?,?,?,?,?,?,?)')
+        .run(cuid(), order.clientId, 'Points fidélité', `+${earned} points pour votre commande ${order.orderNumber}`, 'LOYALTY', JSON.stringify({ orderId, points: earned }), nowIso());
+    }
+  }
 
   return db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 }

@@ -59,9 +59,18 @@ export async function listProducts(storeId: string, filters: any) {
 export async function updateProduct(productId: string, data: any, userId: string) {
   const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(productId) as any;
   if (!existing) throw Object.assign(new Error('Produit introuvable'), { status: 404 });
+  // V2 : unicité du code-barres / SKU par boutique
+  if (data.barcode !== undefined && data.barcode !== null && data.barcode !== '') {
+    const dup = db.prepare('SELECT id, name FROM products WHERE storeId = ? AND barcode = ? AND id != ?').get(existing.storeId, String(data.barcode).trim(), productId);
+    if (dup) throw Object.assign(new Error(`Code déjà attribué au produit ${dup.name}`), { status: 400 });
+  }
+  if (data.sku !== undefined && data.sku !== null && data.sku !== '') {
+    const dup = db.prepare('SELECT id, name FROM products WHERE storeId = ? AND sku = ? AND id != ?').get(existing.storeId, String(data.sku).trim(), productId);
+    if (dup) throw Object.assign(new Error(`SKU déjà attribué au produit ${dup.name}`), { status: 400 });
+  }
   const fields: string[] = [];
   const values: any[] = [];
-  const map: any = { name: 'name', description: 'description', price: 'price', costPrice: 'costPrice', categoryId: 'categoryId', unit: 'unit', lowStockThreshold: 'lowStockThreshold', isActive: 'isActive', isOnline: 'isOnline', images: 'images', variants: 'variants' };
+  const map: any = { name: 'name', description: 'description', price: 'price', costPrice: 'costPrice', categoryId: 'categoryId', unit: 'unit', lowStockThreshold: 'lowStockThreshold', stockMax: 'stockMax', sku: 'sku', barcode: 'barcode', isActive: 'isActive', isOnline: 'isOnline', images: 'images', variants: 'variants' };
   for (const k in map) {
     if (data[k] !== undefined) {
       fields.push(`${map[k]} = ?`);

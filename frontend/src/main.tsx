@@ -6,6 +6,18 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import MerchantDashboard from './pages/merchant/Dashboard';
 import { SalesPage, OrdersPage as MerchantOrders, InventoryPage, CustomersPage } from './pages/merchant/StorePages';
+import Promotions from './pages/merchant/Promotions';
+import Coupons from './pages/merchant/Coupons';
+import MerchantReviews from './pages/merchant/MerchantReviews';
+import InventoryCount from './pages/merchant/InventoryCount';
+import Analytics from './pages/merchant/Analytics';
+import Loyalty from './pages/merchant/Loyalty';
+import B2BWholesale from './pages/merchant/B2BWholesale';
+import B2BOrders from './pages/merchant/B2BOrders';
+import Replenishment from './pages/merchant/Replenishment';
+import Deliveries from './pages/merchant/Deliveries';
+import DriverApp from './pages/driver/DriverApp';
+import Assistant from './pages/merchant/Assistant';
 import Marketplace from './pages/client/Marketplace';
 import StorePublic from './pages/client/StorePublic';
 import Orders from './pages/client/Orders';
@@ -43,6 +55,18 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/merchant/store/:storeId/orders" element={<MerchantOrders />} />
           <Route path="/merchant/store/:storeId/inventory" element={<InventoryPage />} />
           <Route path="/merchant/store/:storeId/customers" element={<CustomersPage />} />
+          <Route path="/merchant/store/:storeId/promotions" element={<Promotions />} />
+          <Route path="/merchant/store/:storeId/coupons" element={<Coupons />} />
+          <Route path="/merchant/store/:storeId/reviews" element={<MerchantReviews />} />
+          <Route path="/merchant/store/:storeId/inventory-count" element={<InventoryCount />} />
+          <Route path="/merchant/store/:storeId/analytics" element={<Analytics />} />
+          <Route path="/merchant/store/:storeId/loyalty" element={<Loyalty />} />
+          <Route path="/merchant/store/:storeId/replenishment" element={<Replenishment />} />
+          <Route path="/merchant/b2b" element={<B2BWholesale />} />
+          <Route path="/merchant/b2b/orders" element={<B2BOrders />} />
+          <Route path="/merchant/store/:storeId/deliveries" element={<Deliveries />} />
+          <Route path="/driver" element={<DriverApp />} />
+          <Route path="/merchant/store/:storeId/assistant" element={<Assistant />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/store/:slug" element={<StorePublic />} />
           <Route path="/orders" element={<Orders />} />

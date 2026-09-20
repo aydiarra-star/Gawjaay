@@ -90,6 +90,22 @@ function QuickLinks({ storeId }: { storeId: string }) {
       <Link to={`/merchant/store/${storeId}/customers`} className="block text-green-700">→ Clients & dettes</Link>
       <Link to={`/merchant/store/${storeId}/expenses`} className="block text-green-700">→ Dépenses</Link>
       <Link to={`/merchant/store/${storeId}/employees`} className="block text-green-700">→ Employés</Link>
+      <Link to={`/merchant/store/${storeId}/promotions`} className="block text-green-700">→ Promotions</Link>
+      <Link to={`/merchant/store/${storeId}/coupons`} className="block text-green-700">→ Coupons</Link>
+      <Link to={`/merchant/store/${storeId}/reviews`} className="block text-green-700">→ Avis clients</Link>
+      <Link to={`/merchant/store/${storeId}/analytics`} className="block text-green-700">→ Analytics & exports</Link>
+      <Link to={`/merchant/store/${storeId}/inventory-count`} className="block text-green-700">→ Inventaire (comptage)</Link>
+      <Link to={`/merchant/store/${storeId}/loyalty`} className="block text-green-700">→ Fidélité</Link>
+
+      <Link to={`/merchant/store/${storeId}/assistant`} className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Assistant IA</span><br /><span className="text-sm text-gray-600">Questions sur vos données réelles + actions confirmées</span></Link>
+
+      <Link to={`/merchant/store/${storeId}/deliveries`} className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Livraisons</span><br /><span className="text-sm text-gray-600">Livreurs, courses et preuves</span></Link>
+
+      <Link to="/merchant/b2b" className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Grossiste B2B</span><br /><span className="text-sm text-gray-600">Catalogues pro et commandes reçues</span></Link>
+
+      <Link to="/merchant/b2b/orders" className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Commander en gros</span><br /><span className="text-sm text-gray-600">Catalogues fournisseurs et suivi</span></Link>
+
+      <Link to={`/merchant/store/${storeId}/replenishment`} className="block bg-white p-4 rounded shadow mb-3"><span className="font-bold">Réapprovisionnement</span><br /><span className="text-sm text-gray-600">Suggestions basées sur le stock réel</span></Link>
     </div>
   );
 }
