@@ -1,12 +1,14 @@
 # GAWJAAY — FINAL PRODUCTION REPORT
 
-**Date :** 2026-09-20 · **Branche :** `arena/01a0bf77-gawjaay` · **Commit audité :** `7069be3`
+**Date :** 2026-09-20 · **Branche :** `arena/01a0bf77-gawjaay` @ **`de159f4`** (poussée sur `origin`)
+**Base auditée :** `main` = `7069be3` (local **et** distant identiques)
 **Statut global : TECHNICALLY READY — NOT DEPLOYED**
 
-> Aucune infrastructure réelle n'a été fournie à cette session (pas de VPS, pas de domaine,
-> pas de base PostgreSQL de production, pas de bucket S3, pas de DSN Sentry). **Rien n'a été
-> déployé.** Ce rapport ne contient que des éléments **mesurés** dans cet environnement ;
-> tout ce qui ne pouvait pas l'être est marqué `BLOCKED` ou `NOT TESTED` — jamais `PASS`.
+> Deux audits ont été menés dans cette session (16:16 puis reprise complète). Aucune
+> infrastructure réelle n'a été fournie (pas de VPS, pas de domaine, pas de base PostgreSQL de
+> production, pas de bucket S3, pas de DSN Sentry). **Rien n'a été déployé.** Ce rapport ne
+> contient que des éléments **mesurés** ; tout ce qui ne pouvait pas l'être est marqué `BLOCKED`
+> ou `NOT TESTED` — jamais `PASS`.
 
 ---
 
@@ -24,14 +26,33 @@
 
 ## 1. Git — STATUS: PASS
 
-Mesures (`git status`, `git log`, `git branch -a`, `git remote -v`) :
+Mesures (`git status`, `git log`, `git branch -a`, `git remote -v`, `git ls-remote origin`) :
 
-- Arbre de travail **propre** au démarrage de l'audit.
-- Branche : `arena/01a0bf77-gawjaay`, HEAD = **`7069be315f4e35faa27af7969945dca72dd80671`**.
+- Arbre de travail **propre**.
+- Branche de session : `arena/01a0bf77-gawjaay`, HEAD = **`de159f40a6413825205c7e6deaf4d1fa64c22024`**,
+  **poussée sur `origin`** (`git push origin arena/01a0bf77-gawjaay` → `* [new branch]`, sans `--force`).
 - Remote unique : `origin → https://github.com/aydiarra-star/Gawjaay.git`.
-- ⚠️ **Le clone de cet environnement est `grafted` (shallow)** : `git log` ne montre qu'un seul
-  commit. L'historique complet n'est donc **pas vérifiable localement** ici ; il l'est via l'API
-  GitHub (utilisée ci-dessous). Aucun `reset --hard`, aucun `push --force` n'a été exécuté.
+- ⚠️ **Le clone de cet environnement est `grafted` (shallow)** — `git rev-parse
+  --is-shallow-repository` → `true`. `git log` ne montre donc que 2 commits. L'historique complet
+  n'est **pas vérifiable localement** ; il l'est via l'API GitHub (ci-dessous).
+- Aucun `git reset --hard`, aucun `git push --force` n'a été exécuté.
+
+**État réel des branches (`git ls-remote origin`) :**
+
+| Réf distante | SHA | Lecture |
+|---|---|---|
+| `refs/heads/main` | `7069be3` | base — merge de la PR #5 |
+| `refs/heads/arena/01a0bf77-gawjaay` | `de159f4` | **cette session** (audit + corrections doc) |
+| `refs/heads/arena/01a0beef-gawjaay` | `fbe3b6b` | branche d'une session antérieure, **périmée** |
+
+**⚠️ `main` et la branche arena ne sont PAS au même commit.** `main` = `7069be3`, la branche de
+cette session = `de159f4` (1 commit en avance, non mergé). L'API GitHub le confirme :
+`compare/7069be3...fbe3b6b` → `{status: "behind", ahead_by: 0, behind_by: 3}` — c'est-à-dire que
+**`fbe3b6b` est déjà entièrement contenu dans `main`** et que `main` a 3 commits de plus. La
+branche distante `arena/01a0beef-gawjaay` est donc une copie périmée, à supprimer éventuellement.
+
+Rapprocher `main` de la branche arena passe par une **pull request** (cette session n'a pas le
+droit de pousser sur `main`). Aucune PR n'a été ouverte sans demande explicite.
 
 **Commits annoncés — vérifiés un par un via l'API GitHub** (`GET /repos/…/commits/<sha>`) :
 
@@ -39,17 +60,25 @@ Mesures (`git status`, `git log`, `git branch -a`, `git remote -v`) :
 |---|---|
 | `61b48a9` | **HTTP 422 « No commit found for SHA »** → n'a jamais existé sur ce dépôt |
 | `03aabb7` | **HTTP 422 « No commit found for SHA »** → n'a jamais existé sur ce dépôt |
-| `fbe3b6b` | **existe** — `feat(pg): postgresql runtime + dynamic storeids + composite idempotency (325/325)` |
+| `fbe3b6b` | **existe** — `feat(pg): postgresql runtime + dynamic storeids + composite idempotency (325/325)`, parent `d5c2470`, **déjà dans `main`** |
 | `be5c016` | **existe** — tête de la PR #5 (`docs(prod): rapport final de production + …`) |
-| `7069be3` | **existe** — commit de merge de la PR #5, = HEAD actuel |
+| `7069be3` | **existe** — commit de merge de la PR #5, = `main` actuel |
+| `de159f4` | **existe** — travail de cette session, poussé sur `origin` |
 
-Conclusion : le travail PostgreSQL runtime est bien présent via `fbe3b6b`, et l'historique n'a pas
-été réécrit (le merge de la PR #5 est un merge classique, pas un rebase).
+Conclusion : le travail PostgreSQL runtime est bien présent via `fbe3b6b`, intégré dans `main` par
+un **merge classique** (pas de rebase, pas de réécriture d'historique).
 
 ## 2. Commit déployable — STATUS: PASS
 
-Le commit déployable est **`7069be3`** (= HEAD, = `origin/main`, = commit de merge de la PR #5).
-C'est exactement le commit sur lequel la CI est verte (§17).
+Deux réponses selon la cible :
+
+- **`main` aujourd'hui** : **`7069be3`** — CI verte (§17), c'est le commit déployable en l'état.
+- **Branche de cette session** : **`de159f4`** — également **CI verte** (runs `35522180341` CI Tests
+  et `35522180384` E2E Playwright, tous deux `success` sur `de159f4`). Ce commit ne contient que
+  des corrections de **documentation de déploiement** : aucun changement de code applicatif.
+
+Les deux sont déployables. `de159f4` est préférable car il corrige un
+`deploy/.env.production.example` qui aurait fait déployer SQLite en production (§27).
 
 ## 3. PR #5 — STATUS: PASS (mais **déjà mergée**, contrairement à l'énoncé)
 
@@ -80,7 +109,8 @@ Aucune vérification n'a été contournée.
 
 ## 4. Baseline — STATUS: PASS (chiffres **recalculés**, écarts documentés)
 
-Rejouée dans cet environnement, sur le commit `7069be3` :
+Rejouée **deux fois** dans cette session (avant et après les corrections de documentation), sur
+`7069be3` puis sur `de159f4` — résultats identiques :
 
 | Référence annoncée | Mesure réelle | Écart |
 |---|---|---|
@@ -89,7 +119,7 @@ Rejouée dans cet environnement, sur le commit `7069be3` :
 | Concurrence 4/4 (2 moteurs) | **4/4** sur les deux moteurs | conforme |
 | Smoke HTTP 39/39 | **39/39 PASS** | conforme |
 | Playwright 8/8 | **8 passed, 8 skipped** (annotation CI) | conforme |
-| CI verte | **3 workflows `success`** sur `7069be3` | conforme |
+| CI verte | **`success`** sur `7069be3` **et** sur `de159f4` | conforme |
 
 **Explication de l'écart 330 → 334 (aucune falsification)** : la suite compte **334 tests au total**,
 dont les **4 tests de concurrence**. L'ancien rapport écrivait « SQLite : 330/330 » puis
@@ -128,15 +158,18 @@ cd frontend && npx tsc --noEmit && npm run build   → OK (dist/assets/index-*.j
 | `command -v ssh` | présent (`/usr/bin/ssh`) mais sans cible ni identifiant |
 | `command -v ansible` / `terraform` | absents |
 | `env \| grep -iE 'hetzner\|hcloud\|ssh\|deploy\|domain'` | **aucune variable** |
+| Recherche de credentials dans le workspace (`*.pem`, `id_rsa*`, `*hetzner*`) | **aucun fichier** |
 | `grep` d'adresses IP réelles dans le dépôt | **aucune** (hors `0.0.0.0`/`127.0.0.1`) |
+| `curl https://api.hetzner.cloud/v1/servers` | **`SSL_ERROR_SYSCALL`** — l'API Hetzner est **injoignable** depuis ce sandbox |
 
 OS, version, CPU, RAM, disque, IP et hostname du CPX32 **ne peuvent donc pas être identifiés** :
 `uname -a`, `cat /etc/os-release`, `free -h`, `df -h`, `nproc` n'ont aucun hôte cible.
 Rien n'a été supposé, rien n'a été inventé.
 
 **Ressource réseau du sandbox, mesurée** : `github.com` → HTTP 200, `registry.npmjs.org` → OK,
-mais `deb.debian.org` et `apt.postgresql.org`/`www.postgresql.org` **injoignables**. Ce sandbox
-n'est pas un environnement de déploiement.
+mais `deb.debian.org`, `www.postgresql.org` **et `api.hetzner.cloud`** sont **injoignables**
+(`SSL_ERROR_SYSCALL`), et `docker` est absent. Ce sandbox ne peut ni provisionner ni joindre
+une infrastructure Hetzner : il n'est pas un environnement de déploiement.
 
 ## 6. Sécurisation initiale du VPS — STATUS: BLOCKED
 
@@ -305,14 +338,23 @@ Dépend du VPS (§5) et du domaine. Aucun certificat émis, aucune validation po
 
 ## 17. CI — STATUS: PASS
 
-Mesuré via l'API GitHub, sur le commit déployable `7069be3` :
+Mesuré via l'API GitHub.
+
+**Sur `main` (`7069be3`)** :
 
 | Run | Workflow | Conclusion |
 |---|---|---|
 | `35515323280` | CI Tests | **success** |
 | `35515323282` | E2E Playwright | **success** |
 
-Jobs du run `35515177927` (tête de PR) : `backend` **success**, `backend-postgres` **success**,
+**Sur la branche de cette session (`de159f4`), déclenchés par le push** :
+
+| Run | Workflow | Conclusion |
+|---|---|---|
+| `35522180341` | CI Tests | **success** |
+| `35522180384` | E2E Playwright | **success** |
+
+Jobs du run `35515177927` (tête de PR #5) : `backend` **success**, `backend-postgres` **success**,
 `frontend` **success**, `e2e` **success**.
 
 Le job `backend-postgres` monte un **service `postgres:16`** et exécute : suite complète sur
@@ -397,11 +439,18 @@ n'existe pas.
 
 - Présent dans le code : `/health` versionné, logs PM2 (`/var/log/gawjaay/api.out.log`,
   `api.error.log`, `merge_logs`, `time`), `audit_logs` en base, Sentry conditionnel.
-- **Écart mesuré** : `/health` renvoie un JSON **statique**
-  (`{status:'ok',service,version,timestamp}`) et **n'interroge pas la base**. Un `/health` 200 ne
-  prouve donc **pas** que `API → PostgreSQL` fonctionne. Ce n'est pas corrigé ici (modifier
-  `/health` serait un changement de comportement non demandé) ; la connectivité DB est prouvée par
-  le **smoke**, qui effectue de vraies requêtes.
+- **Écart mesuré** : les **deux** health checks renvoient un JSON **statique** et **n'interrogent
+  pas la base**. Preuve à la source — `backend/src/app.ts:46` et `backend/src/routes/index.ts:70`
+  contiennent tous deux uniquement :
+
+  ```js
+  res.json({ status: 'ok', service: 'GawJaay API', version: '2.5.0-lot-f', timestamp: new Date().toISOString() });
+  ```
+
+  Aucun `db.prepare(...)`, aucune requête. Un `/health` 200 ne prouve donc **pas** que
+  `API → PostgreSQL` fonctionne. Ce n'est pas corrigé ici (modifier `/health` serait un changement
+  de comportement non demandé) ; la connectivité DB est prouvée par le **smoke**, qui effectue de
+  vraies requêtes (39/39, dont lecture/écriture stock, ventes, statistiques).
 - Alertes, `node_exporter`, Sentry Cron Monitor sur le backup : **à brancher**, rien d'inventé.
 
 ## 23. URL publique — STATUS: BLOCKED
@@ -458,10 +507,21 @@ l'état réel du code** et auraient produit un déploiement faux :
 | `deploy/ecosystem.config.cjs` | commentaire « SQLite : 1 processus en écriture » | Justification réelle (adaptateur PG à connexion unique, pool `max: 1`) |
 | `docs/V2_PRODUCTION_READINESS.md` §F | « Sentry **non intégré au code** (aucun SDK installé) » → **faux**, `@sentry/node` 10.75.0 est installé et branché ; « SQLite fichier … PostgreSQL non réalisé » ; VPS « 2 vCPU/4 Go » | Sentry décrit tel quel (intégré, inactif sans DSN) ; PostgreSQL en production ; CPX32 ; défaut Nginx `/health` signalé |
 
-**Vérification après corrections** : `npx tsc --noEmit` (backend) OK, `npx vitest run` →
-**334/334**, `node deploy/postgres/validate.mjs` → **9/9, idempotence 0, 53 tables, parité ✓**.
-Les artefacts locaux (bases de test, référence SQLite régénérable, `dist/`) ont été supprimés ;
-`git status` ne liste que les 5 fichiers de documentation modifiés.
+**Vérification après corrections** (commit `de159f4`, poussé sur `origin`) :
+
+| Vérification | Résultat |
+|---|---|
+| `npx tsc --noEmit` (backend) | OK |
+| `npx vitest run` (SQLite) | **334 passed (15 fichiers)** |
+| `DATABASE_URL='pglite://' npx vitest run` (PostgreSQL 18.3) | **334 passed (15 fichiers)** |
+| `npm run build` | OK — `dist/index.js` + `dist/lib/postgresWorker.cjs` copié |
+| Smoke sur build prod + PostgreSQL | **39/39 PASS** |
+| `node deploy/postgres/validate.mjs` | **9/9**, idempotence **0**, **53 tables**, 64 FK, 248 CHECK, **parité ✓** |
+| `frontend` : `tsc --noEmit` + `npm run build` | OK (317,64 kB / 95,84 kB gzip) |
+| CI GitHub sur `de159f4` | **CI Tests `success`** + **E2E Playwright `success`** |
+
+Les artefacts locaux (bases de test, référence SQLite régénérable) ont été supprimés ; `git status`
+est **propre**. Aucun test modifié, aucun désactivé.
 
 ## 28. Statut final
 
@@ -482,7 +542,7 @@ de PostgreSQL de production, pas de S3, pas de Sentry, pas d'appareils mobiles. 
 |---|---|---|
 | Code validé | **PASS** | 334/334 ×2 moteurs, tsc OK backend + frontend |
 | PostgreSQL runtime | **PASS** | 334/334 sur PG 18.3 (PGlite) + job CI `backend-postgres` sur `postgres:16` |
-| CI verte | **PASS** | runs `35515323280` + `35515323282` success sur `7069be3` |
+| CI verte | **PASS** | runs `35515323280`+`35515323282` (`7069be3`) et `35522180341`+`35522180384` (`de159f4`) — tous `success` |
 | PostgreSQL production | **BLOCKED** | aucune base fournie |
 | Migrations | **PASS** (moteurs) / **BLOCKED** (prod) | 8/8 appliquées, idempotence 0, 53 tables, 64 FK, 110 index, parité ✓ |
 | VPS | **BLOCKED** | aucune clé SSH, `hcloud` absent, aucune IP |
@@ -505,6 +565,10 @@ de PostgreSQL de production, pas de S3, pas de Sentry, pas d'appareils mobiles. 
 
 ## 29. Prochaines étapes
 
+0. **Git** : `main` (`7069be3`) ne contient pas encore `de159f4`. Ouvrir une PR
+   `arena/01a0bf77-gawjaay` → `main` (CI déjà verte sur `de159f4`) puis la merger, pour que la
+   correction du `.env.production.example` soit sur la branche déployée. Supprimer ensuite la
+   branche distante périmée `arena/01a0beef-gawjaay` (`fbe3b6b`, déjà contenu dans `main`).
 1. Fournir les ressources du §26 (1 → 8). Sans le **VPS** et le **domaine**, rien d'autre
    n'avance.
 2. Sur le VPS : auditer la configuration réelle (`uname -a`, `cat /etc/os-release`, `nproc`,
