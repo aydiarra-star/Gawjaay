@@ -50,3 +50,22 @@
 - **Rotation/expiration des refresh tokens** et révocation globale par utilisateur (aujourd'hui :
   révocation par session).
 - **Pagination** : plusieurs listes publiques sont plafonnées (`LIMIT`), sans curseur ni total.
+
+## 8. Éléments identifiés pendant la phase finale (NON implémentés, comme prévu par le périmètre)
+
+- **Unification des journaux de migration** : l'application journalise dans `_migrations`, les
+  fichiers `deploy/postgres/*.sql` dans `schema_migrations`. Le runner **adopte** désormais le
+  journal externe (correctif de démarrage livré), mais l'idéal serait **un seul journal** :
+  faire écrire les fichiers `.sql` directement dans `_migrations`, ou générer les `.sql` depuis les
+  migrations TypeScript pour supprimer la double maintenance du schéma.
+- **Idempotence intrinsèque des migrations** : les migrations reposent sur le journal pour leur
+  idempotence (`ALTER TABLE ADD COLUMN` échoue si la colonne existe). PostgreSQL supporte
+  `ADD COLUMN IF NOT EXISTS` — à utiliser systématiquement pour que rejouer une migration soit
+  inoffensif même sans journal.
+- **`pg_dump` / `pg_restore`** : la référence de production suppose `postgresql-client` sur le VPS.
+  Le fallback JS (`deploy/pg-backup.mjs` / `pg-restore.mjs`) est vérifié pour l'instant **sur
+  petits volumes** (68 lignes) ; à re-tester sur un volume réaliste (plusieurs milliers de ventes)
+  avant de s'y fier comme unique voie de sauvegarde.
+- **Vérification de restauration automatisée** : planifier un test de restauration récurrent
+  (cron mensuel) plutôt que manuel, avec alerte si le contrôle d'intégrité échoue.
+- **Scalabilité** : rappel des limites du déploiement mono-processus (`Pool max: 1`) — voir §7.
