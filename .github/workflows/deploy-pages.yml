@@ -1,14 +1,14 @@
-name: Deploy frontend to GitHub Pages
-
-# Déploie le frontend GawJaay (React/Vite) sur GitHub Pages à chaque push sur main.
-# GitHub Pages n'héberge QUE des fichiers statiques : le backend, la base de données et
-# l'authentification serveur ne sont PAS hébergés ici. Pour une application réellement
-# fonctionnelle, définir la variable de dépôt `VITE_API_URL` (ex. https://api.exemple.sn/api/v1)
-# pointant vers une API déployée — sinon l'interface se charge mais les appels API échouent.
+name: Deploy web to GitHub Pages
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,39 +16,42 @@ permissions:
   pages: write
   id-token: write
 
-# Un seul déploiement à la fois ; on ne coupe pas un déploiement en cours.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Install frontend dependencies
-        working-directory: frontend
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
         run: npm ci
-      - name: TypeScript strict
-        working-directory: frontend
-        run: npx tsc --noEmit
-      - name: Build (base = /<repo>/ pour le sous-chemin Pages)
-        working-directory: frontend
+
+      - name: Build shared package
+        run: npm run build:shared
+
+      - name: Build web app
         env:
-          VITE_BASE: /${{ github.event.repository.name }}/
-          # Optionnel : renseigner la variable de dépôt VITE_API_URL pour connecter une API réelle.
+          # Base GitHub Pages du dépôt : https://<owner>.github.io/<repo>/
+          VITE_BASE_PATH: /Gawjaay/
+          # URL publique de l'API (à définir dans Settings > Variables > Actions).
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-        run: npm run build
-      - name: SPA fallback (404.html) — permet le rafraîchissement des routes profondes
-        working-directory: frontend
-        run: cp dist/index.html dist/404.html
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+        run: npm run build:web
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend/dist
+          path: apps/web/dist
 
   deploy:
     needs: build
@@ -57,5 +60,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
