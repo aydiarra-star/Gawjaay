@@ -1500,3 +1500,67 @@ Vendre vite. Gérer mieux.
 Du magasin physique à la boutique numérique.
 
 Une plateforme pensée pour le commerce sénégalais, construite pour commencer simplement et évoluer vers une véritable infrastructure commerciale nationale.
+
+⸻
+
+55. DÉPLOIEMENT ET ACCÈS PUBLIC
+
+### 55.1 Répartition des composants (qui héberge quoi)
+
+| Composant | Technologie | Hébergement adapté |
+|---|---|---|
+| Frontend | React + Vite (statique) | VPS/Nginx **ou** GitHub Pages |
+| API backend | Node.js + Express | VPS (Node 22 + PM2) — **jamais GitHub Pages** |
+| Base de données | SQLite (dev) / PostgreSQL (prod) | VPS ou base managée |
+| Stockage fichiers | URL d'images uniquement | S3-compatible (non connecté) |
+
+**GitHub Pages n'héberge que le frontend statique.** L'API, la base de données et l'authentification
+serveur ne peuvent pas y être déployées. Si le frontend Pages doit fonctionner, il faut lui fournir une API
+accessible (voir §55.3).
+
+### 55.2 GitHub Pages (frontend statique)
+
+Workflow : `.github/workflows/deploy-pages.yml` — se déclenche sur `push` vers `main` (et `workflow_dispatch`) :
+
+1. installe les dépendances (`npm ci`) ;
+2. typecheck (`tsc --noEmit`) ;
+3. build avec `VITE_BASE=/<repo>/` (le site est servi sous `https://<owner>.github.io/<repo>/`) ;
+4. copie `dist/index.html` → `dist/404.html` (rafraîchissement des routes profondes d'une SPA) ;
+5. déploie via `actions/deploy-pages`.
+
+Le build **échoue** si le typecheck ou le build échoue. Aucun secret n'est utilisé.
+
+URL (une fois le workflow exécuté sur `main`) : **https://aydiarra-star.github.io/Gawjaay/**
+
+> Prérequis côté dépôt : Settings → Pages → Source = **GitHub Actions**.
+> Le dépôt a déjà l'environnement `github-pages` avec une politique de branche `main`.
+
+### 55.3 Connecter le frontend Pages à une API réelle
+
+Le frontend utilise `VITE_API_URL` (voir `frontend/src/lib/api.ts`) :
+
+- **non défini** → appels relatifs `/api/v1` (dev via proxy Vite ; production VPS via Nginx, même origine) ;
+- **défini** (ex. `https://api.exemple.sn/api/v1`) → appels absolus vers cette API.
+
+Sur GitHub Pages, définir la **variable de dépôt** `VITE_API_URL` (Settings → Secrets and variables →
+Actions → Variables) vers l'URL de l'API déployée, et renseigner `FRONTEND_URL=https://aydiarra-star.github.io`
+côté backend (CORS). **Sans API connectée, la page publique se charge mais les appels API échouent** : ce
+n'est pas une application fonctionnelle complète.
+
+### 55.4 Production complète (VPS) — procédure de référence
+
+Voir `deploy/DEPLOYMENT.md` (Nginx, PM2, HTTPS Let's Encrypt, PostgreSQL 16, sauvegardes, secrets).
+Statut d'infrastructure à la date de ce dépôt : **TECHNICALLY READY — NOT DEPLOYED** (aucun VPS/domaine fourni).
+
+### 55.5 Tests locaux
+
+```bash
+# Backend : 428 tests (SQLite) — voir .github/workflows/ci.yml pour PostgreSQL
+cd backend && npm ci && npx vitest run && npx tsc --noEmit && npm run build
+
+# Frontend : typecheck + build
+cd frontend && npm ci && npm run build
+
+# E2E Playwright (API seedée + build preview) — voir .github/workflows/e2e.yml
+cd frontend && npx playwright install --with-deps chromium && npx playwright test
+```
