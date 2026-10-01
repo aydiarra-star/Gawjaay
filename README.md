@@ -96,6 +96,7 @@ npm run dev:web      # Frontend sur http://localhost:5173
 npm test             # tests API (vitest) — auth, isolation multi-tenant, métier
 npm run typecheck    # shared + api + web
 npm run build        # shared + api + web
+npm run test:e2e     # E2E Playwright (desktop + mobile) — démarre API + preview web
 ```
 
 Résultats vérifiés localement :
@@ -105,6 +106,7 @@ Résultats vérifiés localement :
 | Typecheck API | `npm run typecheck -w @gawjaay/api` | ✅ PASS |
 | Typecheck web | `npm run typecheck -w @gawjaay/web` | ✅ PASS |
 | Tests unitaires/intégration API | `npm test` | ✅ 31/31 PASS |
+| E2E (desktop + mobile) | `npm run test:e2e` | ✅ 12/12 PASS |
 | Build web (production) | `npm run build:web` | ✅ PASS |
 
 ## 7. Variables d'environnement
