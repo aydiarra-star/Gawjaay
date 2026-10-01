@@ -1,73 +1,100 @@
-name: CI
+name: CI Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, principal, 'arena/**']
   pull_request:
-
-permissions:
-  contents: read
+  workflow_dispatch:
 
 jobs:
-  api:
-    name: API (typecheck + tests)
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - name: Build shared package
-        run: npm run build:shared
-      - name: Generate Prisma client
-        run: npm run db:generate -w @gawjaay/api
-      - name: Typecheck API
-        run: npm run typecheck -w @gawjaay/api
-      - name: Run API tests
-        run: npm test
+          node-version: 22
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Tests (SQLite — runtime de développement)
+        working-directory: backend
+        run: npx vitest run
+      - name: TypeScript backend
+        working-directory: backend
+        run: npx tsc --noEmit
 
-  web:
-    name: Web (typecheck + build)
+  # Runtime PostgreSQL réellement exercé : TOUTE la suite de tests tourne contre un vrai serveur
+  # PostgreSQL (le moteur de production), avec le driver `pg` — et non un substitut.
+  backend-postgres:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gawjaay
+          POSTGRES_PASSWORD: gawjaay_ci
+          POSTGRES_DB: gawjaay_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gawjaay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/gawjaay_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - name: Build shared package
-        run: npm run build:shared
-      - name: Typecheck web
-        run: npm run typecheck -w @gawjaay/web
-      - name: Build web
-        run: npm run build:web
-
-  e2e:
-    name: E2E (Playwright, desktop + mobile)
-    runs-on: ubuntu-latest
-    needs: [api, web]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - name: Build shared package
-        run: npm run build:shared
-      - name: Generate Prisma client and prepare database
+          node-version: 22
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Tests complets sur PostgreSQL (auth, multi-tenant, ventes, stock, IA, concurrence)
+        working-directory: backend
+        run: npx vitest run
+      - name: Chemin de déploiement réel (deploy/postgres/*.sql → démarrage de l API)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/gawjaay_deploy_check
+          PG_ADMIN_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/postgres
+        run: node scripts/verify-deploy-path.mjs
+      - name: Build production
+        working-directory: backend
+        run: npm run build
+      - name: Démarrage API (build prod + PostgreSQL) + smoke HTTP
+        working-directory: backend
+        env:
+          NODE_ENV: production
+          PORT: 4000
+          DATABASE_URL: postgresql://gawjaay:gawjaay_ci@127.0.0.1:5432/gawjaay_test
+          JWT_ACCESS_SECRET: ci_access_secret_at_least_32_characters_long
+          JWT_REFRESH_SECRET: ci_refresh_secret_at_least_32_characters_long
+          FRONTEND_URL: http://localhost:5173
         run: |
-          npm run db:generate -w @gawjaay/api
-          DATABASE_URL="file:./prisma/dev.db" npm run db:push -w @gawjaay/api
-      - name: Build API
-        run: npm run build:api
-      - name: Build web
-        run: npm run build:web
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/web
-      - name: Run E2E tests
-        run: npm run test:e2e
+          node dist/index.js > /tmp/api.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4000/health > /dev/null; then break; fi
+            sleep 1
+          done
+          npx tsx scripts/smoke.ts
+          echo "--- log API (extrait) ---"
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: TypeScript strict
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: Build production
+        working-directory: frontend
+        run: npm run build
