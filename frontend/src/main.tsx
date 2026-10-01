@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import './index.css';
 import Layout from './components/Layout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -46,9 +47,13 @@ function Home() {
   );
 }
 
+// basename = base Vite ('/' en local/VPS, '/<repo>' sur GitHub Pages) : indispensable pour que
+// les routes SPA se résolvent sous un sous-chemin.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || '/';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Layout>
         <Routes>
           <Route path="/" element={<Home />} />

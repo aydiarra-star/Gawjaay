@@ -90,7 +90,8 @@ export default function StoreSettings() {
   if (!form) return <div><p className="text-sm text-gray-600">{msg || 'Chargement…'}</p></div>;
 
   const availableCodes = new Set((capabilities?.methods || []).filter((m: any) => m.available).map((m: any) => m.code));
-  const publicUrl = `${window.location.origin}/store/${store?.slug}`;
+  // Lien public absolu, compatible sous-chemin (GitHub Pages) : base Vite + route SPA.
+  const publicUrl = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/store/${store?.slug}`;
   const field = 'border p-2 rounded w-full';
 
   return (

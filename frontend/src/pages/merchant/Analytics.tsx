@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import api from '../../lib/api';
+import api, { API_BASE } from '../../lib/api';
 
 /** LOT B — Analytics avancés (mobile-first). Indicateurs réels uniquement. */
 export default function Analytics() {
@@ -101,7 +101,7 @@ export default function Analytics() {
         <h3 className="font-bold mb-2">📤 Exports CSV</h3>
         <div className="flex flex-wrap gap-2">
           {['sales', 'products', 'stock', 'orders', 'customers', 'expenses'].map((t) => (
-            <a key={t} href={`/api/v1/exports/${t}/store/${storeId}`} className="border border-green-700 text-green-700 px-3 py-2 rounded text-sm capitalize">{t}</a>
+            <a key={t} href={`${API_BASE}/exports/${t}/store/${storeId}`} className="border border-green-700 text-green-700 px-3 py-2 rounded text-sm capitalize">{t}</a>
           ))}
         </div>
         <p className="text-xs text-gray-500 mt-1">Les exports respectent l'isolation de votre boutique.</p>

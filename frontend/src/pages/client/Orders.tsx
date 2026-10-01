@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 
 function Stars({ value, onChange }: { value: number; onChange: (n: number) => void }) {
@@ -191,7 +192,7 @@ export default function Orders() {
             </div>
           );
         })}
-        {!orders.length && <p className="text-gray-500">Aucune commande. Visitez la <a href="/marketplace" className="text-green-700">marketplace</a> !</p>}
+        {!orders.length && <p className="text-gray-500">Aucune commande. Visitez la <Link to="/marketplace" className="text-green-700">marketplace</Link> !</p>}
       </div>
     </div>
   );
