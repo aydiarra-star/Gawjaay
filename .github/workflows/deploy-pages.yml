@@ -1,0 +1,61 @@
+name: Deploy frontend to GitHub Pages
+
+# Déploie le frontend GawJaay (React/Vite) sur GitHub Pages à chaque push sur main.
+# GitHub Pages n'héberge QUE des fichiers statiques : le backend, la base de données et
+# l'authentification serveur ne sont PAS hébergés ici. Pour une application réellement
+# fonctionnelle, définir la variable de dépôt `VITE_API_URL` (ex. https://api.exemple.sn/api/v1)
+# pointant vers une API déployée — sinon l'interface se charge mais les appels API échouent.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; on ne coupe pas un déploiement en cours.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: TypeScript strict
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: Build (base = /<repo>/ pour le sous-chemin Pages)
+        working-directory: frontend
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+          # Optionnel : renseigner la variable de dépôt VITE_API_URL pour connecter une API réelle.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: npm run build
+      - name: SPA fallback (404.html) — permet le rafraîchissement des routes profondes
+        working-directory: frontend
+        run: cp dist/index.html dist/404.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
