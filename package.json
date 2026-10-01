@@ -1,0 +1,27 @@
+{
+  "name": "gawjaay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GawJaay — Vendre vite. Gérer mieux. Plateforme SaaS multi-tenant de gestion commerciale pour le Sénégal.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:shared": "npm run build -w @gawjaay/shared",
+    "build:api": "npm run build -w @gawjaay/api",
+    "build:web": "npm run build -w @gawjaay/web",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "typecheck": "npm run typecheck -w @gawjaay/shared && npm run typecheck -w @gawjaay/api && npm run typecheck -w @gawjaay/web",
+    "test": "npm run test -w @gawjaay/api",
+    "test:e2e": "npm run test:e2e -w @gawjaay/web",
+    "dev:api": "npm run dev -w @gawjaay/api",
+    "dev:web": "npm run dev -w @gawjaay/web",
+    "db:push": "npm run db:push -w @gawjaay/api",
+    "db:seed": "npm run db:seed -w @gawjaay/api",
+    "db:reset": "npm run db:reset -w @gawjaay/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

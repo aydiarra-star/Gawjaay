@@ -1,16 +1,37 @@
-node_modules
-dist
+# Dépendances
+node_modules/
+.pnp/
+.pnp.js
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Env & secrets
 .env
 .env.local
-*.log
-coverage
-.prisma
-frontend/dist
-backend/dist
-uploads
+.env.*.local
+
+# Base de données locale (dev/test)
 *.db
+*.db-journal
 *.sqlite
-*.db-shm
-*.db-wal
+*.sqlite3
+apps/api/prisma/*.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Tests
+coverage/
 test-results/
 playwright-report/
+blob-report/
+
+# Éditeurs / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
