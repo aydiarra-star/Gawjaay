@@ -177,10 +177,13 @@ Le workflow `.github/workflows/deploy-pages.yml` construit `apps/web` et le publ
   Le build **échoue** si cette variable est absente ou pointe encore vers le runtime temporaire
   All-Hands ou vers `localhost` (garde-fou `apps/web/scripts/verify-bundle.mjs`).
 
-> ⚠️ La valeur actuellement enregistrée dans le dépôt pointe encore vers le runtime
-> **temporaire** All-Hands, qui est tombé (l'API renvoyait `502`). Tant qu'elle n'est pas
-> remplacée par une vraie API de production, le front reste une vitrine et l'inscription est
-> indisponible. Aucune URL de production n'est codée en dur dans le dépôt : c'est volontaire.
+> ⚠️ **Aucune `VITE_API_URL` n'est actuellement définie** dans le dépôt : elle a été
+> supprimée car elle pointait vers le runtime **temporaire** All-Hands, désormais éteint
+> (l'API renvoyait `502`). En l'absence de cette variable, l'application affiche honnêtement
+> « Configuration manquante : `VITE_API_URL` n'est pas définie… » au lieu de tenter un serveur
+> mort. Tant qu'une vraie API de production n'est pas déployée (voir ci-dessous) et reportée
+> dans `VITE_API_URL`, le site est une vitrine et l'inscription reste indisponible.
+> Aucune URL de production n'est codée en dur dans le dépôt : c'est volontaire.
 
 > GitHub Pages n'héberge **que le frontend statique**. Il ne peut pas héberger l'API, la base de
 > données ni l'authentification serveur.
