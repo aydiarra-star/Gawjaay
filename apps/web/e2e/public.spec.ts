@@ -3,9 +3,10 @@ import { expect, test } from '@playwright/test';
 test.describe('pages publiques', () => {
   test('la page d\'accueil affiche la promesse et les accès', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Vendre vite. Gérer mieux.' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Créer ma boutique' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Explorer la marketplace' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Vendre vite\.\s*Gérer mieux\./ })).toBeVisible();
+    // La CTA principale est présente dans le héros (le libellé apparaît aussi en en-tête et pied de page).
+    await expect(page.getByRole('main').getByRole('link', { name: 'Créer ma boutique' })).toBeVisible();
+    await expect(page.getByRole('main').getByRole('link', { name: 'Explorer la marketplace' })).toBeVisible();
   });
 
   test('la marketplace se charge en direct (route SPA profonde)', async ({ page }) => {
@@ -42,9 +43,10 @@ test.describe('parcours marchand', () => {
     await page.getByRole('button', { name: 'Créer mon compte' }).click();
 
     await expect(page).toHaveURL(/\/app$/);
-    await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+    // Accueil marchand : le tableau de bord affiche le chiffre d'affaires réel (0 au départ).
+    await expect(page.getByText("Chiffre d'affaires").first()).toBeVisible();
     // Aucune vente réelle : les indicateurs doivent afficher 0, pas de chiffres inventés.
-    await expect(page.getByText("Aucune vente enregistrée sur cette période")).toBeVisible();
+    await expect(page.getByText('Aucune vente sur cette période')).toBeVisible();
     await expect(page.getByText('0 FCFA').first()).toBeVisible();
   });
 });

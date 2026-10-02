@@ -2,7 +2,8 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
-import { Alert, EmptyState, Spinner } from '../components/ui';
+import { Alert, EmptyState, SkeletonGrid } from '../components/ui';
+import { IconMapPin, IconPackage, IconStore } from '../components/icons';
 
 interface ShopResponse {
   shop: {
@@ -35,10 +36,16 @@ export function ShopPage() {
     [slug],
   );
 
+  const totalAvailable = (data?.products ?? []).reduce(
+    (s, p) => s + p.variants.reduce((v, x) => v + x.available, 0),
+    0,
+  );
+
   return (
     <div className="app-shell">
       <header className="topbar">
         <Link to="/" className="brand" style={{ textDecoration: 'none' }}>
+          <span className="brand-mark">G</span>
           Gaw<span>Jaay</span>
         </Link>
         <div className="topbar-spacer" />
@@ -48,62 +55,113 @@ export function ShopPage() {
       </header>
 
       <main className="main">
-        {loading && <Spinner />}
-        {error && (
-          <div style={{ maxWidth: 560, margin: '0 auto' }}>
-            <Alert kind="error">{error}</Alert>
-            <Link to="/marketplace" className="btn btn-secondary">
-              Retour à la marketplace
-            </Link>
-          </div>
-        )}
-        {data && (
-          <>
-            <div className="page-head">
-              <div>
-                <h1>{data.shop.name}</h1>
-                <p>
-                  {data.shop.description ?? data.shop.organization.name}
-                  {data.shop.city ? ` · ${data.shop.city}` : ''}
-                  {data.shop.region ? `, ${data.shop.region}` : ''}
-                </p>
-                {data.shop.phone && <p className="small muted">Tél. {data.shop.phone}</p>}
-              </div>
+        <div className="main-inner">
+          {loading && <SkeletonGrid count={6} />}
+          {error && (
+            <div style={{ maxWidth: 560, margin: '40px auto' }}>
+              <Alert kind="error">{error}</Alert>
+              <Link to="/marketplace" className="btn btn-secondary">
+                Retour à la marketplace
+              </Link>
             </div>
+          )}
 
-            {data.products.length === 0 ? (
-              <EmptyState title="Boutique vide" hint="Cette boutique n'a pas encore de produit disponible." />
-            ) : (
-              <div className="grid grid-cards">
-                {data.products.map((p) => {
-                  const available = p.variants.reduce((s, v) => s + v.available, 0);
-                  return (
-                    <article className="card product-card" key={p.id}>
-                      {p.imageUrl ? (
-                        <img src={p.imageUrl} alt={p.name} loading="lazy" />
-                      ) : (
-                        <div className="product-thumb" aria-hidden="true">
-                          {p.name.charAt(0).toUpperCase()}
-                        </div>
+          {data && (
+            <>
+              {/* Bandeau boutique : identité de mini-marque */}
+              <div
+                className="card"
+                style={{
+                  padding: '28px 24px',
+                  background: 'linear-gradient(150deg, var(--surface) 0%, var(--surface-2) 100%)',
+                }}
+              >
+                <div className="row" style={{ gap: 18, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                  <span
+                    className="avatar"
+                    style={{ width: 64, height: 64, fontSize: '1.6rem', borderRadius: 18, background: 'var(--brand-soft)' }}
+                  >
+                    {data.shop.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <h1 style={{ marginBottom: 4 }}>{data.shop.name}</h1>
+                    <p className="muted small">
+                      {data.shop.description ?? data.shop.organization.name}
+                    </p>
+                    <div className="row" style={{ gap: 10, marginTop: 12 }}>
+                      {(data.shop.city || data.shop.region) && (
+                        <span className="badge">
+                          <IconMapPin size={13} />
+                          {[data.shop.city, data.shop.region].filter(Boolean).join(', ')}
+                        </span>
                       )}
-                      <h3 style={{ marginTop: 10 }}>{p.name}</h3>
-                      {p.category && <span className="badge">{p.category.name}</span>}
-                      <p className="stat-value" style={{ fontSize: '1.15rem', marginTop: 8 }}>
-                        {formatXOF(p.price)}
-                        {p.originalPrice && (
-                          <span className="muted small" style={{ textDecoration: 'line-through', marginLeft: 8 }}>
-                            {formatXOF(p.originalPrice)}
-                          </span>
-                        )}
-                      </p>
-                      <p className="small muted">{available > 0 ? `${available} en stock` : 'Rupture de stock'}</p>
-                    </article>
-                  );
-                })}
+                      <span className="badge badge-primary">
+                        <IconPackage size={13} />
+                        {data.products.length} produit{data.products.length > 1 ? 's' : ''}
+                      </span>
+                      {totalAvailable > 0 && <span className="badge badge-success">{totalAvailable} en stock</span>}
+                      {data.shop.phone && <span className="badge">{data.shop.phone}</span>}
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
-          </>
-        )}
+
+              <div className="section">
+                <div className="section-head">
+                  <div>
+                    <div className="section-title">Catalogue</div>
+                    <div className="section-sub">Produits publiés par cette boutique</div>
+                  </div>
+                </div>
+
+                {data.products.length === 0 ? (
+                  <div className="card">
+                    <EmptyState
+                      title="Boutique vide"
+                      hint="Cette boutique n'a pas encore publié de produit disponible."
+                      icon={<IconStore size={22} />}
+                    />
+                  </div>
+                ) : (
+                  <div className="product-grid">
+                    {data.products.map((p) => {
+                      const available = p.variants.reduce((s, v) => s + v.available, 0);
+                      return (
+                        <article className="product-card" key={p.id}>
+                          <div className="product-media">
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} alt={p.name} loading="lazy" />
+                            ) : (
+                              <div className="product-thumb" aria-hidden="true">
+                                {p.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="product-body">
+                            {p.category && <span className="badge">{p.category.name}</span>}
+                            <div className="product-name">{p.name}</div>
+                            <div className="product-price">
+                              {formatXOF(p.price)}
+                              {p.originalPrice && <span className="was">{formatXOF(p.originalPrice)}</span>}
+                            </div>
+                            <div className="product-meta">
+                              {available > 0 ? (
+                                <span className="badge badge-success">{available} en stock</span>
+                              ) : (
+                                <span className="badge badge-danger">Rupture de stock</span>
+                              )}
+                              {p.variants.length > 1 && <span className="badge">{p.variants.length} variantes</span>}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </main>
     </div>
   );

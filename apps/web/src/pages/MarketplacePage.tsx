@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
-import { Alert, EmptyState, Spinner } from '../components/ui';
+import { Alert, Chips, EmptyState, SearchField, SkeletonGrid } from '../components/ui';
+import { IconHeart, IconMapPin, IconMarket, IconStore } from '../components/icons';
 
 interface Offer {
   storeId: string;
@@ -31,10 +32,33 @@ interface MarketplaceResponse {
   categories: Array<{ id: string; name: string; slug: string }>;
 }
 
+const FAV_KEY = 'gawjaay.favorites';
+
 export function MarketplacePage() {
   const [search, setSearch] = useState('');
-  const [categoryId, setCategoryId] = useState('');
   const [query, setQuery] = useState({ search: '', categoryId: '' });
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FAV_KEY);
+      if (raw) setFavorites(JSON.parse(raw) as string[]);
+    } catch {
+      /* préférence locale uniquement */
+    }
+  }, []);
+
+  function toggleFav(id: string) {
+    setFavorites((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem(FAV_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   const { data, loading, error } = useApi<MarketplaceResponse>(
     () => {
@@ -47,19 +71,17 @@ export function MarketplacePage() {
     [query.search, query.categoryId],
   );
 
-  function onSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setQuery({ search, categoryId });
-  }
+  const categories = data?.categories ?? [];
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <Link to="/" className="brand" style={{ textDecoration: 'none' }}>
+          <span className="brand-mark">G</span>
           Gaw<span>Jaay</span>
         </Link>
         <div className="topbar-spacer" />
-        <div className="row">
+        <div className="row" style={{ gap: 8 }}>
           <Link to="/login" className="btn btn-secondary btn-sm">
             Connexion
           </Link>
@@ -70,77 +92,124 @@ export function MarketplacePage() {
       </header>
 
       <main className="main">
-        <div className="page-head">
-          <div>
-            <h1>Marketplace</h1>
-            <p>Produits réellement disponibles en stock dans les boutiques GawJaay.</p>
+        <div className="main-inner">
+          <div className="page-head">
+            <div>
+              <h1>Marketplace</h1>
+              <p>Produits réellement disponibles en stock dans les boutiques GawJaay.</p>
+            </div>
+            <span className="badge badge-primary">
+              <IconMarket size={13} />
+              Découverte
+            </span>
           </div>
-        </div>
 
-        <form className="card" onSubmit={onSearch} role="search">
-          <div className="form-row">
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="m-search">Rechercher</label>
-              <input id="m-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nom du produit…" />
-            </div>
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="m-cat">Catégorie</label>
-              <select id="m-cat" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                <option value="">Toutes</option>
-                {(data?.categories ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="card" style={{ padding: '18px 20px' }}>
+            <SearchField
+              value={search}
+              onChange={setSearch}
+              placeholder="Rechercher un produit…"
+              label="Rechercher un produit"
+              onSubmit={() => setQuery({ search, categoryId: query.categoryId })}
+            />
+            {categories.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <Chips
+                  allLabel="Toutes les catégories"
+                  value={query.categoryId}
+                  onChange={(categoryId) => setQuery({ search: query.search, categoryId })}
+                  options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                />
+              </div>
+            )}
           </div>
-          <div style={{ marginTop: 12 }}>
-            <button className="btn" type="submit">
-              Rechercher
-            </button>
-          </div>
-        </form>
 
-        <div style={{ marginTop: 16 }}>
-          {loading && <Spinner />}
-          {error && <Alert kind="error">{error}</Alert>}
-          {!loading && !error && (data?.items.length ?? 0) === 0 && (
-            <EmptyState title="Aucun produit disponible" hint="Aucun produit n'est actuellement en stock dans une boutique publique." />
-          )}
-          {!loading && !error && (data?.items.length ?? 0) > 0 && (
-            <div className="grid grid-cards">
-              {data!.items.map((item) => (
-                <article className="card product-card" key={item.id}>
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} loading="lazy" />
-                  ) : (
-                    <div className="product-thumb" aria-hidden="true">
-                      {item.name.charAt(0).toUpperCase()}
+          <div style={{ marginTop: 24 }}>
+            {loading && <SkeletonGrid count={8} />}
+            {error && <Alert kind="error">{error}</Alert>}
+
+            {!loading && !error && (data?.items.length ?? 0) === 0 && (
+              <div className="card">
+                <EmptyState
+                  title="Aucun produit disponible"
+                  hint="Aucun produit n'est actuellement en stock dans une boutique publique. Essayez une autre recherche ou revenez plus tard."
+                  icon={<IconMarket size={22} />}
+                />
+              </div>
+            )}
+
+            {!loading && !error && (data?.items.length ?? 0) > 0 && (
+              <>
+                <div className="section-head" style={{ marginBottom: 16 }}>
+                  <div>
+                    <div className="section-title">{data!.items.length} produit{data!.items.length > 1 ? 's' : ''}</div>
+                    <div className="section-sub">
+                      {query.search || query.categoryId ? 'Résultats filtrés' : 'Disponibles maintenant'}
                     </div>
-                  )}
-                  <h3 style={{ marginTop: 10 }}>{item.name}</h3>
-                  {item.category && <span className="badge">{item.category.name}</span>}
-                  <p className="stat-value" style={{ fontSize: '1.15rem', marginTop: 8 }}>
-                    {formatXOF(item.price)}
-                    {item.originalPrice && (
-                      <span className="muted small" style={{ textDecoration: 'line-through', marginLeft: 8 }}>
-                        {formatXOF(item.originalPrice)}
-                      </span>
-                    )}
-                  </p>
-                  {item.offers.length > 0 && (
-                    <div className="small muted" style={{ marginTop: 6 }}>
-                      Disponible chez{' '}
-                      <Link to={`/shop/${item.offers[0].storeSlug}`}>{item.offers[0].storeName}</Link>
-                      {item.offers[0].distanceKm != null && <> · à {item.offers[0].distanceKm} km</>}
-                      {item.offers.length > 1 && <> · {item.offers.length} boutiques</>}
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
+                  </div>
+                </div>
+
+                <div className="product-grid">
+                  {data!.items.map((item) => {
+                    const isFav = favorites.includes(item.id);
+                    const offer = item.offers[0];
+                    const totalAvailable = item.offers.reduce((s, o) => s + o.available, 0);
+                    return (
+                      <article className="product-card" key={item.id}>
+                        <div className="product-media">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} loading="lazy" />
+                          ) : (
+                            <div className="product-thumb" aria-hidden="true">
+                              {item.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            className={`product-fav${isFav ? ' on' : ''}`}
+                            aria-label={isFav ? `Retirer ${item.name} des favoris` : `Ajouter ${item.name} aux favoris`}
+                            aria-pressed={isFav}
+                            onClick={() => toggleFav(item.id)}
+                          >
+                            <IconHeart size={17} style={isFav ? { fill: 'currentColor' } : undefined} />
+                          </button>
+                        </div>
+                        <div className="product-body">
+                          {item.category && <span className="badge">{item.category.name}</span>}
+                          <div className="product-name">{item.name}</div>
+                          <div className="product-price">
+                            {formatXOF(item.price)}
+                            {item.originalPrice && <span className="was">{formatXOF(item.originalPrice)}</span>}
+                          </div>
+                          {offer && (
+                            <div className="product-meta">
+                              <IconStore size={14} />
+                              <Link to={`/shop/${offer.storeSlug}`}>{offer.storeName}</Link>
+                              {offer.city && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <IconMapPin size={13} />
+                                  {offer.city}
+                                </>
+                              )}
+                            </div>
+                          )}
+                          <div className="product-meta">
+                            {totalAvailable > 0 ? (
+                              <span className="badge badge-success">{totalAvailable} en stock</span>
+                            ) : (
+                              <span className="badge badge-danger">Rupture</span>
+                            )}
+                            {item.offers.length > 1 && <span className="badge">{item.offers.length} boutiques</span>}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </main>
     </div>
