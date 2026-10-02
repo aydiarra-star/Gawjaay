@@ -1,10 +1,25 @@
 import { getAccessToken, getOrganizationId } from './session';
 
 /**
- * URL de base de l'API. Configurable via VITE_API_URL au build.
- * Par défaut : API locale de développement.
+ * URL de base de l'API.
+ *
+ * Résolution, du plus prioritaire au moins prioritaire :
+ *  1. `VITE_API_URL` (variable/secret défini au build — ex. GitHub Actions).
+ *  2. En production, l'origine servie sur GitHub Pages (`aydiarra-star.github.io`)
+ *     pointe par défaut vers l'API publique, afin qu'un oubli de variable ne
+ *     laisse pas une vitrine silencieusement cassée.
+ *  3. Sinon : API locale de développement.
  */
-export const API_BASE: string = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000/api/v1';
+function resolveApiBase(): string {
+  const configured = import.meta.env.VITE_API_URL as string | undefined;
+  if (configured && configured.trim()) return configured.trim();
+  if (typeof window !== 'undefined' && /(^|\.)github\.io$/i.test(window.location.hostname)) {
+    return 'https://work-1-xkxpfbzjsaxyifxx.prod-runtime.all-hands.dev/api/v1';
+  }
+  return 'http://localhost:4000/api/v1';
+}
+
+export const API_BASE: string = resolveApiBase();
 
 export class ApiError extends Error {
   readonly status: number;
