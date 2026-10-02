@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
@@ -35,7 +36,7 @@ export function PosPage() {
 
   const [cart, setCart] = useState<Record<string, { variantId: string; name: string; price: number; quantity: number }>>({});
   const [customerId, setCustomerId] = useState('');
-  const [payMethod, setPayMethod] = useState<'CASH' | 'WAVE' | 'ORANGE_MONEY' | 'CARD' | 'CREDIT'>('CASH');
+  const [payMethod, setPayMethod] = useState<PaymentMethod>('CASH');
   const [paidAmount, setPaidAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -206,9 +207,12 @@ export function PosPage() {
             <div className="form-row">
               <div className="field" style={{ marginBottom: 0 }}>
                 <label htmlFor="pos-method">Moyen de paiement</label>
-                <select id="pos-method" value={payMethod} onChange={(e) => setPayMethod(e.target.value as typeof payMethod)}>
-                  <option value="CASH">Espèces</option>
-                  <option value="CREDIT">Crédit (à terme)</option>
+                <select id="pos-method" value={payMethod} onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}>
+                  {MANUAL_SETTLEMENT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {PAYMENT_METHOD_LABELS[method]}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="field" style={{ marginBottom: 0 }}>

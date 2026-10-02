@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { TerangaBanner } from '../components/premium';
 import {
   IconCart,
   IconChart,
@@ -145,6 +146,18 @@ export function LandingPage() {
                 </article>
               );
             })}
+          </div>
+
+          <div style={{ maxWidth: 1040, margin: '56px auto 0', textAlign: 'left' }}>
+            <TerangaBanner
+              title="Teranga Week — le soleil et l'or du Sénégal, dans votre commerce"
+              body="Une expérience inspirée de l'hospitalité sénégalaise : vos produits mis en valeur, vos clients accueillis, votre chiffre d'affaires calculé sur vos vraies données."
+              action={
+                <Link to="/marketplace" className="btn btn-lg">
+                  Découvrir la marketplace
+                </Link>
+              }
+            />
           </div>
 
           <div className="section" style={{ maxWidth: 1040, margin: '56px auto 0', textAlign: 'left' }}>

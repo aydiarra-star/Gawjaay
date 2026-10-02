@@ -1,36 +1,52 @@
 /* =========================================================================
-   GawJaay — Design System 2026
+   GawJaay — Design System 2026 · « Teranga »
    « Commerce OS » : Marketplace · Boutique · Comptabilité
-   Palette : ivoire / charbon, vert signature utilisé avec parcimonie.
+   Palette : vert émeraude profond (fonds, navigation), or métallique
+   (badges promo, étoiles, bordures de luxe), orange vif (CTA, bannières).
    ========================================================================= */
 
 :root {
-  /* --- Surfaces & encre (base neutre chaude) --- */
-  --bg: #f4f1eb;
-  --bg-deep: #efeae1;
+  /* --- Surfaces & encre (base neutre chaude, ivoire / sable) --- */
+  --bg: #f6f2e9;
+  --bg-deep: #efe8da;
   --surface: #ffffff;
-  --surface-2: #faf8f4;
-  --surface-3: #f2efe8;
-  --ink: #16181c;
-  --ink-2: #3b414b;
-  --muted: #6d7480;
-  --muted-2: #9aa1ab;
-  --line: #e6e1d8;
-  --line-2: #d9d3c8;
+  --surface-2: #faf7f0;
+  --surface-3: #f2ece0;
+  --ink: #1a1c18;
+  --ink-2: #3d4138;
+  --muted: #6f7365;
+  --muted-2: #9ba08f;
+  --line: #e7e0d1;
+  --line-2: #d8cfba;
 
-  /* --- Vert signature (parcimonieux : CTA, actif, positif, marque) --- */
-  --brand: #0f766e;
-  --brand-strong: #0b5b55;
-  --brand-ink: #0a4a45;
-  --brand-soft: #e7f2f0;
-  --brand-soft-2: #d6e9e6;
-  --brand-ring: rgba(15, 118, 110, 0.22);
+  /* --- Vert émeraude profond (fonds, navigation, marque) --- */
+  --brand: #0d7a5f;
+  --brand-strong: #0a5d49;
+  --brand-ink: #08473a;
+  --brand-deep: #06302a;
+  --brand-soft: #e6f3ee;
+  --brand-soft-2: #d2e9e0;
+  --brand-ring: rgba(13, 122, 95, 0.22);
+
+  /* --- Or métallique (badges promo, étoiles, bordures de luxe) --- */
+  --gold: #c9a227;
+  --gold-strong: #a8851a;
+  --gold-bright: #e6c455;
+  --gold-soft: #fbf3d6;
+  --gold-line: rgba(201, 162, 39, 0.42);
+  --gold-ring: rgba(201, 162, 39, 0.3);
+
+  /* --- Orange vif (CTA principaux, bannières phares) --- */
+  --orange: #ea6a12;
+  --orange-strong: #c9540a;
+  --orange-soft: #fdefe0;
+  --orange-ring: rgba(234, 106, 18, 0.3);
 
   /* --- Sémantique d'état --- */
-  --ok: #15803d;
-  --ok-soft: #e8f5ec;
-  --warn: #a85b06;
-  --warn-soft: #fbf1e2;
+  --ok: #0d7a5f;
+  --ok-soft: #e6f3ee;
+  --warn: #a86606;
+  --warn-soft: #fdf3e0;
   --danger: #b42318;
   --danger-soft: #fdeceb;
   --info: #1f5f8b;
@@ -184,14 +200,21 @@ p {
 .brand {
   display: inline-flex;
   align-items: center;
-  font-weight: 750;
-  font-size: 1.12rem;
+  font-weight: 780;
+  font-size: 1.14rem;
   letter-spacing: -0.03em;
-  color: var(--brand-ink);
   white-space: nowrap;
+  background: linear-gradient(100deg, var(--gold-strong) 0%, var(--gold-bright) 42%, var(--orange) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--gold-strong);
 }
 .brand span {
-  color: var(--ink);
+  background: inherit;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .brand-mark {
   display: inline-flex;
@@ -200,8 +223,10 @@ p {
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: linear-gradient(150deg, var(--brand) 0%, var(--brand-ink) 100%);
-  color: #fff;
+  background: linear-gradient(150deg, var(--brand) 0%, var(--brand-deep) 100%);
+  color: var(--gold-bright);
+  -webkit-text-fill-color: var(--gold-bright);
+  border: 1px solid var(--gold-line);
   font-size: 0.86rem;
   font-weight: 800;
   margin-right: 9px;
@@ -497,24 +522,31 @@ p {
   gap: 8px;
   padding: 0 16px;
   border-radius: var(--r-sm);
-  border: 1px solid transparent;
+  border: 1px solid var(--gold-line);
   font-size: 0.92rem;
   font-weight: 620;
   font-family: inherit;
   letter-spacing: -0.01em;
   cursor: pointer;
-  background: var(--brand);
+  background: linear-gradient(180deg, var(--orange) 0%, var(--orange-strong) 100%);
   color: #fff;
   min-height: 42px;
+  box-shadow: var(--e1), inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 .btn:hover {
-  background: var(--brand-strong);
+  background: linear-gradient(180deg, #f87e28 0%, var(--orange) 100%);
+  border-color: var(--gold);
+  box-shadow: var(--e2), 0 0 0 3px var(--orange-ring);
   text-decoration: none;
 }
 .btn:active {
   transform: translateY(1px) scale(0.995);
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--gold-ring);
 }
 .btn:disabled {
   opacity: 0.5;
@@ -523,21 +555,25 @@ p {
 }
 .btn-secondary {
   background: var(--surface);
-  color: var(--ink);
+  color: var(--brand-ink);
   border-color: var(--line-2);
   box-shadow: var(--e1);
 }
 .btn-secondary:hover {
-  background: var(--surface-2);
-  border-color: var(--muted-2);
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+  box-shadow: var(--e2), 0 0 0 3px var(--gold-ring);
 }
 .btn-ghost {
   background: transparent;
-  color: var(--ink-2);
+  color: var(--brand-ink);
   border-color: transparent;
+  box-shadow: none;
 }
 .btn-ghost:hover {
-  background: var(--surface-3);
+  background: var(--brand-soft);
+  border-color: transparent;
+  box-shadow: none;
 }
 .btn-danger {
   background: var(--danger);
@@ -604,6 +640,13 @@ p {
   background: var(--info-soft);
   color: var(--info);
 }
+/* Badge de promotion : or métallique */
+.badge-gold {
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+  color: #4a3a06;
+  border-color: var(--gold-strong);
+  box-shadow: var(--e1);
+}
 .badge-dot::before {
   content: '';
   width: 6px;
@@ -631,13 +674,15 @@ p {
   transition: all var(--dur-fast) var(--ease);
 }
 .chip:hover {
-  border-color: var(--muted-2);
-  background: var(--surface-2);
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+  color: var(--brand-ink);
 }
 .chip.active {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-strong) 100%);
+  border-color: var(--gold);
   color: #fff;
+  box-shadow: 0 0 0 3px var(--gold-ring);
 }
 
 /* =========================================================================
@@ -834,13 +879,29 @@ tbody tr:last-child td {
 .product-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--e3);
-  border-color: var(--line-2);
+  border-color: var(--gold-line);
 }
 .product-media {
   position: relative;
   aspect-ratio: 4 / 3;
   background: linear-gradient(160deg, var(--surface-3), var(--surface-2));
   overflow: hidden;
+}
+/* Ruban de promotion : or métallique */
+.product-promo {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #4a3a06;
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+  border: 1px solid var(--gold-strong);
+  box-shadow: var(--e2);
 }
 .product-card img {
   width: 100%;
@@ -908,10 +969,10 @@ tbody tr:last-child td {
 }
 .product-price {
   font-family: var(--font-num);
-  font-size: 1.08rem;
-  font-weight: 720;
+  font-size: 1.14rem;
+  font-weight: 760;
   letter-spacing: -0.03em;
-  color: var(--ink);
+  color: var(--brand-ink);
   margin-top: auto;
 }
 .product-price .was {
@@ -928,6 +989,45 @@ tbody tr:last-child td {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+/* Notation : étoiles dorées */
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: var(--gold);
+}
+.stars .off {
+  color: var(--line-2);
+}
+.stars-count {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-left: 4px;
+}
+/* Bouton de téléchargement (fiche produit) */
+.btn-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 8px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--gold-line);
+  background: var(--gold-soft);
+  color: var(--brand-ink);
+  font-size: 0.82rem;
+  font-weight: 640;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease);
+}
+.btn-download:hover {
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+  border-color: var(--gold-strong);
+  color: #4a3a06;
 }
 
 /* =========================================================================
@@ -1139,6 +1239,54 @@ tbody tr:last-child td {
 /* =========================================================================
    Landing
    ========================================================================= */
+/* Bannière phare « Teranga » : dégradé émeraude → or → orange */
+.teranga-banner {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--gold-line);
+  background:
+    radial-gradient(130% 160% at 6% -10%, rgba(230, 196, 85, 0.34) 0%, transparent 48%),
+    linear-gradient(100deg, var(--brand-deep) 0%, var(--brand) 44%, var(--orange) 100%);
+  color: #fff;
+  padding: 22px 24px;
+  box-shadow: var(--e3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: var(--s6);
+}
+.teranga-banner .tb-main {
+  min-width: 0;
+}
+.teranga-banner .tb-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  font-weight: 720;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+.teranga-banner h2 {
+  color: #fff;
+  margin: 6px 0 4px;
+  font-size: clamp(1.1rem, 1rem + 0.9vw, 1.5rem);
+  letter-spacing: -0.02em;
+}
+.teranga-banner p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.9rem;
+  max-width: 62ch;
+}
+.teranga-banner .btn {
+  flex: 0 0 auto;
+}
+
 .hero {
   max-width: 960px;
   margin: 0 auto;
@@ -1149,6 +1297,11 @@ tbody tr:last-child td {
   font-size: clamp(2.1rem, 1.4rem + 3.4vw, 3.5rem);
   letter-spacing: -0.045em;
   line-height: 1.04;
+  background: linear-gradient(100deg, var(--brand-deep) 0%, var(--brand) 38%, var(--gold-strong) 72%, var(--orange) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--brand-deep);
 }
 .hero .lead {
   font-size: clamp(1rem, 0.95rem + 0.4vw, 1.18rem);
@@ -1181,7 +1334,8 @@ tbody tr:last-child td {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--brand);
+  background: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-ring);
 }
 .feature-grid {
   display: grid;

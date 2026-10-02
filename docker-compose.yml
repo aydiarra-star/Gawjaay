@@ -1,0 +1,32 @@
+# Déploiement persistant du backend GawJaay (API + base SQLite sur volume).
+#
+#   docker compose up -d --build
+#
+# Variables à adapter (fichier .env à côté de ce compose, non versionné) :
+#   JWT_ACCESS_SECRET, JWT_REFRESH_SECRET  (>= 32 caractères, obligatoires en production)
+#   FRONTEND_URL                            (origine(s) autorisée(s) par CORS, séparées par des virgules)
+#
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATABASE_URL: "file:/data/gawjaay.db"
+      FRONTEND_URL: "${FRONTEND_URL:-https://aydiarra-star.github.io}"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET requis (>= 32 caractères)}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis (>= 32 caractères)}"
+      PAYMENTS_MODE: "disabled"
+    volumes:
+      - gawjaay-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  gawjaay-data:

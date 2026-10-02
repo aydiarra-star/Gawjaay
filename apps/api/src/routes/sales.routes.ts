@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { PAYMENT_METHODS } from '@gawjaay/shared';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
@@ -17,7 +18,7 @@ const saleSchema = z.object({
   customerId: z.string().optional(),
   items: z.array(z.object({ variantId: z.string(), quantity: z.number().int().positive() })).min(1),
   discount: z.number().int().nonnegative().default(0),
-  payments: z.array(z.object({ method: z.enum(['CASH', 'WAVE', 'ORANGE_MONEY', 'CARD', 'CREDIT']), amount: z.number().int().nonnegative() })).default([]),
+  payments: z.array(z.object({ method: z.enum(PAYMENT_METHODS), amount: z.number().int().nonnegative() })).default([]),
 });
 
 /** Liste des ventes (POS) de l'organisation. */
@@ -58,7 +59,7 @@ router.post('/', requirePermission('sales:create'), asyncHandler(async (req, res
 /** Encaisse un règlement de crédit sur une vente existante. */
 router.post('/:id/payments', requirePermission('receivables:collect'), asyncHandler(async (req, res) => {
   if (!req.auth) throw AppError.unauthorized();
-  const input = z.object({ method: z.enum(['CASH', 'WAVE', 'ORANGE_MONEY', 'CARD']), amount: z.number().int().positive() }).parse(req.body);
+  const input = z.object({ method: z.enum(PAYMENT_METHODS), amount: z.number().int().positive() }).parse(req.body);
   const result = await prisma.$transaction((tx) => collectSalePayment(tx, req.auth!.organizationId, req.params.id, input));
   await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'sale.payment', entity: 'sale', entityId: req.params.id });
   res.json(result);
