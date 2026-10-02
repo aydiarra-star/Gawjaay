@@ -3,23 +3,28 @@ import { getAccessToken, getOrganizationId } from './session';
 /**
  * URL de base de l'API.
  *
- * Résolution, du plus prioritaire au moins prioritaire :
- *  1. `VITE_API_URL` (variable/secret défini au build — ex. GitHub Actions).
- *  2. En production, l'origine servie sur GitHub Pages (`aydiarra-star.github.io`)
- *     pointe par défaut vers l'API publique, afin qu'un oubli de variable ne
- *     laisse pas une vitrine silencieusement cassée.
- *  3. Sinon : API locale de développement.
+ * `VITE_API_URL` est la SEULE source de vérité, injectée au build (GitHub Actions,
+ * Render, docker-compose…). Aucune URL de production n'est codée en dur : cela
+ * évite qu'un oubli de configuration ne fasse pointer la production vers un
+ * serveur éphémère ou vers localhost.
+ *
+ *  - En développement (Vite), on retombe sur l'API locale `http://localhost:4000/api/v1`.
+ *  - En production (build sans `VITE_API_URL`), l'application refuse de démarrer
+ *    silencieusement : elle affiche un message explicite au lieu d'envoyer
+ *    l'utilisateur vers un serveur qui n'existe pas.
  */
-function resolveApiBase(): string {
-  const configured = import.meta.env.VITE_API_URL as string | undefined;
-  if (configured && configured.trim()) return configured.trim();
-  if (typeof window !== 'undefined' && /(^|\.)github\.io$/i.test(window.location.hostname)) {
-    return 'https://work-1-xkxpfbzjsaxyifxx.prod-runtime.all-hands.dev/api/v1';
-  }
-  return 'http://localhost:4000/api/v1';
-}
+const DEV_FALLBACK = 'http://localhost:4000/api/v1';
 
-export const API_BASE: string = resolveApiBase();
+export const API_BASE: string = (() => {
+  const configured = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (configured) return configured;
+  if (import.meta.env.DEV) return DEV_FALLBACK;
+  return '';
+})();
+
+export const API_CONFIG_ERROR =
+  'Configuration manquante : VITE_API_URL n’est pas définie pour cette version. ' +
+  'L’application ne peut pas joindre l’API GawJaay.';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -43,6 +48,10 @@ interface RequestOptions {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  if (!API_BASE) {
+    throw new ApiError(0, 'CONFIG_ERROR', API_CONFIG_ERROR);
+  }
+
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (!options.publicRoute) {
     const token = getAccessToken();
