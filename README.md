@@ -69,12 +69,33 @@ gawjaay/
 
 ---
 
-## 3. Prérequis
+## 3. Interface & design system (2026)
+
+L'interface est un « Commerce OS » qui réunit trois univers dans une identité unique :
+**Marketplace** (découverte, plus visuelle), **Boutique** (opérations, plus dense) et
+**Comptabilité** (analyse, plus analytique). La cohérence vient d'un design system partagé :
+
+- **Tokens** (`apps/web/src/styles.css`) : surfaces ivoire/charbon, vert signature utilisé avec
+  parcimonie (CTA, actif, positif), échelle d'espacement 4pt, rayons et élévations cohérents.
+- **Icônes** (`apps/web/src/components/icons.tsx`) : jeu de 30 icônes SVG monochromes (traits
+  1.6px), remplaçant les emojis pour un rendu net et professionnel.
+- **Composants** (`apps/web/src/components/ui.tsx`) : `PageHead`, `Section`, `Card`, `Stat`,
+  `Alert`, `Spinner`, `SkeletonGrid`, `EmptyState`, `SearchField`, `StatusBadge`, `Avatar`, `Chips`.
+- **Navigation** : sidebar groupée par univers sur desktop, barre inférieure « au pouce » sur mobile.
+- **Motion** : transitions courtes et intentionnelles ; `prefers-reduced-motion` respecté.
+- **Chiffres financiers** : chiffres tabulaires, hiérarchie forte (montant héros → KPI → détail).
+
+Règle maintenue : **aucune donnée inventée**. Les états vides, les zéros et les jeux de
+démonstration (`DEMO`) restent explicites.
+
+---
+
+## 4. Prérequis
 
 - Node.js ≥ 20
 - npm ≥ 10
 
-## 4. Installation
+## 5. Installation
 
 ```bash
 npm install
@@ -83,14 +104,14 @@ npm run db:push      # crée/maj la base SQLite (apps/api/prisma/dev.db)
 npm run db:seed      # (optionnel) données de DÉMONSTRATION explicitement marquées DEMO
 ```
 
-## 5. Développement
+## 6. Développement
 
 ```bash
 npm run dev:api      # API sur http://localhost:4000
 npm run dev:web      # Frontend sur http://localhost:5173
 ```
 
-## 6. Tests, typecheck et build
+## 7. Tests, typecheck et build
 
 ```bash
 npm test             # tests API (vitest) — auth, isolation multi-tenant, métier
@@ -109,7 +130,7 @@ Résultats vérifiés localement :
 | E2E (desktop + mobile) | `npm run test:e2e` | ✅ 12/12 PASS |
 | Build web (production) | `npm run build:web` | ✅ PASS |
 
-## 7. Variables d'environnement
+## 8. Variables d'environnement
 
 **API** (`apps/api/.env`) :
 
@@ -129,7 +150,7 @@ Résultats vérifiés localement :
 
 ---
 
-## 8. Déploiement
+## 9. Déploiement
 
 ### Frontend — GitHub Pages
 
@@ -152,7 +173,7 @@ GitHub Pages est une **vitrine frontend** : les écrans de données nécessitent
 
 ---
 
-## 9. Structure de l'API
+## 10. Structure de l'API
 
 Base : `/api/v1`. Routes principales :
 
@@ -164,6 +185,6 @@ Base : `/api/v1`. Routes principales :
 
 ---
 
-## 10. Licence
+## 11. Licence
 
 Projet privé — tous droits réservés.
