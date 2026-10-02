@@ -42,10 +42,11 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  if (!isProd) {
-    // eslint-disable-next-line no-console
-    console.error(err);
-  }
+  // Journaux serveur : toujours exploitables (l'hébergeur collecte stdout/stderr),
+  // jamais renvoyés au client en production.
+  // eslint-disable-next-line no-console
+  console.error('[error]', (err as Error)?.message, (err as Error)?.stack);
+
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',

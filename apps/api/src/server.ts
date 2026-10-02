@@ -5,9 +5,12 @@ import { prisma } from './lib/prisma.js';
 
 async function main() {
   const app = createApp();
-  const server = app.listen(env.PORT, () => {
+  // Écoute sur 0.0.0.0 pour être joignable derrière un proxy/hébergeur (Render,
+  // Docker, reverse-proxy). Le port est fourni par la plateforme via $PORT.
+  const host = env.HOST;
+  const server = app.listen(env.PORT, host, () => {
     // eslint-disable-next-line no-console
-    console.log(`GawJaay API démarrée sur http://localhost:${env.PORT} (env=${env.NODE_ENV})`);
+    console.log(`GawJaay API démarrée sur http://${host}:${env.PORT} (env=${env.NODE_ENV})`);
   });
 
   const shutdown = async (signal: string) => {
