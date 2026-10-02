@@ -144,7 +144,10 @@ Résultats vérifiés localement :
 
 | Variable | Rôle |
 | --- | --- |
-| `DATABASE_URL` | Chaîne de connexion Prisma (SQLite en dev) |
+| `DATABASE_URL` | Chaîne de connexion Prisma (SQLite en dev, PostgreSQL en production) |
+| `DATABASE_PROVIDER` | `sqlite` (défaut) ou `postgresql` — réécrit le provider Prisma au build/démarrage |
+| `PORT` | Port d'écoute (fourni par l'hébergeur ; `4000` par défaut) |
+| `HOST` | Interface d'écoute (`0.0.0.0` par défaut, adapté aux proxys/hébergeurs) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secrets de signature (≥ 32 caractères en production) |
 | `FRONTEND_URL` | Origine(s) autorisée(s) par CORS (séparées par des virgules) |
 | `PAYMENTS_MODE` | `disabled` (défaut). `enabled` est **refusé** tant qu'aucun prestataire n'est connecté |
@@ -160,6 +163,8 @@ Résultats vérifiés localement :
 
 ## 9. Déploiement
 
+> Guide détaillé pas à pas : [`docs/deployment.md`](docs/deployment.md).
+
 ### Frontend — GitHub Pages
 
 Le workflow `.github/workflows/deploy-pages.yml` construit `apps/web` et le publie sur GitHub Pages
@@ -167,38 +172,58 @@ Le workflow `.github/workflows/deploy-pages.yml` construit `apps/web` et le publ
 (`/app`, `/marketplace`, `/shop/...`) via `public/404.html` + restauration de route dans `index.html`.
 
 - **URL publique** : `https://aydiarra-star.github.io/Gawjaay/`
-- Pour pointer vers une API hébergée, définir la variable Actions `VITE_API_URL`
-  (Settings → Secrets and variables → Actions → Variables). La valeur actuellement
-  configurée pointe vers l'API du bac à sable de développement
-  (`https://work-1-...prod-runtime.all-hands.dev/api/v1`) ; elle doit être remplacée
-  par l'URL d'un hébergeur persistant (voir ci-dessous) pour une production réelle.
+- **`VITE_API_URL`** (Settings → Secrets and variables → Actions → **Variables**) doit contenir
+  l'URL publique réelle de l'API, par ex. `https://gawjaay-api.onrender.com/api/v1`.
+  Le build **échoue** si cette variable est absente ou pointe encore vers le runtime temporaire
+  All-Hands ou vers `localhost` (garde-fou `apps/web/scripts/verify-bundle.mjs`).
+
+> ⚠️ La valeur actuellement enregistrée dans le dépôt pointe encore vers le runtime
+> **temporaire** All-Hands, qui est tombé (l'API renvoyait `502`). Tant qu'elle n'est pas
+> remplacée par une vraie API de production, le front reste une vitrine et l'inscription est
+> indisponible. Aucune URL de production n'est codée en dur dans le dépôt : c'est volontaire.
 
 > GitHub Pages n'héberge **que le frontend statique**. Il ne peut pas héberger l'API, la base de
 > données ni l'authentification serveur.
 
-### Backend — hébergement persistant (recommandé)
+### Backend — hébergement persistant
 
-L'API Express + Prisma nécessite un hébergeur applicatif avec une base persistante. Un
-déploiement prêt à l'emploi est fourni (`Dockerfile` + `docker-compose.yml`) : l'API et sa base
-SQLite tournent sur un **volume persistant**, ce qui évite les coupures d'un serveur éphémère.
+L'API Express + Prisma nécessite un hébergeur applicatif avec une base persistante. Le dépôt
+fournit un **Dockerfile** et **deux modes de déploiement** :
+
+**A. Render (blueprint prêt à l'emploi, recommandé)**
+
+Le fichier [`render.yaml`](render.yaml) crée l'API (image Docker) **et** une base PostgreSQL
+managée, avec injection automatique de `DATABASE_URL` et génération des secrets JWT :
+
+1. Render → **New** → **Blueprint** → sélectionner ce dépôt.
+2. Render déploie et fournit l'URL réelle du service (ex. `https://gawjaay-api.onrender.com`).
+3. Reporter cette URL (suffixée `/api/v1`) dans la variable Actions `VITE_API_URL`.
+4. Relancer le workflow « Deploy frontend to GitHub Pages ».
+
+> L'offre *free* de Render met le service en veille après inactivité et la base gratuite expire
+> après 90 jours. Pour une production durable, utiliser une offre payante.
+
+**B. Docker Compose (n'importe quel hôte : VPS, Hetzner, etc.)**
 
 ```bash
 # À la racine du dépôt :
 export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
 export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
 export FRONTEND_URL="https://aydiarra-star.github.io"
-docker compose up -d --build      # API sur http://localhost:4000/api/v1
+
+# SQLite sur volume persistant :
+docker compose up -d --build
+
+# …ou PostgreSQL (profil dédié) :
+export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+docker compose --profile postgres up -d --build
 ```
 
-Puis pointer le frontend vers cette API en définissant la variable Actions `VITE_API_URL`
-(ex. `https://api.mondomaine.sn/api/v1`) : le frontend GitHub Pages consomme alors le backend
-persistant. Testé localement : inscription `201`, redémarrage du conteneur, puis connexion `200`
-avec le compte créé **avant** le redémarrage (données conservées sur le volume `gawjaay-data`).
+Placer ensuite l'API derrière un reverse-proxy HTTPS (Caddy / Nginx + Let's Encrypt) et reporter
+l'URL publique dans `VITE_API_URL`.
 
-> **Environnement de développement / bac à sable** : pour garder l'API en marche (le processus
-> peut être récolté quand la commande qui l'a lancée se termine), lancer le superviseur :
-> `scripts/serve-api.sh` (redémarre l'API si elle s'arrête, journal dans `/tmp/gawjaay-api.log`).
-> Cela ne remplace pas un hébergeur de production persistant.
+> **Bac à sable uniquement** : `scripts/serve-api.sh` relance l'API locale si elle s'arrête
+> (journal dans `/tmp/gawjaay-api.log`). Ce n'est **pas** un hébergement de production.
 
 ---
 
