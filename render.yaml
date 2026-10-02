@@ -1,0 +1,52 @@
+# Blueprint de déploiement GawJaay (backend API + PostgreSQL managé).
+#
+# Usage : dans Render → « New » → « Blueprint » → sélectionner ce dépôt.
+# Render crée le service web (image Docker) ET la base PostgreSQL, puis injecte
+# automatiquement DATABASE_URL et des secrets JWT générés. Aucun secret n'est
+# écrit dans ce fichier ni dans Git.
+#
+# Après le premier déploiement, Render fournit l'URL réelle du service, du type
+#   https://gawjaay-api.onrender.com
+# Il faut alors la reporter (une seule fois) dans la variable Actions
+# `VITE_API_URL` du dépôt, puis relancer le workflow « Deploy frontend ».
+#
+# Remarque : l'offre « free » de Render met le service en veille après
+# inactivité (le premier appel suivant est plus lent) et la base gratuite expire
+# au bout de 90 jours. Pour une production durable, utiliser une offre payante
+# (ou tout autre hébergeur Docker + PostgreSQL, voir docs/deployment.md).
+
+services:
+  - type: web
+    name: gawjaay-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Indique au conteneur d'utiliser PostgreSQL (réécrit le provider Prisma).
+      - key: DATABASE_PROVIDER
+        value: postgresql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gawjaay-db
+          property: connectionString
+      # Secrets JWT générés par Render (jamais commités).
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # CORS : origine réelle du frontend GitHub Pages.
+      - key: FRONTEND_URL
+        value: https://aydiarra-star.github.io
+      # Aucun prestataire de paiement réel n'est connecté.
+      - key: PAYMENTS_MODE
+        value: disabled
+
+databases:
+  - name: gawjaay-db
+    plan: free
+    databaseName: gawjaay
+    user: gawjaay
