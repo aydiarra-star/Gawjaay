@@ -58,10 +58,12 @@ export async function dashboard(orgId: string, range: DateRange, storeId?: strin
   const averageBasket = salesCount > 0 ? Math.round(revenue / salesCount) : 0;
 
   // Bénéfice estimé : (prix de vente - prix d'achat) sur les articles vendus.
+  // On privilégie le coût FIGÉ au moment de la vente (SaleItem.unitCost) ; les
+  // ventes antérieures à ce champ retombent sur le prix d'achat produit actuel.
   let grossMargin = 0;
   for (const sale of sales) {
     for (const item of sale.items) {
-      const cost = item.variant.product.purchasePrice ?? 0;
+      const cost = item.unitCost ?? item.variant.product.purchasePrice ?? 0;
       grossMargin += item.lineTotal - cost * item.quantity;
     }
   }

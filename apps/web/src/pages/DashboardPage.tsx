@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { type PackagingType } from '@gawjaay/shared';
 import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { formatXOF } from '../lib/format';
+import { formatXOF, formatDateTime, formatPackaging } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { useAuth } from '../context/AuthContext';
 import { Alert, Card, Chips, EmptyState, Section, Spinner, Stat } from '../components/ui';
@@ -25,6 +26,36 @@ interface DashboardData {
   payables: number;
 }
 
+interface RecentSale {
+  id: string;
+  total: number;
+  createdAt: string;
+  customer: { id: string; name: string } | null;
+  items: Array<{ id: string; name: string; quantity: number }>;
+}
+
+interface RecentMovement {
+  id: string;
+  createdAt: string;
+  type: string;
+  quantity: number;
+  productName: string;
+  packaging: PackagingType;
+}
+
+const MOVEMENT_LABELS: Record<string, string> = {
+  ENTRY: 'Entrée de stock',
+  EXIT: 'Sortie',
+  SALE: 'Vente',
+  ONLINE_ORDER: 'Commande en ligne',
+  RETURN: 'Retour',
+  TRANSFER_IN: 'Transfert entrant',
+  TRANSFER_OUT: 'Transfert sortant',
+  ADJUSTMENT: 'Ajustement',
+  COUNT: 'Inventaire',
+  INITIAL: 'Stock initial',
+};
+
 const RANGES = [
   { value: 'today', label: "Aujourd'hui" },
   { value: '7d', label: '7 jours' },
@@ -42,10 +73,18 @@ function greeting(): string {
 export function DashboardPage() {
   const { storeId } = useStore();
   const { user } = useAuth();
-  const [range, setRange] = useState('30d');
+  const [range, setRange] = useState('today');
   const { data, loading, error } = useApi<DashboardData>(
     () => api.get<DashboardData>(`/reports/dashboard?range=${range}${storeId ? `&storeId=${storeId}` : ''}`),
     [range, storeId],
+  );
+  const recentSales = useApi<{ sales: RecentSale[] }>(
+    () => api.get(`/sales${storeId ? `?storeId=${storeId}` : ''}`),
+    [storeId],
+  );
+  const recentMovements = useApi<{ movements: RecentMovement[] }>(
+    () => api.get(`/inventory/movements${storeId ? `?storeId=${storeId}` : ''}`),
+    [storeId],
   );
 
   const firstName = (user?.fullName ?? '').split(' ')[0];
@@ -203,6 +242,74 @@ export function DashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </Card>
+          </Section>
+
+          {/* Activité récente : ventes et mouvements réels */}
+          <Section title="Dernières ventes" subtitle="Les encaissements les plus récents de votre boutique">
+            <Card flush>
+              {recentSales.loading && <Spinner />}
+              {recentSales.error && <Alert kind="error">{recentSales.error}</Alert>}
+              {recentSales.data && recentSales.data.sales.length === 0 && (
+                <EmptyState title="Aucune vente" hint="Vos ventes apparaîtront ici dès le premier encaissement." icon={<IconReceipt size={22} />} />
+              )}
+              {recentSales.data && recentSales.data.sales.length > 0 && (
+                <div className="table-wrap" style={{ border: 'none' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Articles</th>
+                        <th>Client</th>
+                        <th className="num">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentSales.data.sales.slice(0, 8).map((sale) => (
+                        <tr key={sale.id}>
+                          <td className="muted small">{formatDateTime(sale.createdAt)}</td>
+                          <td>
+                            {sale.items.map((i) => `${i.quantity} × ${i.name}`).join(', ') || <span className="muted">—</span>}
+                          </td>
+                          <td className="muted">{sale.customer?.name ?? '—'}</td>
+                          <td className="num" style={{ fontWeight: 620 }}>
+                            {formatXOF(sale.total)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </Section>
+
+          <Section title="Derniers mouvements" subtitle="Entrées et sorties de stock enregistrées">
+            <Card flush>
+              {recentMovements.loading && <Spinner />}
+              {recentMovements.error && <Alert kind="error">{recentMovements.error}</Alert>}
+              {recentMovements.data && recentMovements.data.movements.length === 0 && (
+                <EmptyState title="Aucun mouvement" hint="Les entrées, ventes et ajustements apparaîtront ici." />
+              )}
+              {recentMovements.data && recentMovements.data.movements.length > 0 && (
+                <div>
+                  {recentMovements.data.movements.slice(0, 8).map((m) => (
+                    <div className="movement-row" key={m.id}>
+                      <div className="movement-main">
+                        <div style={{ fontWeight: 600 }}>{m.productName}</div>
+                        <div className="small muted">{MOVEMENT_LABELS[m.type] ?? m.type}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div className={`movement-qty ${m.quantity >= 0 ? 'in' : 'out'}`}>
+                          {m.quantity >= 0 ? '+' : ''}
+                          {formatPackaging(m.quantity, m.packaging)}
+                        </div>
+                        <div className="tiny muted">{formatDateTime(m.createdAt)}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </Card>

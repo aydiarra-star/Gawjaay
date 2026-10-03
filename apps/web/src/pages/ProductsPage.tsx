@@ -66,6 +66,7 @@ export function ProductsPage() {
   const { storeId } = useStore();
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -74,9 +75,13 @@ export function ProductsPage() {
   const [saved, setSaved] = useState<Product | null>(null);
 
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
-    () => api.get<ProductsResponse>(`/products?pageSize=100${query ? `&search=${encodeURIComponent(query)}` : ''}`),
-    [query],
+    () =>
+      api.get<ProductsResponse>(
+        `/products?pageSize=100${query ? `&search=${encodeURIComponent(query)}` : ''}${categoryId ? `&categoryId=${categoryId}` : ''}`,
+      ),
+    [query, categoryId],
   );
+  const categories = useApi<{ categories: Array<{ id: string; name: string }> }>(() => api.get('/categories'), []);
   const stock = useApi<{ items: Array<{ variantId: string; quantity: number }> }>(
     () => api.get(`/inventory${storeId ? `?storeId=${storeId}` : ''}`),
     [storeId],
@@ -175,12 +180,25 @@ export function ProductsPage() {
               setQuery(search);
             }}
           >
+            <select
+              aria-label="Filtrer par catégorie"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              style={{ width: 'auto', maxWidth: 170 }}
+            >
+              <option value="">Toutes catégories</option>
+              {(categories.data?.categories ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
             <input
               aria-label="Rechercher un produit"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher…"
-              style={{ width: 180 }}
+              style={{ width: 160 }}
               type="search"
             />
             <button className="btn btn-secondary btn-sm" type="submit">

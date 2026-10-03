@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { PAYMENT_METHODS } from '@gawjaay/shared';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { audit } from '../lib/audit.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireOrganization, requirePermission } from '../middleware/tenant.js';
-import { receivePurchase, purchaseOutstanding } from '../services/purchases.service.js';
+import { receivePurchase, purchaseOutstanding, collectPurchasePayment } from '../services/purchases.service.js';
 
 const router = Router();
 router.use(authenticate);
@@ -16,6 +18,8 @@ const schema = z.object({
   storeId: z.string(),
   reference: z.string().max(60).optional(),
   items: z.array(z.object({ variantId: z.string(), quantity: z.number().int().positive(), unitCost: z.number().int().nonnegative() })).min(1),
+  /** Paiement immédiat optionnel au moment de la création du bon d'achat. */
+  payment: z.object({ method: z.enum(PAYMENT_METHODS), amount: z.number().int().nonnegative() }).optional(),
 });
 
 router.get('/', requirePermission('purchases:read'), asyncHandler(async (req, res) => {
@@ -45,6 +49,10 @@ router.post('/', requirePermission('purchases:create'), asyncHandler(async (req,
   const lines = input.items.map((i) => ({ variantId: i.variantId, quantity: i.quantity, unitCost: i.unitCost, lineTotal: i.quantity * i.unitCost }));
   const total = lines.reduce((s, l) => s + l.lineTotal, 0);
 
+  if (input.payment && input.payment.amount > total) {
+    throw AppError.badRequest('Le paiement dépasse le total de l\'achat');
+  }
+
   const purchase = await prisma.purchase.create({
     data: {
       organizationId: req.auth.organizationId,
@@ -55,8 +63,13 @@ router.post('/', requirePermission('purchases:create'), asyncHandler(async (req,
       subtotal: total,
       total,
       items: { create: lines },
+      // Règlement immédiat optionnel (créance fournisseur réduite d'autant).
+      payments:
+        input.payment && input.payment.amount > 0
+          ? { create: [{ amount: input.payment.amount, method: input.payment.method, status: 'SUCCESSFUL' }] }
+          : undefined,
     },
-    include: { items: true },
+    include: { items: true, payments: true },
   });
   res.status(201).json({ purchase });
 }));
@@ -74,6 +87,15 @@ router.get('/:id/outstanding', requirePermission('purchases:read'), asyncHandler
   if (!purchase) throw AppError.notFound('Achat introuvable');
   const outstanding = await purchaseOutstanding(prisma, req.params.id);
   res.json({ outstanding });
+}));
+
+/** Règlement d'une dette fournisseur sur un achat réceptionné (partiel ou total). */
+router.post('/:id/payments', requirePermission('purchases:receive'), asyncHandler(async (req, res) => {
+  if (!req.auth) throw AppError.unauthorized();
+  const input = z.object({ method: z.enum(PAYMENT_METHODS), amount: z.number().int().positive() }).parse(req.body);
+  const result = await prisma.$transaction((tx) => collectPurchasePayment(tx, req.auth!.organizationId, req.params.id, input));
+  await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'purchase.payment', entity: 'purchase', entityId: req.params.id });
+  res.json(result);
 }));
 
 export default router;

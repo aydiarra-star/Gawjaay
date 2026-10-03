@@ -32,6 +32,7 @@ const NAV_GROUPS: Array<{ label: string; items: Array<{ to: string; label: strin
     items: [
       { to: '/app', label: 'Accueil', icon: IconHome, exact: true },
       { to: '/app/pos', label: 'Caisse', icon: IconCart },
+      { to: '/app/history', label: 'Historique', icon: IconLedger },
       { to: '/app/orders', label: 'Commandes', icon: IconReceipt },
       { to: '/app/deliveries', label: 'Livraisons', icon: IconBike },
     ],
