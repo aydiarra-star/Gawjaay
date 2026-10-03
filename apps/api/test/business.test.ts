@@ -215,17 +215,45 @@ describe('commandes en ligne', () => {
 });
 
 describe('paiements', () => {
-  it("déclare les paiements en ligne indisponibles et refuse toute charge", async () => {
+  it('déclare les moyens locaux encaissables et la carte en ligne indisponible', async () => {
     const caps = await request(app).get('/api/v1/payments/capabilities');
     expect(caps.status).toBe(200);
     expect(caps.body.onlinePaymentEnabled).toBe(false);
-    const cash = caps.body.methods.find((m: { method: string }) => m.method === 'CASH');
-    expect(cash.available).toBe(true);
-    const wave = caps.body.methods.find((m: { method: string }) => m.method === 'WAVE');
-    expect(wave.available).toBe(false);
+    const byMethod = (m: string) => caps.body.methods.find((x: { method: string }) => x.method === m);
+    // Espèces et mobile money (Wave, Orange Money, Free Money, Wizall) : encaissables immédiatement.
+    expect(byMethod('CASH').available).toBe(true);
+    expect(byMethod('CASH').mode).toBe('manual');
+    expect(byMethod('WAVE').available).toBe(true);
+    expect(byMethod('ORANGE_MONEY').available).toBe(true);
+    expect(byMethod('FREE_MONEY').available).toBe(true);
+    expect(byMethod('WIZALL').available).toBe(true);
+    // Carte bancaire en ligne : aucun prestataire connecté.
+    expect(byMethod('CARD').available).toBe(false);
+    expect(byMethod('CARD').mode).toBe('online');
 
     const charge = await request(app).post('/api/v1/payments/charge').send({ amount: 1000 });
     expect(charge.status).toBe(503);
+  });
+
+  it('enregistre une vente réglée par Wave (encaissement mobile money)', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 2500 });
+    await setStock(org, variantId, 5);
+
+    const res = await request(app)
+      .post('/api/v1/sales')
+      .set(auth(org))
+      .send({
+        storeId: org.storeId,
+        items: [{ variantId, quantity: 1 }],
+        payments: [{ method: 'WAVE', amount: 2500 }],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.remaining).toBe(0);
+
+    const sale = await prisma.salePayment.findFirst({ where: { saleId: res.body.saleId } });
+    expect(sale?.method).toBe('WAVE');
+    expect(sale?.status).toBe('SUCCESSFUL');
   });
 });
 

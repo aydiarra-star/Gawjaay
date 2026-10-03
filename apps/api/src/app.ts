@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { env, isTest } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
+import { requestLogger } from './middleware/logging.js';
 
 import authRoutes from './routes/auth.routes.js';
 import organizationRoutes from './routes/organizations.routes.js';
@@ -31,14 +32,16 @@ export function createApp() {
 
   app.set('trust proxy', 1);
   app.use(helmet());
+  if (!isTest) app.use(requestLogger);
 
-  // CORS : origine unique autorisée (frontend). Cookies acceptés.
+  // CORS : liste d'origines autorisées (frontend). Cookies acceptés.
+  // Une origine inconnue n'obtient simplement pas l'en-tête CORS (pas de 500).
   const allowedOrigins = env.FRONTEND_URL.split(',').map((s) => s.trim()).filter(Boolean);
   app.use(
     cors({
       origin(origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error('Origine non autorisée par CORS'));
+        return callback(null, false);
       },
       credentials: true,
     }),

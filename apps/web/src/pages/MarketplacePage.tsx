@@ -4,7 +4,8 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
 import { Alert, Chips, EmptyState, SearchField, SkeletonGrid } from '../components/ui';
-import { IconHeart, IconMapPin, IconMarket, IconStore } from '../components/icons';
+import { IconHeart, IconMapPin, IconMarket, IconStore, IconTag } from '../components/icons';
+import { ProductDownloadButton, TerangaBanner } from '../components/premium';
 
 interface Offer {
   storeId: string;
@@ -60,7 +61,7 @@ export function MarketplacePage() {
     });
   }
 
-  const { data, loading, error } = useApi<MarketplaceResponse>(
+  const { data, loading, error, reload } = useApi<MarketplaceResponse>(
     () => {
       const params = new URLSearchParams();
       if (query.search) params.set('search', query.search);
@@ -104,6 +105,16 @@ export function MarketplacePage() {
             </span>
           </div>
 
+          <TerangaBanner
+            title="Teranga Week — l'hospitalité sénégalaise, en ligne"
+            body="Des produits réellement en stock dans les boutiques GawJaay, au plus près de chez vous. Chaque offre affichée correspond à un stock vérifié côté serveur."
+            action={
+              <Link to="/register" className="btn btn-lg">
+                Ouvrir ma boutique
+              </Link>
+            }
+          />
+
           <div className="card" style={{ padding: '18px 20px' }}>
             <SearchField
               value={search}
@@ -112,21 +123,32 @@ export function MarketplacePage() {
               label="Rechercher un produit"
               onSubmit={() => setQuery({ search, categoryId: query.categoryId })}
             />
-            {categories.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <Chips
-                  allLabel="Toutes les catégories"
-                  value={query.categoryId}
-                  onChange={(categoryId) => setQuery({ search: query.search, categoryId })}
-                  options={categories.map((c) => ({ value: c.id, label: c.name }))}
-                />
-              </div>
-            )}
+            <div style={{ marginTop: 16 }}>
+              <Chips
+                allLabel="Toutes les catégories"
+                value={query.categoryId}
+                onChange={(categoryId) => setQuery({ search: query.search, categoryId })}
+                options={categories.map((c) => ({ value: c.id, label: c.name }))}
+              />
+              {categories.length === 0 && (
+                <p className="small muted" style={{ marginTop: 10 }}>
+                  <IconTag size={13} /> Aucune catégorie publiée pour le moment — les catégories apparaîtront ici dès
+                  qu'une boutique publiera des produits.
+                </p>
+              )}
+            </div>
           </div>
 
           <div style={{ marginTop: 24 }}>
             {loading && <SkeletonGrid count={8} />}
-            {error && <Alert kind="error">{error}</Alert>}
+            {error && (
+              <div className="card">
+                <Alert kind="error">{error}</Alert>
+                <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 12 }} onClick={reload}>
+                  Réessayer
+                </button>
+              </div>
+            )}
 
             {!loading && !error && (data?.items.length ?? 0) === 0 && (
               <div className="card">
@@ -164,6 +186,7 @@ export function MarketplacePage() {
                               {item.name.charAt(0).toUpperCase()}
                             </div>
                           )}
+                          {item.originalPrice && <span className="product-promo">Promo</span>}
                           <button
                             type="button"
                             className={`product-fav${isFav ? ' on' : ''}`}
@@ -202,6 +225,19 @@ export function MarketplacePage() {
                             )}
                             {item.offers.length > 1 && <span className="badge">{item.offers.length} boutiques</span>}
                           </div>
+                          <ProductDownloadButton
+                            product={{
+                              name: item.name,
+                              description: item.description,
+                              category: item.category?.name ?? null,
+                              price: item.price,
+                              originalPrice: item.originalPrice,
+                              shopName: offer?.storeName ?? null,
+                              shopCity: offer?.city ?? null,
+                              shopRegion: offer?.region ?? null,
+                              available: totalAvailable,
+                            }}
+                          />
                         </div>
                       </article>
                     );

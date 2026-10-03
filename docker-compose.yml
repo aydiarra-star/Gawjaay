@@ -1,0 +1,83 @@
+# Déploiement persistant du backend GawJaay.
+#
+# Deux modes, tous deux SANS dépendance au runtime temporaire All-Hands :
+#
+#  1) SQLite sur volume persistant (défaut, simple) :
+#       export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
+#       export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+#       export FRONTEND_URL="https://aydiarra-star.github.io"
+#       docker compose up -d --build
+#
+#  2) PostgreSQL managé/auto-hébergé (recommandé en production) :
+#       docker compose --profile postgres up -d --build
+#     → utilise le service `db` ci-dessous ; en production réelle, préférez un
+#       PostgreSQL managé (Render, Neon, Supabase, RDS…) et renseignez
+#       DATABASE_URL directement sur `api-pg`.
+#
+# Dans tous les cas, l'URL publique de l'API (obtenue via le reverse-proxy /
+# l'hébergeur) doit être reportée dans la variable Actions `VITE_API_URL`.
+
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      HOST: "0.0.0.0"
+      DATABASE_PROVIDER: "sqlite"
+      # Chemin ABSOLU : indépendant du dossier de résolution de Prisma.
+      DATABASE_URL: "file:/data/gawjaay.db"
+      FRONTEND_URL: "${FRONTEND_URL:-https://aydiarra-star.github.io}"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET requis (>= 32 caractères)}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis (>= 32 caractères)}"
+      PAYMENTS_MODE: "disabled"
+    volumes:
+      - gawjaay-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "gawjaay"
+      POSTGRES_USER: "gawjaay"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis pour le profil postgres}"
+    volumes:
+      - gawjaay-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gawjaay -d gawjaay"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-pg:
+    build: .
+    profiles: ["postgres"]
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      HOST: "0.0.0.0"
+      DATABASE_PROVIDER: "postgresql"
+      DATABASE_URL: "${DATABASE_URL:-postgresql://gawjaay:${POSTGRES_PASSWORD}@db:5432/gawjaay?schema=public}"
+      FRONTEND_URL: "${FRONTEND_URL:-https://aydiarra-star.github.io}"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET requis (>= 32 caractères)}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET requis (>= 32 caractères)}"
+      PAYMENTS_MODE: "disabled"
+
+volumes:
+  gawjaay-data:
+  gawjaay-pg:

@@ -28,7 +28,9 @@ export default defineConfig({
       env: {
         NODE_ENV: 'development',
         PORT: '4000',
-        DATABASE_URL: 'file:./prisma/dev.db',
+        // Prisma résout les chemins SQLite RELATIFS depuis le dossier du schéma
+        // (apps/api/prisma/). `./dev.db` pointe donc bien sur apps/api/prisma/dev.db.
+        DATABASE_URL: 'file:./dev.db',
         JWT_ACCESS_SECRET: 'e2e-access-secret-0123456789abcdef012345',
         JWT_REFRESH_SECRET: 'e2e-refresh-secret-0123456789abcdef01234',
         FRONTEND_URL: 'http://localhost:4173',

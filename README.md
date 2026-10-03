@@ -25,8 +25,8 @@ marketplace et tableau de bord.
 | Tableau de bord & rapports (données réelles) | ✅ Fonctionnel (testé) |
 | Boutique publique & marketplace | ✅ Fonctionnel (testé) |
 | Abonnements (plans & limites côté serveur) | ✅ Fonctionnel — activation des plans **payants non connectée** |
-| **Paiements en ligne (Wave / Orange Money / carte)** | ❌ **Non connecté** — l'API répond volontairement `503` |
-| Encaissement espèces & vente à crédit | ✅ Fonctionnel (interne, sans prestataire) |
+| Encaissement **espèces, Wave, Orange Money, Free Money, Wizall** et vente à crédit | ✅ Fonctionnel (interne, sans prestataire) |
+| **Paiement par carte bancaire en ligne** | ❌ **Non connecté** — l'API répond volontairement `503` |
 
 **Aucune donnée fictive n'est présentée comme réelle.** Le tableau de bord affiche `0` tant
 qu'aucune vente réelle n'existe. Le jeu de démonstration (`prisma/seed.ts`) est explicitement
@@ -73,20 +73,28 @@ gawjaay/
 
 L'interface est un « Commerce OS » qui réunit trois univers dans une identité unique :
 **Marketplace** (découverte, plus visuelle), **Boutique** (opérations, plus dense) et
-**Comptabilité** (analyse, plus analytique). La cohérence vient d'un design system partagé :
+**Comptabilité** (analyse, plus analytique). La cohérence vient d'un design system partagé,
+aujourd'hui décliné dans une identité « **Teranga** » : vert émeraude profond, or métallique
+et orange vif, inspirée de l'hospitalité sénégalaise.
 
-- **Tokens** (`apps/web/src/styles.css`) : surfaces ivoire/charbon, vert signature utilisé avec
-  parcimonie (CTA, actif, positif), échelle d'espacement 4pt, rayons et élévations cohérents.
+- **Tokens** (`apps/web/src/styles.css`) : fonds ivoire/sable, **vert émeraude** (navigation,
+  surfaces de marque), **or métallique** (badges promo, étoiles, bordures de luxe), **orange vif**
+  (CTA principaux, bannières phares) ; échelle d'espacement 4pt, rayons et élévations cohérents.
 - **Icônes** (`apps/web/src/components/icons.tsx`) : jeu de 30 icônes SVG monochromes (traits
   1.6px), remplaçant les emojis pour un rendu net et professionnel.
 - **Composants** (`apps/web/src/components/ui.tsx`) : `PageHead`, `Section`, `Card`, `Stat`,
   `Alert`, `Spinner`, `SkeletonGrid`, `EmptyState`, `SearchField`, `StatusBadge`, `Avatar`, `Chips`.
+- **Composants premium** (`apps/web/src/components/premium.tsx`) : `TerangaBanner` (bannière
+  dégradée émeraude → or → orange), `Stars` (notation en étoiles dorées), `ProductDownloadButton`
+  (fiche produit téléchargeable, générée depuis les données réelles du serveur).
 - **Navigation** : sidebar groupée par univers sur desktop, barre inférieure « au pouce » sur mobile.
 - **Motion** : transitions courtes et intentionnelles ; `prefers-reduced-motion` respecté.
 - **Chiffres financiers** : chiffres tabulaires, hiérarchie forte (montant héros → KPI → détail).
 
 Règle maintenue : **aucune donnée inventée**. Les états vides, les zéros et les jeux de
-démonstration (`DEMO`) restent explicites.
+démonstration (`DEMO`) restent explicites. Le bouton de téléchargement produit une fiche
+textuelle reprenant les données fournies par le serveur (nom, prix, stock, boutique) — aucune
+valeur n'est fabriquée côté navigateur.
 
 ---
 
@@ -126,7 +134,7 @@ Résultats vérifiés localement :
 | --- | --- | --- |
 | Typecheck API | `npm run typecheck -w @gawjaay/api` | ✅ PASS |
 | Typecheck web | `npm run typecheck -w @gawjaay/web` | ✅ PASS |
-| Tests unitaires/intégration API | `npm test` | ✅ 31/31 PASS |
+| Tests unitaires/intégration API | `npm test` | ✅ 32/32 PASS |
 | E2E (desktop + mobile) | `npm run test:e2e` | ✅ 12/12 PASS |
 | Build web (production) | `npm run build:web` | ✅ PASS |
 
@@ -136,7 +144,10 @@ Résultats vérifiés localement :
 
 | Variable | Rôle |
 | --- | --- |
-| `DATABASE_URL` | Chaîne de connexion Prisma (SQLite en dev) |
+| `DATABASE_URL` | Chaîne de connexion Prisma (SQLite en dev, PostgreSQL en production) |
+| `DATABASE_PROVIDER` | `sqlite` (défaut) ou `postgresql` — réécrit le provider Prisma au build/démarrage |
+| `PORT` | Port d'écoute (fourni par l'hébergeur ; `4000` par défaut) |
+| `HOST` | Interface d'écoute (`0.0.0.0` par défaut, adapté aux proxys/hébergeurs) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secrets de signature (≥ 32 caractères en production) |
 | `FRONTEND_URL` | Origine(s) autorisée(s) par CORS (séparées par des virgules) |
 | `PAYMENTS_MODE` | `disabled` (défaut). `enabled` est **refusé** tant qu'aucun prestataire n'est connecté |
@@ -152,24 +163,79 @@ Résultats vérifiés localement :
 
 ## 9. Déploiement
 
+> Guide détaillé pas à pas : [`docs/deployment.md`](docs/deployment.md).
+
 ### Frontend — GitHub Pages
 
-Le workflow `.github/workflows/deploy-pages.yml` construit `apps/web` et le publie sur GitHub Pages
-à chaque push sur `main`. La SPA gère le rechargement direct des routes profondes
-(`/app`, `/marketplace`, `/shop/...`) via `public/404.html` + restauration de route dans `index.html`.
+Le site est publié sur GitHub Pages (branche `gh-pages`, racine). La SPA gère le rechargement
+direct des routes profondes (`/app`, `/marketplace`, `/shop/...`) via `public/404.html` +
+restauration de route dans `index.html`.
 
 - **URL publique** : `https://aydiarra-star.github.io/Gawjaay/`
-- Pour pointer vers une API hébergée, définir la variable Actions `VITE_API_URL`
-  (Settings → Secrets and variables → Actions → Variables).
+- **URL de l'API** : résolue **à l'exécution** dans [`apps/web/public/config.js`](apps/web/public/config.js)
+  (`window.__GAWJAAY_CONFIG__.apiUrl`). Il suffit de renseigner `apiUrl` puis de republier :
+  **aucun rebuild, aucune variable GitHub Actions requise**. Priorité de résolution
+  (voir `apps/web/src/lib/api.ts`) : `config.js` → `VITE_API_URL` (injecté au build) → repli local (dev).
+
+**Connecter l'API en une commande** (écrit `config.js`, construit avec le bon `base`, publie sur `gh-pages`) :
+
+```bash
+npm run connect:api -- https://<service>.onrender.com/api/v1
+```
+
+Le script `scripts/connect-api.mjs` refuse une URL non `https`, un hôte de bac à sable éphémère
+ou une adresse locale. Le build de production échoue de la même façon via
+`apps/web/scripts/verify-bundle.mjs`.
+
+> ⚠️ **Aucune API de production n'est actuellement branchée** : `config.js` est publié avec
+> `apiUrl` vide. Le site s'affiche honnêtement (« Le service GawJaay n'est pas encore connecté à
+> cette adresse… ») au lieu de tenter un serveur mort. Tant qu'aucune API n'est déployée (voir
+> ci-dessous) et reportée dans `config.js`, le site est une vitrine et l'inscription reste
+> indisponible. Aucune URL de production n'est codée en dur dans le dépôt : c'est volontaire.
 
 > GitHub Pages n'héberge **que le frontend statique**. Il ne peut pas héberger l'API, la base de
 > données ni l'authentification serveur.
 
-### Backend — hébergement adapté (non fourni dans ce dépôt)
+### Backend — hébergement persistant
 
-L'API Express + Prisma nécessite un hébergeur applicatif avec une base persistante
-(ex. Render, Railway, Fly.io, VPS, ou un conteneur). Sans `VITE_API_URL` configurée, la version
-GitHub Pages est une **vitrine frontend** : les écrans de données nécessitent une API joignable.
+L'API Express + Prisma nécessite un hébergeur applicatif avec une base persistante. Le dépôt
+fournit un **Dockerfile** et **deux modes de déploiement** :
+
+**A. Render (blueprint prêt à l'emploi, recommandé)**
+
+Le fichier [`render.yaml`](render.yaml) crée l'API (image Docker) **et** une base PostgreSQL
+managée, avec injection automatique de `DATABASE_URL` et génération des secrets JWT :
+
+1. Render → **New** → **Blueprint** → sélectionner ce dépôt.
+2. Render déploie et fournit l'URL réelle du service (ex. `https://gawjaay-api.onrender.com`).
+3. Connecter le frontend en une commande (suffixer l'URL par `/api/v1`) :
+   `npm run connect:api -- https://<service>.onrender.com/api/v1`
+   — ou renseigner `apiUrl` dans `apps/web/public/config.js` puis republier.
+
+> L'offre *free* de Render met le service en veille après inactivité et la base gratuite expire
+> après 90 jours. Pour une production durable, utiliser une offre payante.
+
+**B. Docker Compose (n'importe quel hôte : VPS, Hetzner, etc.)**
+
+```bash
+# À la racine du dépôt :
+export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
+export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+export FRONTEND_URL="https://aydiarra-star.github.io"
+
+# SQLite sur volume persistant :
+docker compose up -d --build
+
+# …ou PostgreSQL (profil dédié) :
+export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+docker compose --profile postgres up -d --build
+```
+
+Placer ensuite l'API derrière un reverse-proxy HTTPS (Caddy / Nginx + Let's Encrypt) et reporter
+l'URL publique dans `VITE_API_URL`.
+
+> **Bac à sable uniquement** : `scripts/serve-api.sh` relance l'API locale si elle s'arrête
+> (journal dans `/tmp/gawjaay-api.log`). Ce n'est **pas** un hébergement de production.
 
 ---
 
@@ -185,6 +251,26 @@ Base : `/api/v1`. Routes principales :
 
 ---
 
-## 11. Licence
+## 11. Moyens de paiement (Sénégal)
+
+| Moyen | Encaissable | Comment |
+| --- | --- | --- |
+| Espèces | ✅ | Saisie directe au POS |
+| **Wave** | ✅ | Le commerçant reçoit le transfert, puis saisit le règlement |
+| **Orange Money** | ✅ | Idem |
+| **Free Money** | ✅ | Idem |
+| **Wizall Money** | ✅ | Idem |
+| Crédit (à terme) | ✅ | Créance suivie côté serveur |
+| Carte bancaire en ligne | ❌ | Nécessite un prestataire (PSP) non connecté — `503` |
+
+Principe : GawJaay est la **caisse et la comptabilité**. Le mobile money est encaissé par le
+commerçant sur son téléphone, puis **enregistré** comme règlement (méthode + montant) ; le solde,
+la créance et les rapports sont tenus par le serveur. Aucune commission n'est prélevée et aucune
+connexion à un PSP n'est simulée.
+
+`GET /api/v1/payments/capabilities` renvoie, pour chaque moyen, `available` et `mode`
+(`manual` ou `online`). L'interface n'affiche jamais un bouton de paiement en ligne non connecté.
+
+## 12. Licence
 
 Projet privé — tous droits réservés.

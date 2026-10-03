@@ -11,8 +11,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:push": "prisma db push",
-    "db:generate": "prisma generate",
+    "db:provider": "node scripts/set-db-provider.mjs",
+    "db:push": "node scripts/set-db-provider.mjs && prisma db push",
+    "db:generate": "node scripts/set-db-provider.mjs && prisma generate",
+    "db:deploy": "node scripts/set-db-provider.mjs && prisma generate && prisma db push --skip-generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts"
   },

@@ -4,6 +4,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
 import { Alert, EmptyState, SkeletonGrid } from '../components/ui';
 import { IconMapPin, IconPackage, IconStore } from '../components/icons';
+import { ProductDownloadButton, TerangaBanner } from '../components/premium';
 
 interface ShopResponse {
   shop: {
@@ -114,6 +115,12 @@ export function ShopPage() {
                   </div>
                 </div>
 
+                <TerangaBanner
+                  eyebrow="Boutique"
+                  title={`Bienvenue chez ${data.shop.name}`}
+                  body="Produits disponibles en stock, au prix affiché par la boutique. Téléchargez la fiche d'un produit pour la conserver ou la partager."
+                />
+
                 {data.products.length === 0 ? (
                   <div className="card">
                     <EmptyState
@@ -136,6 +143,7 @@ export function ShopPage() {
                                 {p.name.charAt(0).toUpperCase()}
                               </div>
                             )}
+                            {p.originalPrice && <span className="product-promo">Promo</span>}
                           </div>
                           <div className="product-body">
                             {p.category && <span className="badge">{p.category.name}</span>}
@@ -152,6 +160,21 @@ export function ShopPage() {
                               )}
                               {p.variants.length > 1 && <span className="badge">{p.variants.length} variantes</span>}
                             </div>
+                            <ProductDownloadButton
+                              product={{
+                                name: p.name,
+                                description: p.description,
+                                category: p.category?.name ?? null,
+                                price: p.price,
+                                originalPrice: p.originalPrice,
+                                shopName: data.shop.name,
+                                shopCity: data.shop.city,
+                                shopRegion: data.shop.region,
+                                shopPhone: data.shop.phone,
+                                available,
+                                variants: p.variants,
+                              }}
+                            />
                           </div>
                         </article>
                       );

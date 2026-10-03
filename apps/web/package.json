@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build": "tsc -p tsconfig.json --noEmit && vite build && node scripts/verify-bundle.mjs",
+    "build:e2e": "tsc -p tsconfig.json --noEmit && vite build && node scripts/verify-bundle.mjs --allow-localhost",
+    "build:only": "vite build",
+    "verify:bundle": "node scripts/verify-bundle.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:e2e": "playwright test"

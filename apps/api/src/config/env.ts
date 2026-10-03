@@ -7,6 +7,8 @@ import { z } from 'zod';
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
+  /** Interface d'écoute. `0.0.0.0` en production (proxy/hébergeur), localhost en dev. */
+  HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL est requis'),
   JWT_ACCESS_SECRET: z.string().min(16).default('dev-access-secret-change-me-at-least-32-chars'),
   JWT_REFRESH_SECRET: z.string().min(16).default('dev-refresh-secret-change-me-at-least-32-chars'),

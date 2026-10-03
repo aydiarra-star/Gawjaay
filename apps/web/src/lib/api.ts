@@ -1,25 +1,34 @@
 import { getAccessToken, getOrganizationId } from './session';
 
 /**
- * URL de base de l'API.
+ * URL de base de l'API — résolue à l'EXÉCUTION, dans cet ordre :
  *
- * Résolution, du plus prioritaire au moins prioritaire :
- *  1. `VITE_API_URL` (variable/secret défini au build — ex. GitHub Actions).
- *  2. En production, l'origine servie sur GitHub Pages (`aydiarra-star.github.io`)
- *     pointe par défaut vers l'API publique, afin qu'un oubli de variable ne
- *     laisse pas une vitrine silencieusement cassée.
- *  3. Sinon : API locale de développement.
+ *  1. `window.__GAWJAAY_CONFIG__.apiUrl` (fichier `config.js` servi par GitHub Pages) :
+ *     permet de pointer le site vers un backend SANS reconstruire ni toucher aux workflows.
+ *  2. `VITE_API_URL` : injecté au build par GitHub Actions (CI) ou docker-compose.
+ *  3. Développement local : `http://localhost:4000/api/v1`.
+ *
+ * En production, si aucune des deux premières sources n'est définie, l'application
+ * refuse de démarrer silencieusement : elle affiche un message explicite au lieu
+ * d'envoyer l'utilisateur vers un serveur qui n'existe pas. Aucune URL de
+ * production n'est codée en dur.
  */
-function resolveApiBase(): string {
-  const configured = import.meta.env.VITE_API_URL as string | undefined;
-  if (configured && configured.trim()) return configured.trim();
-  if (typeof window !== 'undefined' && /(^|\.)github\.io$/i.test(window.location.hostname)) {
-    return 'https://work-1-xkxpfbzjsaxyifxx.prod-runtime.all-hands.dev/api/v1';
-  }
-  return 'http://localhost:4000/api/v1';
-}
+const DEV_FALLBACK = 'http://localhost:4000/api/v1';
 
-export const API_BASE: string = resolveApiBase();
+export const API_BASE: string = (() => {
+  const runtime = window.__GAWJAAY_CONFIG__?.apiUrl?.trim();
+  if (runtime) return runtime;
+
+  const buildTime = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (buildTime) return buildTime;
+
+  if (import.meta.env.DEV) return DEV_FALLBACK;
+  return '';
+})();
+
+export const API_CONFIG_ERROR =
+  'Le service GawJaay n’est pas encore connecté à cette adresse. ' +
+  'Renseignez l’URL de l’API dans le fichier config.js (ou la variable VITE_API_URL).';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -43,6 +52,10 @@ interface RequestOptions {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  if (!API_BASE) {
+    throw new ApiError(0, 'CONFIG_ERROR', API_CONFIG_ERROR);
+  }
+
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (!options.publicRoute) {
     const token = getAccessToken();
