@@ -47,6 +47,21 @@ describe('Phase A — idempotence de la vente', () => {
 
     expect(await prisma.sale.count()).toBe(2);
   });
+
+  it('accepte un clientRequestId explicitement null (POS sans clé) sans 400', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 1000 });
+    await setStock(org, variantId, 5);
+
+    const res = await request(app).post('/api/v1/sales').set(auth(org)).send({
+      storeId: org.storeId,
+      items: [{ variantId, quantity: 1 }],
+      payments: [{ method: 'CASH', amount: 1000 }],
+      clientRequestId: null,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.saleId).toBeTruthy();
+  });
 });
 
 describe('Phase A — remboursement de vente', () => {
@@ -141,6 +156,21 @@ describe('Phase A — cohérence prix promotionnel et publication', () => {
     const item2 = listed2.body.items.find((p: { id: string }) => p.id === productId);
     expect(item2.marketplaceBlocked).toBe(false);
   });
+
+  it('un marchand ne peut pas publier le produit d’une autre organisation', async () => {
+    const orgA = await createOrg('a');
+    const orgB = await createOrg('b');
+    const { productId } = await createProduct(orgA, { price: 2000 });
+
+    // B tente de publier le produit de A : introuvable (pas de fuite d'existence).
+    const res = await request(app).patch(`/api/v1/products/${productId}`).set(auth(orgB)).send({ marketplaceVisible: true });
+    expect(res.status).toBe(404);
+
+    // A publie son propre produit : OK.
+    const own = await request(app).patch(`/api/v1/products/${productId}`).set(auth(orgA)).send({ marketplaceVisible: true });
+    expect(own.status).toBe(200);
+    expect(own.body.product.marketplaceVisible).toBe(true);
+  });
 });
 
 describe('Phase A — exports CSV (données réelles, isolation)', () => {
@@ -200,6 +230,46 @@ describe('Phase A — vérification téléphone (fondation, sans fournisseur SMS
     // (le test contrôle le contrat de vérification, pas l'envoi SMS).
     const pending = await prisma.phoneVerification.findFirst({ where: { userId: org.userId, status: 'PENDING' } });
     expect(pending).toBeTruthy();
+  });
+});
+
+describe('Phase A — remboursement exclu des totaux financiers', () => {
+  it('retire la vente remboursée du CA, de la marge, des créances et du solde client', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 3000, purchasePrice: 1000 });
+    await setStock(org, variantId, 5);
+    const customer = await request(app).post('/api/v1/customers').set(auth(org)).send({ name: 'Client Remboursé' });
+    const customerId = customer.body.customer.id;
+
+    const sale = await request(app).post('/api/v1/sales').set(auth(org)).send({
+      storeId: org.storeId,
+      customerId,
+      items: [{ variantId, quantity: 2 }],
+      payments: [],
+    });
+    expect(sale.status).toBe(201);
+
+    const before = await request(app).get('/api/v1/reports/dashboard').set(auth(org));
+    expect(before.body.revenue).toBe(6000);
+    expect(before.body.grossMargin).toBe(4000);
+    expect(before.body.receivables).toBe(6000);
+
+    const refund = await request(app).post(`/api/v1/sales/${sale.body.saleId}/refund`).set(auth(org)).send({});
+    expect(refund.status).toBe(200);
+
+    const after = await request(app).get('/api/v1/reports/dashboard').set(auth(org));
+    expect(after.body.revenue).toBe(0);
+    expect(after.body.salesCount).toBe(0);
+    expect(after.body.grossMargin).toBe(0);
+    expect(after.body.receivables).toBe(0);
+
+    const fiche = await request(app).get(`/api/v1/customers/${customerId}`).set(auth(org));
+    expect(fiche.body.customer.balance).toBe(0);
+    expect(fiche.body.customer.totalPurchases).toBe(0);
+
+    // Le stock est bien restitué.
+    const inv = await prisma.inventory.findFirst({ where: { variantId, storeId: org.storeId } });
+    expect(inv?.quantity).toBe(5);
   });
 });
 

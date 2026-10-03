@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, formatPackaging, type PackagingType, type PaymentMethod } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
@@ -36,6 +36,13 @@ interface Product {
   variants: Array<{ id: string; name: string; sku: string }>;
 }
 
+/** Identifiant unique de tentative d'encaissement (idempotence POS). */
+function newCheckoutId(): string {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
+}
+
 export function PosPage() {
   const { storeId } = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,7 +60,15 @@ export function PosPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [checkoutId, setCheckoutId] = useState<string | null>(null);
+  // Clé d'idempotence du panier courant. Créée via une ref pour être lisible
+  // de façon synchrone dans `checkout` (un `useState` ne serait pas encore à
+  // jour juste après `setCheckoutId` lors d'un double clic / retry réseau).
+  // Elle n'est renouvelée qu'APRÈS un succès confirmé : un retry suite à un
+  // timeout réseau rejoue donc la même clé (pas de double vente).
+  const checkoutIdRef = useRef<string | null>(null);
+  if (checkoutIdRef.current === null) {
+    checkoutIdRef.current = newCheckoutId();
+  }
 
   const customers = useApi<{ customers: Array<{ id: string; name: string }> }>(() => api.get('/customers'), []);
 
@@ -141,7 +156,6 @@ export function PosPage() {
       return;
     }
     setBusy(true);
-    setCheckoutId((prev) => prev ?? (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`));
     try {
       const payments =
         payMethod === 'CREDIT'
@@ -156,13 +170,13 @@ export function PosPage() {
         payments,
         // Identifiant idempotent par tentative d'encaissement : un double clic ou
         // un retry réseau renvoie la même vente au lieu d'en créer une seconde.
-        clientRequestId: checkoutId,
+        clientRequestId: checkoutIdRef.current,
       });
       setSuccess(`Vente enregistrée : ${formatXOF(res.total)}${res.remaining > 0 ? ` (reste dû ${formatXOF(res.remaining)})` : ''}.`);
       setCart({});
       setPaidAmount('');
       setCustomerId('');
-      setCheckoutId(null);
+      checkoutIdRef.current = newCheckoutId(); // nouvelle clé pour la vente suivante
       stock.reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Vente impossible');

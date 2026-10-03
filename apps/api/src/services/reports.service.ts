@@ -53,15 +53,18 @@ export async function dashboard(orgId: string, range: DateRange, storeId?: strin
     receivablesSummary(orgId),
   ]);
 
-  const revenue = sales.reduce((sum, s) => sum + s.total, 0);
-  const salesCount = sales.length;
+  // Les ventes remboursées sont exclues des totaux financiers : le CA, le
+  // panier moyen et la marge reflètent l'activité réellement encaissée.
+  const activeSales = sales.filter((s) => s.status !== 'REFUNDED');
+  const revenue = activeSales.reduce((sum, s) => sum + s.total, 0);
+  const salesCount = activeSales.length;
   const averageBasket = salesCount > 0 ? Math.round(revenue / salesCount) : 0;
 
   // Bénéfice estimé : (prix de vente - prix d'achat) sur les articles vendus.
   // On privilégie le coût FIGÉ au moment de la vente (SaleItem.unitCost) ; les
   // ventes antérieures à ce champ retombent sur le prix d'achat produit actuel.
   let grossMargin = 0;
-  for (const sale of sales) {
+  for (const sale of activeSales) {
     for (const item of sale.items) {
       const cost = item.unitCost ?? item.variant.product.purchasePrice ?? 0;
       grossMargin += item.lineTotal - cost * item.quantity;
@@ -125,6 +128,7 @@ export async function receivablesSummary(orgId: string) {
   });
   let receivables = 0;
   for (const sale of sales) {
+    if (sale.status === 'REFUNDED') continue; // une vente remboursée n'est pas une créance
     const paid = sale.payments.filter((p) => p.status === 'SUCCESSFUL').reduce((s, p) => s + p.amount, 0);
     receivables += Math.max(0, sale.total - paid);
   }
@@ -153,6 +157,7 @@ export async function salesStats(orgId: string, range: DateRange, storeId?: stri
   const byProduct = new Map<string, { name: string; quantity: number; revenue: number }>();
 
   for (const sale of sales) {
+    if (sale.status === 'REFUNDED') continue; // exclue des statistiques de CA
     const day = sale.createdAt.toISOString().slice(0, 10);
     const d = byDay.get(day) ?? { revenue: 0, count: 0 };
     d.revenue += sale.total;
@@ -170,8 +175,8 @@ export async function salesStats(orgId: string, range: DateRange, storeId?: stri
     daily: [...byDay.entries()].map(([date, v]) => ({ date, ...v })).sort((a, b) => a.date.localeCompare(b.date)),
     topProducts: [...byProduct.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 10),
     totals: {
-      revenue: sales.reduce((s, x) => s + x.total, 0),
-      count: sales.length,
+      revenue: [...byDay.values()].reduce((s, v) => s + v.revenue, 0),
+      count: [...byDay.values()].reduce((s, v) => s + v.count, 0),
     },
   };
 }

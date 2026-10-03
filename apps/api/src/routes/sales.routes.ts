@@ -19,8 +19,8 @@ const saleSchema = z.object({
   items: z.array(z.object({ variantId: z.string(), quantity: z.number().int().positive() })).min(1),
   discount: z.number().int().nonnegative().default(0),
   payments: z.array(z.object({ method: z.enum(PAYMENT_METHODS), amount: z.number().int().nonnegative() })).default([]),
-  /** Clé d'idempotence (double-submit / retry réseau). */
-  clientRequestId: z.string().max(80).optional(),
+  /** Clé d'idempotence (double-submit / retry réseau). `null` accepté. */
+  clientRequestId: z.string().max(80).nullish(),
 });
 
 /** Liste des ventes (POS) de l'organisation. */

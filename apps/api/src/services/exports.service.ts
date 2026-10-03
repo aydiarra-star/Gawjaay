@@ -91,8 +91,8 @@ async function customersCsv(orgId: string): Promise<string> {
   return toCsv(
     ['Client', 'Téléphone', 'Email', 'Total achats', 'Solde dû'],
     customers.map((c) => {
-      const total = c.sales.reduce((s, sale) => s + sale.total, 0);
-      const balance = c.sales.reduce((sum, sale) => {
+      const total = c.sales.filter((s) => s.status !== 'REFUNDED').reduce((s, sale) => s + sale.total, 0);
+      const balance = c.sales.filter((s) => s.status !== 'REFUNDED').reduce((sum, sale) => {
         const paid = sale.payments.filter((p) => p.status === 'SUCCESSFUL').reduce((a, p) => a + p.amount, 0);
         return sum + Math.max(0, sale.total - paid);
       }, 0);
