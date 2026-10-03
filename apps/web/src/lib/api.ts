@@ -1,30 +1,34 @@
 import { getAccessToken, getOrganizationId } from './session';
 
 /**
- * URL de base de l'API.
+ * URL de base de l'API — résolue à l'EXÉCUTION, dans cet ordre :
  *
- * `VITE_API_URL` est la SEULE source de vérité, injectée au build (GitHub Actions,
- * Render, docker-compose…). Aucune URL de production n'est codée en dur : cela
- * évite qu'un oubli de configuration ne fasse pointer la production vers un
- * serveur éphémère ou vers localhost.
+ *  1. `window.__GAWJAAY_CONFIG__.apiUrl` (fichier `config.js` servi par GitHub Pages) :
+ *     permet de pointer le site vers un backend SANS reconstruire ni toucher aux workflows.
+ *  2. `VITE_API_URL` : injecté au build par GitHub Actions (CI) ou docker-compose.
+ *  3. Développement local : `http://localhost:4000/api/v1`.
  *
- *  - En développement (Vite), on retombe sur l'API locale `http://localhost:4000/api/v1`.
- *  - En production (build sans `VITE_API_URL`), l'application refuse de démarrer
- *    silencieusement : elle affiche un message explicite au lieu d'envoyer
- *    l'utilisateur vers un serveur qui n'existe pas.
+ * En production, si aucune des deux premières sources n'est définie, l'application
+ * refuse de démarrer silencieusement : elle affiche un message explicite au lieu
+ * d'envoyer l'utilisateur vers un serveur qui n'existe pas. Aucune URL de
+ * production n'est codée en dur.
  */
 const DEV_FALLBACK = 'http://localhost:4000/api/v1';
 
 export const API_BASE: string = (() => {
-  const configured = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
-  if (configured) return configured;
+  const runtime = window.__GAWJAAY_CONFIG__?.apiUrl?.trim();
+  if (runtime) return runtime;
+
+  const buildTime = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (buildTime) return buildTime;
+
   if (import.meta.env.DEV) return DEV_FALLBACK;
   return '';
 })();
 
 export const API_CONFIG_ERROR =
-  'Configuration manquante : VITE_API_URL n’est pas définie pour cette version. ' +
-  'L’application ne peut pas joindre l’API GawJaay.';
+  'Le service GawJaay n’est pas encore connecté à cette adresse. ' +
+  'Renseignez l’URL de l’API dans le fichier config.js (ou la variable VITE_API_URL).';
 
 export class ApiError extends Error {
   readonly status: number;

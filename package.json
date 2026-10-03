@@ -19,7 +19,8 @@
     "dev:web": "npm run dev -w @gawjaay/web",
     "db:push": "npm run db:push -w @gawjaay/api",
     "db:seed": "npm run db:seed -w @gawjaay/api",
-    "db:reset": "npm run db:reset -w @gawjaay/api"
+    "db:reset": "npm run db:reset -w @gawjaay/api",
+    "connect:api": "node scripts/connect-api.mjs"
   },
   "engines": {
     "node": ">=20"
