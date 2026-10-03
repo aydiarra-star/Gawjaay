@@ -1,8 +1,8 @@
 /* =========================================================================
    GawJaay — Design System 2026 · « Teranga »
    « Commerce OS » : Marketplace · Boutique · Comptabilité
-   Palette : vert émeraude profond (fonds, navigation), or métallique
-   (badges promo, étoiles, bordures de luxe), orange vif (CTA, bannières).
+   Palette UNIFIÉE : une seule famille chaude — ambre doré → orange → rouge-orange.
+   Aucune teinte froide (vert/bleu) : cohérence totale, identité premium 2026.
    ========================================================================= */
 
 :root {
@@ -19,38 +19,48 @@
   --line: #e7e0d1;
   --line-2: #d8cfba;
 
-  /* --- Vert émeraude profond (fonds, navigation, marque) --- */
-  --brand: #0d7a5f;
-  --brand-strong: #0a5d49;
-  --brand-ink: #08473a;
-  --brand-deep: #06302a;
-  --brand-soft: #e6f3ee;
-  --brand-soft-2: #d2e9e0;
-  --brand-ring: rgba(13, 122, 95, 0.22);
+  /* --- Marque : orange ambré profond (fonds, navigation, identité) --- */
+  --brand: #e0610f;
+  --brand-strong: #c2510a;
+  --brand-ink: #a04106;
+  --brand-deep: #7a2f04;
+  --brand-soft: #fdeee0;
+  --brand-soft-2: #f8dcc0;
+  --brand-ring: rgba(224, 97, 15, 0.24);
 
-  /* --- Or métallique (badges promo, étoiles, bordures de luxe) --- */
-  --gold: #c9a227;
-  --gold-strong: #a8851a;
-  --gold-bright: #e6c455;
-  --gold-soft: #fbf3d6;
-  --gold-line: rgba(201, 162, 39, 0.42);
-  --gold-ring: rgba(201, 162, 39, 0.3);
+  /* --- Or ambré (badges promo, étoiles, accents) — même famille chaude --- */
+  --gold: #f0a72a;
+  --gold-strong: #d98c12;
+  --gold-bright: #ffc352;
+  --gold-soft: #fdf3dc;
+  --gold-line: rgba(217, 140, 18, 0.4);
+  --gold-ring: rgba(217, 140, 18, 0.3);
 
   /* --- Orange vif (CTA principaux, bannières phares) --- */
-  --orange: #ea6a12;
-  --orange-strong: #c9540a;
-  --orange-soft: #fdefe0;
-  --orange-ring: rgba(234, 106, 18, 0.3);
+  --orange: #ff6a14;
+  --orange-strong: #d9480f;
+  --orange-soft: #fdefe2;
+  --orange-ring: rgba(255, 106, 20, 0.3);
 
-  /* --- Sémantique d'état --- */
-  --ok: #0d7a5f;
-  --ok-soft: #e6f3ee;
+  /* --- Sémantique d'état (froide pour le contraste, jamais décorative) --- */
+  --ok: #0f7a54;
+  --ok-soft: #e4f3ea;
+  --ok-line: #c4e4d2;
   --warn: #a86606;
-  --warn-soft: #fdf3e0;
+  --warn-soft: #fdf1dc;
+  --warn-line: #f2dcb0;
   --danger: #b42318;
+  --danger-strong: #971e14;
   --danger-soft: #fdeceb;
+  --danger-line: #f6d5d2;
   --info: #1f5f8b;
   --info-soft: #e9f1f7;
+  --info-line: #cfe0ee;
+
+  /* --- Encre claire sur fond orange/ambré (jamais de noir pur) --- */
+  --on-warm: #ffffff;
+  --ink-warm: #4a2a05;
+  --shadow-ink: 24, 20, 14;
 
   /* --- Rayons --- */
   --r-xs: 8px;
@@ -61,9 +71,9 @@
   --r-pill: 999px;
 
   /* --- Élévations (subtiles, jamais lourdes) --- */
-  --e1: 0 1px 2px rgba(22, 24, 28, 0.05);
-  --e2: 0 1px 2px rgba(22, 24, 28, 0.04), 0 4px 12px rgba(22, 24, 28, 0.05);
-  --e3: 0 2px 4px rgba(22, 24, 28, 0.04), 0 14px 34px rgba(22, 24, 28, 0.09);
+  --e1: 0 1px 2px rgb(var(--shadow-ink) / 0.05);
+  --e2: 0 1px 2px rgb(var(--shadow-ink) / 0.04), 0 4px 12px rgb(var(--shadow-ink) / 0.05);
+  --e3: 0 2px 4px rgb(var(--shadow-ink) / 0.04), 0 14px 34px rgb(var(--shadow-ink) / 0.09);
   --e-focus: 0 0 0 4px var(--brand-ring);
 
   /* --- Espacement (échelle 4pt) --- */
@@ -204,11 +214,11 @@ p {
   font-size: 1.14rem;
   letter-spacing: -0.03em;
   white-space: nowrap;
-  background: linear-gradient(100deg, var(--gold-strong) 0%, var(--gold-bright) 42%, var(--orange) 100%);
+  background: linear-gradient(100deg, var(--brand-strong) 0%, var(--orange) 58%, var(--orange) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  color: var(--gold-strong);
+  color: var(--brand-strong);
 }
 .brand span {
   background: inherit;
@@ -223,14 +233,14 @@ p {
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: linear-gradient(150deg, var(--brand) 0%, var(--brand-deep) 100%);
-  color: var(--gold-bright);
-  -webkit-text-fill-color: var(--gold-bright);
-  border: 1px solid var(--gold-line);
+  background: linear-gradient(150deg, var(--orange) 0%, var(--brand-strong) 100%);
+  color: var(--on-warm);
+  -webkit-text-fill-color: var(--on-warm);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   font-size: 0.86rem;
   font-weight: 800;
   margin-right: 9px;
-  box-shadow: var(--e1);
+  box-shadow: 0 1px 2px rgb(var(--shadow-ink) / 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   letter-spacing: 0;
 }
 
@@ -529,14 +539,14 @@ p {
   letter-spacing: -0.01em;
   cursor: pointer;
   background: linear-gradient(180deg, var(--orange) 0%, var(--orange-strong) 100%);
-  color: #fff;
+  color: var(--on-warm);
   min-height: 42px;
   box-shadow: var(--e1), inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 .btn:hover {
-  background: linear-gradient(180deg, #f87e28 0%, var(--orange) 100%);
+  background: linear-gradient(180deg, #ff8236 0%, var(--orange) 100%);
   border-color: var(--gold);
   box-shadow: var(--e2), 0 0 0 3px var(--orange-ring);
   text-decoration: none;
@@ -579,7 +589,7 @@ p {
   background: var(--danger);
 }
 .btn-danger:hover {
-  background: #971e14;
+  background: var(--danger-strong);
 }
 .btn-sm {
   padding: 0 12px;
@@ -643,7 +653,7 @@ p {
 /* Badge de promotion : or métallique */
 .badge-gold {
   background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
-  color: #4a3a06;
+  color: var(--ink-warm);
   border-color: var(--gold-strong);
   box-shadow: var(--e1);
 }
@@ -681,7 +691,7 @@ p {
 .chip.active {
   background: linear-gradient(180deg, var(--brand) 0%, var(--brand-strong) 100%);
   border-color: var(--gold);
-  color: #fff;
+  color: var(--on-warm);
   box-shadow: 0 0 0 3px var(--gold-ring);
 }
 
@@ -702,7 +712,7 @@ p {
 .alert-error {
   background: var(--danger-soft);
   color: var(--danger);
-  border-color: #f6d5d2;
+  border-color: var(--danger-line);
 }
 .alert-info {
   background: var(--brand-soft);
@@ -712,12 +722,12 @@ p {
 .alert-warning {
   background: var(--warn-soft);
   color: var(--warn);
-  border-color: #f2e0c4;
+  border-color: var(--warn-line);
 }
 .alert-success {
   background: var(--ok-soft);
   color: var(--ok);
-  border-color: #cfe9d8;
+  border-color: var(--ok-line);
 }
 
 /* =========================================================================
@@ -898,7 +908,7 @@ tbody tr:last-child td {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #4a3a06;
+  color: var(--ink-warm);
   background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
   border: 1px solid var(--gold-strong);
   box-shadow: var(--e2);
@@ -947,7 +957,7 @@ tbody tr:last-child td {
   transform: scale(1.08);
 }
 .product-fav.on {
-  color: #d92d20;
+  color: var(--danger);
 }
 .product-body {
   padding: var(--s3) var(--s4) var(--s4);
@@ -1027,7 +1037,7 @@ tbody tr:last-child td {
 .btn-download:hover {
   background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
   border-color: var(--gold-strong);
-  color: #4a3a06;
+  color: var(--ink-warm);
 }
 
 /* =========================================================================
@@ -1104,7 +1114,7 @@ tbody tr:last-child td {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(22, 24, 28, 0.42);
+  background: rgb(var(--shadow-ink) / 0.42);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
@@ -1206,7 +1216,7 @@ tbody tr:last-child td {
 .demo-banner {
   background: var(--warn-soft);
   color: var(--warn);
-  border: 1px solid #f2e0c4;
+  border: 1px solid var(--warn-line);
   border-radius: var(--r-sm);
   padding: 9px 13px;
   font-size: 0.82rem;
@@ -1233,22 +1243,22 @@ tbody tr:last-child td {
 .tab.active {
   background: var(--ink);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--on-warm);
 }
 
 /* =========================================================================
    Landing
    ========================================================================= */
-/* Bannière phare « Teranga » : dégradé émeraude → or → orange */
+/* Bannière phare « Teranga » : dégradé chaud orange → ambre (famille unifiée) */
 .teranga-banner {
   position: relative;
   overflow: hidden;
   border-radius: var(--r-lg);
   border: 1px solid var(--gold-line);
   background:
-    radial-gradient(130% 160% at 6% -10%, rgba(230, 196, 85, 0.34) 0%, transparent 48%),
-    linear-gradient(100deg, var(--brand-deep) 0%, var(--brand) 44%, var(--orange) 100%);
-  color: #fff;
+    radial-gradient(130% 160% at 6% -10%, rgba(255, 195, 82, 0.32) 0%, transparent 48%),
+    linear-gradient(100deg, var(--brand-deep) 0%, var(--orange-strong) 46%, var(--orange) 100%);
+  color: var(--on-warm);
   padding: 22px 24px;
   box-shadow: var(--e3);
   display: flex;
@@ -1272,7 +1282,7 @@ tbody tr:last-child td {
   color: var(--gold-bright);
 }
 .teranga-banner h2 {
-  color: #fff;
+  color: var(--on-warm);
   margin: 6px 0 4px;
   font-size: clamp(1.1rem, 1rem + 0.9vw, 1.5rem);
   letter-spacing: -0.02em;
@@ -1292,16 +1302,17 @@ tbody tr:last-child td {
   margin: 0 auto;
   padding: clamp(40px, 8vw, 88px) var(--s5) var(--s10);
   text-align: center;
+  background: radial-gradient(72% 56% at 50% -8%, var(--orange-soft) 0%, transparent 62%);
 }
 .hero h1 {
   font-size: clamp(2.1rem, 1.4rem + 3.4vw, 3.5rem);
   letter-spacing: -0.045em;
   line-height: 1.04;
-  background: linear-gradient(100deg, var(--brand-deep) 0%, var(--brand) 38%, var(--gold-strong) 72%, var(--orange) 100%);
+  background: linear-gradient(100deg, var(--brand-deep) 0%, var(--orange) 46%, var(--gold) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  color: var(--brand-deep);
+  color: var(--brand-strong);
 }
 .hero .lead {
   font-size: clamp(1rem, 0.95rem + 0.4vw, 1.18rem);
@@ -1457,7 +1468,7 @@ tbody tr:last-child td {
     display: block;
     position: fixed;
     inset: var(--header-h) 0 0 0;
-    background: rgba(22, 24, 28, 0.38);
+    background: rgb(var(--shadow-ink) / 0.38);
     z-index: 20;
     animation: fade var(--dur) var(--ease);
   }
