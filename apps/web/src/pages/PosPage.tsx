@@ -1,32 +1,44 @@
-import { useMemo, useState } from 'react';
-import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@gawjaay/shared';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, formatPackaging, type PackagingType, type PaymentMethod } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { formatXOF } from '../lib/format';
+import { formatXOF, packagingLine } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
+import { ProductThumb } from '../components/product';
 
 interface StockItem {
   storeId: string;
   storeName: string;
   variantId: string;
   sku: string;
+  productId: string;
   productName: string;
   variantName: string;
+  packaging: PackagingType;
+  format: string | null;
+  hasImage: boolean;
   quantity: number;
   threshold: number;
   low: boolean;
+  out: boolean;
 }
 
 interface Product {
   id: string;
   name: string;
   price: number;
+  packaging: PackagingType;
+  format: string | null;
+  hasImage: boolean;
+  imageUrl: string | null;
   variants: Array<{ id: string; name: string; sku: string }>;
 }
 
 export function PosPage() {
   const { storeId } = useStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const products = useApi<{ items: Product[] }>(() => api.get('/products?pageSize=100'), []);
   const stock = useApi<{ items: StockItem[] }>(
@@ -34,7 +46,7 @@ export function PosPage() {
     [storeId],
   );
 
-  const [cart, setCart] = useState<Record<string, { variantId: string; name: string; price: number; quantity: number }>>({});
+  const [cart, setCart] = useState<Record<string, { variantId: string; name: string; price: number; quantity: number; packaging: PackagingType }>>({});
   const [customerId, setCustomerId] = useState('');
   const [payMethod, setPayMethod] = useState<PaymentMethod>('CASH');
   const [paidAmount, setPaidAmount] = useState('');
@@ -59,11 +71,36 @@ export function PosPage() {
     search.trim() ? p.name.toLowerCase().includes(search.trim().toLowerCase()) : true,
   );
 
+  // Arrivée depuis une fiche produit (« Vendre ») : on pré-remplit le panier.
+  const deepLinkProduct = searchParams.get('product');
+  useEffect(() => {
+    if (!deepLinkProduct || !products.data) return;
+    const product = products.data.items.find((p) => p.id === deepLinkProduct);
+    const variant = product?.variants[0];
+    if (product && variant) {
+      setCart((c) => ({
+        ...c,
+        [variant.id]: {
+          variantId: variant.id,
+          name: `${product.name} — ${variant.name}`,
+          price: product.price,
+          quantity: c[variant.id]?.quantity ?? 1,
+          packaging: product.packaging,
+        },
+      }));
+    }
+    setSearchParams((prev) => {
+      prev.delete('product');
+      return prev;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkProduct, products.data]);
+
   function addToCart(product: Product, variantId: string, variantName: string) {
     const available = quantityByVariant.get(variantId) ?? 0;
     const current = cart[variantId]?.quantity ?? 0;
     if (current + 1 > available) {
-      setError(`Stock insuffisant pour « ${product.name} » (${available} disponible(s)).`);
+      setError(`Stock insuffisant pour « ${product.name} » (${formatPackaging(available, product.packaging)} disponible).`);
       return;
     }
     setError(null);
@@ -74,6 +111,7 @@ export function PosPage() {
         name: `${product.name} — ${variantName}`,
         price: product.price,
         quantity: current + 1,
+        packaging: product.packaging,
       },
     }));
   }
@@ -142,21 +180,30 @@ export function PosPage() {
           {products.loading && <Spinner />}
           {products.error && <Alert kind="error">{products.error}</Alert>}
           {products.data && filtered.length === 0 && <EmptyState title="Aucun produit" hint="Ajoutez des produits pour commencer à vendre." />}
-          <div className="grid grid-cards">
+          <div className="merchant-grid">
             {filtered.map((p) => (
-              <div className="card" key={p.id}>
-                <h3>{p.name}</h3>
-                <p className="muted small">{formatXOF(p.price)}</p>
-                {p.variants.map((v) => (
-                  <button
-                    key={v.id}
-                    className="btn btn-secondary btn-sm btn-block"
-                    style={{ marginTop: 6 }}
-                    onClick={() => addToCart(p, v.id, v.name)}
-                  >
-                    + {v.name} (stock {quantityByVariant.get(v.id) ?? 0})
-                  </button>
-                ))}
+              <div className="merchant-card" key={p.id}>
+                <div className="merchant-media">
+                  <ProductThumb productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
+                </div>
+                <div className="merchant-body">
+                  <div className="merchant-name">{p.name}</div>
+                  <div className="merchant-pack">{packagingLine(p.packaging, p.format)}</div>
+                  <div className="merchant-price">{formatXOF(p.price)}</div>
+                  {p.variants.map((v) => {
+                    const available = quantityByVariant.get(v.id) ?? 0;
+                    return (
+                      <button
+                        key={v.id}
+                        className="btn btn-secondary btn-sm btn-block"
+                        disabled={available <= 0}
+                        onClick={() => addToCart(p, v.id, v.name)}
+                      >
+                        {available > 0 ? `+ ${v.name} (${formatPackaging(available, p.packaging)})` : `${v.name} — rupture`}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>

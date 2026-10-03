@@ -34,3 +34,14 @@ npm run test:e2e             # Playwright (desktop + mobile) — nécessite un b
 ## Backend en production
 - Aucune API de production n'est branchée aujourd'hui (`config.js` publié avec `apiUrl` vide → message d'état honnête).
 - Hébergement : `render.yaml` (API Docker + PostgreSQL) ou `docker-compose.yml` (VPS). GitHub Pages n'héberge **pas** l'API.
+
+## Produit / Stock (expérience marchand)
+- **Produit ≠ stock.** Le produit est « ce que je vends » ; le stock « ce que je possède ». Toute variation de stock passe par un mouvement `InventoryMovement` (jamais un simple nombre modifié).
+- Conditionnements : liste fermée dans `packages/shared/src/packaging.ts` (`PACKAGING_TYPES`, `PACKAGING_LABELS`, `formatPackaging`, `packagingLine`). `Product.packaging` + `Product.format` (ex. `sac` + `50 kg`).
+- Seuil d'alerte : `Product.alertThreshold` (produit) ; `ProductVariant.lowStockThreshold` (variante, 0 = repli sur le produit). États exposés par `/inventory` : `low`, `out`.
+- Photos : **pas de filesystem éphémère** (Render Free). La photo est une data-URI base64 persistée en base (`Product.imageData` / `imageMime`), bornée par `MAX_IMAGE_BYTES` (~700 Ko) et validée côté serveur (`packages/shared/src/media.ts` + `apps/api/src/lib/media.ts`). `imageUrl` reste prioritaire si un hébergement externe est branché un jour.
+  - Route marchande protégée : `GET/PUT/DELETE /api/v1/products/:id/photo` (en-tête `x-organization-id`). Le front la charge via `ProductThumb` (fetch + blob, cache par produit), car `<img>` ne peut pas porter l'en-tête.
+  - Route publique (marketplace/vitrine) : `GET /api/v1/public/products/:id/photo` — ne sert que si produit actif + `marketplaceVisible` + stock public. Le front l'utilise via `PublicProductImage`.
+- Parcours marchand : `POST /products/merchant` (produit + stock initial `INITIAL` en une transaction), `POST /products/:id/stock` (`ENTRY`), `POST /products/:id/sale` (vente rapide, prix recalculé serveur via `createSale`).
+- Images côté web : `apps/web/src/lib/image.ts` (`prepareProductImage` redimensionne à 1280 px et compresse en JPEG avant envoi).
+- Les données de démo restent étiquetées `DEMO` (`prisma/seed*.ts`) ; aucun chiffre fictif n'est présenté comme réel.

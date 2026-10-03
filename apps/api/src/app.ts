@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import { MAX_JSON_BODY } from '@gawjaay/shared';
 import { env, isTest } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { requestLogger } from './middleware/logging.js';
@@ -47,7 +48,9 @@ export function createApp() {
     }),
   );
 
-  app.use(express.json({ limit: '1mb' }));
+  // Les photos produit sont transportées en data-URI base64 (bornées à ~700 Ko
+  // côté validation) : la limite de corps doit les accueillir sans excès.
+  app.use(express.json({ limit: MAX_JSON_BODY }));
   app.use(cookieParser());
 
   // Limitation globale (cahier §33). Désactivée en test.

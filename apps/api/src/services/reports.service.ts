@@ -98,15 +98,19 @@ export async function lowStockProducts(orgId: string, storeId?: string) {
     include: { variant: { include: { product: true } }, store: { select: { id: true, name: true } } },
   });
   return inventories
-    .filter((inv) => inv.variant.product.alertThreshold > 0 && inv.quantity <= inv.variant.product.alertThreshold)
+    .filter((inv) => {
+      const threshold = inv.variant.lowStockThreshold || inv.variant.product.alertThreshold;
+      return threshold > 0 && inv.quantity <= threshold;
+    })
     .map((inv) => ({
       storeId: inv.storeId,
       storeName: inv.store.name,
       variantId: inv.variantId,
       productName: inv.variant.product.name,
       variantName: inv.variant.name,
+      packaging: inv.variant.product.packaging,
       quantity: inv.quantity,
-      threshold: inv.variant.product.alertThreshold,
+      threshold: inv.variant.lowStockThreshold || inv.variant.product.alertThreshold,
     }))
     .sort((a, b) => a.quantity - b.quantity);
 }

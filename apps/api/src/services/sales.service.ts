@@ -46,7 +46,15 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
     const unitPrice = variant.price ?? variant.product.price;
     const lineTotal = unitPrice * quantity;
     subtotal += lineTotal;
-    return { variantId: variant.id, name: variant.name, quantity, unitPrice, lineTotal };
+    return {
+      variantId: variant.id,
+      name: variant.name,
+      quantity,
+      unitPrice,
+      lineTotal,
+      packaging: variant.product.packaging,
+      format: variant.product.format,
+    };
   });
 
   const discount = Math.max(0, Math.round(input.discount ?? 0));
@@ -70,7 +78,10 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   });
 
   for (const line of lines) {
-    await tx.saleItem.create({ data: { saleId: sale.id, ...line } });
+    const { packaging, format, ...saleItem } = line;
+    void packaging;
+    void format;
+    await tx.saleItem.create({ data: { saleId: sale.id, ...saleItem } });
     await applyStockChange(tx, {
       storeId: input.storeId,
       variantId: line.variantId,
@@ -100,7 +111,7 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
     });
   }
 
-  return { saleId: sale.id, subtotal, discount, total, paid, remaining };
+  return { saleId: sale.id, subtotal, discount, total, paid, remaining, lines };
 }
 
 /** Reste dû d'une vente (total - paiements réussis). */
