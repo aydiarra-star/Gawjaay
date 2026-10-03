@@ -313,6 +313,30 @@ describe('tableau de bord (données réelles)', () => {
     expect(res.body.salesCount).toBe(1);
     expect(res.body.grossMargin).toBe(4000); // (5000-3000)*2
   });
+
+  it('fige la marge historique : un changement de prix d\'achat ne réécrit pas une vente passée', async () => {
+    const org = await createOrg();
+    const { variantId, productId } = await createProduct(org, { price: 1200, purchasePrice: 900 });
+    await setStock(org, variantId, 10);
+
+    // Vente à 1 200 avec un coût d'achat de 900 => marge 300.
+    const sale = await request(app)
+      .post('/api/v1/sales')
+      .set(auth(org))
+      .send({ storeId: org.storeId, items: [{ variantId, quantity: 1 }], payments: [{ method: 'CASH', amount: 1200 }] });
+    expect(sale.status).toBe(201);
+
+    // Le snapshot est bien enregistré sur la ligne de vente.
+    const item = await prisma.saleItem.findFirst({ where: { saleId: sale.body.saleId } });
+    expect(item?.unitCost).toBe(900);
+
+    // Le marchand met à jour le prix d'achat (réappro plus cher).
+    await request(app).patch(`/api/v1/products/${productId}`).set(auth(org)).send({ purchasePrice: 2000 });
+
+    // La marge historique doit rester 300, pas (1200-2000) = -800.
+    const dashboard = await request(app).get('/api/v1/reports/dashboard').set(auth(org));
+    expect(dashboard.body.grossMargin).toBe(300);
+  });
 });
 
 describe('limites de plan', () => {

@@ -52,6 +52,8 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
       quantity,
       unitPrice,
       lineTotal,
+      // Marge historique figée : on conserve le coût d'achat du moment.
+      unitCost: variant.product.purchasePrice ?? 0,
       packaging: variant.product.packaging,
       format: variant.product.format,
     };
