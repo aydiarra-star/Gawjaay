@@ -167,23 +167,31 @@ Résultats vérifiés localement :
 
 ### Frontend — GitHub Pages
 
-Le workflow `.github/workflows/deploy-pages.yml` construit `apps/web` et le publie sur GitHub Pages
-à chaque push sur `main`. La SPA gère le rechargement direct des routes profondes
-(`/app`, `/marketplace`, `/shop/...`) via `public/404.html` + restauration de route dans `index.html`.
+Le site est publié sur GitHub Pages (branche `gh-pages`, racine). La SPA gère le rechargement
+direct des routes profondes (`/app`, `/marketplace`, `/shop/...`) via `public/404.html` +
+restauration de route dans `index.html`.
 
 - **URL publique** : `https://aydiarra-star.github.io/Gawjaay/`
-- **`VITE_API_URL`** (Settings → Secrets and variables → Actions → **Variables**) doit contenir
-  l'URL publique réelle de l'API, par ex. `https://gawjaay-api.onrender.com/api/v1`.
-  Le build **échoue** si cette variable est absente ou pointe encore vers le runtime temporaire
-  All-Hands ou vers `localhost` (garde-fou `apps/web/scripts/verify-bundle.mjs`).
+- **URL de l'API** : résolue **à l'exécution** dans [`apps/web/public/config.js`](apps/web/public/config.js)
+  (`window.__GAWJAAY_CONFIG__.apiUrl`). Il suffit de renseigner `apiUrl` puis de republier :
+  **aucun rebuild, aucune variable GitHub Actions requise**. Priorité de résolution
+  (voir `apps/web/src/lib/api.ts`) : `config.js` → `VITE_API_URL` (injecté au build) → repli local (dev).
 
-> ⚠️ **Aucune `VITE_API_URL` n'est actuellement définie** dans le dépôt : elle a été
-> supprimée car elle pointait vers le runtime **temporaire** All-Hands, désormais éteint
-> (l'API renvoyait `502`). En l'absence de cette variable, l'application affiche honnêtement
-> « Configuration manquante : `VITE_API_URL` n'est pas définie… » au lieu de tenter un serveur
-> mort. Tant qu'une vraie API de production n'est pas déployée (voir ci-dessous) et reportée
-> dans `VITE_API_URL`, le site est une vitrine et l'inscription reste indisponible.
-> Aucune URL de production n'est codée en dur dans le dépôt : c'est volontaire.
+**Connecter l'API en une commande** (écrit `config.js`, construit avec le bon `base`, publie sur `gh-pages`) :
+
+```bash
+npm run connect:api -- https://<service>.onrender.com/api/v1
+```
+
+Le script `scripts/connect-api.mjs` refuse une URL non `https`, un hôte de bac à sable éphémère
+ou une adresse locale. Le build de production échoue de la même façon via
+`apps/web/scripts/verify-bundle.mjs`.
+
+> ⚠️ **Aucune API de production n'est actuellement branchée** : `config.js` est publié avec
+> `apiUrl` vide. Le site s'affiche honnêtement (« Le service GawJaay n'est pas encore connecté à
+> cette adresse… ») au lieu de tenter un serveur mort. Tant qu'aucune API n'est déployée (voir
+> ci-dessous) et reportée dans `config.js`, le site est une vitrine et l'inscription reste
+> indisponible. Aucune URL de production n'est codée en dur dans le dépôt : c'est volontaire.
 
 > GitHub Pages n'héberge **que le frontend statique**. Il ne peut pas héberger l'API, la base de
 > données ni l'authentification serveur.
@@ -200,8 +208,9 @@ managée, avec injection automatique de `DATABASE_URL` et génération des secre
 
 1. Render → **New** → **Blueprint** → sélectionner ce dépôt.
 2. Render déploie et fournit l'URL réelle du service (ex. `https://gawjaay-api.onrender.com`).
-3. Reporter cette URL (suffixée `/api/v1`) dans la variable Actions `VITE_API_URL`.
-4. Relancer le workflow « Deploy frontend to GitHub Pages ».
+3. Connecter le frontend en une commande (suffixer l'URL par `/api/v1`) :
+   `npm run connect:api -- https://<service>.onrender.com/api/v1`
+   — ou renseigner `apiUrl` dans `apps/web/public/config.js` puis republier.
 
 > L'offre *free* de Render met le service en veille après inactivité et la base gratuite expire
 > après 90 jours. Pour une production durable, utiliser une offre payante.
