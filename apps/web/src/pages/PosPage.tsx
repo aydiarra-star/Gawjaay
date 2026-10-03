@@ -53,6 +53,7 @@ export function PosPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checkoutId, setCheckoutId] = useState<string | null>(null);
 
   const customers = useApi<{ customers: Array<{ id: string; name: string }> }>(() => api.get('/customers'), []);
 
@@ -140,6 +141,7 @@ export function PosPage() {
       return;
     }
     setBusy(true);
+    setCheckoutId((prev) => prev ?? (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`));
     try {
       const payments =
         payMethod === 'CREDIT'
@@ -152,11 +154,15 @@ export function PosPage() {
         customerId: customerId || undefined,
         items: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
         payments,
+        // Identifiant idempotent par tentative d'encaissement : un double clic ou
+        // un retry réseau renvoie la même vente au lieu d'en créer une seconde.
+        clientRequestId: checkoutId,
       });
       setSuccess(`Vente enregistrée : ${formatXOF(res.total)}${res.remaining > 0 ? ` (reste dû ${formatXOF(res.remaining)})` : ''}.`);
       setCart({});
       setPaidAmount('');
       setCustomerId('');
+      setCheckoutId(null);
       stock.reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Vente impossible');

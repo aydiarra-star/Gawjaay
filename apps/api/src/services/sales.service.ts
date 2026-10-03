@@ -16,6 +16,45 @@ export interface CreateSaleInput {
   discount?: number;
   /** Paiements encaissés (méthode + montant). Un crédit laisse un reste dû. */
   payments: Array<{ method: string; amount: number }>;
+  /**
+   * Clé d'idempotence générée par le client (POS). Si une vente existe déjà
+   * pour (storeId, clientRequestId), on la renvoie au lieu d'en créer une
+   * seconde : un double clic ou un retry réseau ne double jamais la vente.
+   */
+  clientRequestId?: string | null;
+}
+
+/** Résumé renvoyé par la création d'une vente (identique en rejeu idempotent). */
+interface SaleSummary {
+  saleId: string;
+  subtotal: number;
+  discount: number;
+  total: number;
+  paid: number;
+  remaining: number;
+  replayed?: boolean;
+}
+
+function summarizeSale(sale: {
+  id: string;
+  subtotal: number;
+  discount: number;
+  total: number;
+  status: string;
+  payments: Array<{ amount: number; status: string; method: string }>;
+}): SaleSummary {
+  const paid = sale.payments
+    .filter((p) => p.status === 'SUCCESSFUL')
+    .reduce((sum, p) => sum + p.amount, 0);
+  return {
+    saleId: sale.id,
+    subtotal: sale.subtotal,
+    discount: sale.discount,
+    total: sale.total,
+    paid,
+    remaining: Math.max(0, sale.total - paid),
+    replayed: true,
+  };
 }
 
 /**
@@ -29,6 +68,16 @@ export interface CreateSaleInput {
  */
 export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) {
   if (input.items.length === 0) throw AppError.badRequest('La vente doit contenir au moins un article');
+
+  // Idempotence : un rejeu avec la même clé renvoie la vente déjà créée.
+  const clientRequestId = input.clientRequestId?.trim() || null;
+  if (clientRequestId) {
+    const existing = await tx.sale.findFirst({
+      where: { storeId: input.storeId, clientRequestId },
+      include: { payments: true },
+    });
+    if (existing) return summarizeSale(existing);
+  }
 
   const variantIds = input.items.map((i) => i.variantId);
   const variants = await tx.productVariant.findMany({
@@ -76,6 +125,7 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
       discount,
       total,
       status: 'COMPLETED',
+      clientRequestId,
     },
   });
 
@@ -113,7 +163,7 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
     });
   }
 
-  return { saleId: sale.id, subtotal, discount, total, paid, remaining, lines };
+  return { saleId: sale.id, subtotal, discount, total, paid, remaining, lines, replayed: false };
 }
 
 /** Reste dû d'une vente (total - paiements réussis). */
@@ -148,4 +198,45 @@ export async function collectSalePayment(
     data: { saleId, amount, method: payment.method, status: 'SUCCESSFUL' },
   });
   return { outstanding: outstanding - amount };
+}
+
+/**
+ * Annule / rembourse une vente (cahier §16). La vente n'est JAMAIS supprimée :
+ * - son statut passe à REFUNDED et `refundedAt` est posé ;
+ * - le stock vendu est restitué par un mouvement RETURN tracé ;
+ * - le double remboursement est refusé.
+ * L'historique (lignes, paiements, instantanés de prix) reste intact.
+ */
+export async function refundSale(
+  tx: Tx,
+  orgId: string,
+  saleId: string,
+  userId: string | null,
+  note?: string,
+) {
+  const sale = await tx.sale.findFirst({
+    where: { id: saleId, store: { organizationId: orgId } },
+    include: { items: true },
+  });
+  if (!sale) throw AppError.notFound('Vente introuvable');
+  if (sale.status === 'REFUNDED') throw AppError.conflict('Cette vente a déjà été remboursée');
+
+  for (const item of sale.items) {
+    await applyStockChange(tx, {
+      storeId: sale.storeId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      type: 'RETURN',
+      userId,
+      reference: sale.id,
+      note: note ?? 'Remboursement vente',
+    });
+  }
+
+  await tx.sale.update({
+    where: { id: sale.id },
+    data: { status: 'REFUNDED', refundedAt: new Date() },
+  });
+
+  return { saleId: sale.id, status: 'REFUNDED', restockedItems: sale.items.length };
 }

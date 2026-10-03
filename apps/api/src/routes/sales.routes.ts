@@ -7,7 +7,7 @@ import { AppError } from '../lib/errors.js';
 import { audit } from '../lib/audit.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireOrganization, requirePermission, assertStoreAccess } from '../middleware/tenant.js';
-import { createSale, collectSalePayment } from '../services/sales.service.js';
+import { createSale, collectSalePayment, refundSale } from '../services/sales.service.js';
 
 const router = Router();
 router.use(authenticate);
@@ -19,6 +19,8 @@ const saleSchema = z.object({
   items: z.array(z.object({ variantId: z.string(), quantity: z.number().int().positive() })).min(1),
   discount: z.number().int().nonnegative().default(0),
   payments: z.array(z.object({ method: z.enum(PAYMENT_METHODS), amount: z.number().int().nonnegative() })).default([]),
+  /** Clé d'idempotence (double-submit / retry réseau). */
+  clientRequestId: z.string().max(80).optional(),
 });
 
 /** Liste des ventes (POS) de l'organisation. */
@@ -49,10 +51,11 @@ router.post('/', requirePermission('sales:create'), asyncHandler(async (req, res
       items: input.items,
       discount: input.discount,
       payments: input.payments,
+      clientRequestId: input.clientRequestId ?? null,
     }),
   );
 
-  await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'sale.create', entity: 'sale', entityId: result.saleId, meta: { total: result.total } });
+  await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'sale.create', entity: 'sale', entityId: result.saleId, meta: { total: result.total, replayed: result.replayed ?? false } });
   res.status(201).json(result);
 }));
 
@@ -62,6 +65,17 @@ router.post('/:id/payments', requirePermission('receivables:collect'), asyncHand
   const input = z.object({ method: z.enum(PAYMENT_METHODS), amount: z.number().int().positive() }).parse(req.body);
   const result = await prisma.$transaction((tx) => collectSalePayment(tx, req.auth!.organizationId, req.params.id, input));
   await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'sale.payment', entity: 'sale', entityId: req.params.id });
+  res.json(result);
+}));
+
+/** Annule / rembourse une vente : statut REFUNDED, stock restitué, historique conservé. */
+router.post('/:id/refund', requirePermission('sales:refund'), asyncHandler(async (req, res) => {
+  if (!req.auth) throw AppError.unauthorized();
+  const input = z.object({ note: z.string().max(300).optional() }).parse(req.body ?? {});
+  const result = await prisma.$transaction((tx) =>
+    refundSale(tx, req.auth!.organizationId, req.params.id, req.auth!.userId, input.note),
+  );
+  await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'sale.refund', entity: 'sale', entityId: req.params.id });
   res.json(result);
 }));
 

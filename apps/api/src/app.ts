@@ -27,6 +27,8 @@ import auditRoutes from './routes/audit.routes.js';
 import paymentRoutes from './routes/payments.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import clientRoutes from './routes/client.routes.js';
+import exportsRoutes from './routes/exports.routes.js';
+import phoneRoutes from './routes/phone.routes.js';
 
 export function createApp() {
   const app = express();
@@ -85,6 +87,8 @@ export function createApp() {
   app.use('/api/v1/payments', paymentRoutes);
   app.use('/api/v1/public', publicRoutes);
   app.use('/api/v1/me', clientRoutes);
+  app.use('/api/v1/exports', exportsRoutes);
+  app.use('/api/v1/me', phoneRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
