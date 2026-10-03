@@ -166,6 +166,75 @@ describe('achats fournisseurs', () => {
     const again = await request(app).post(`/api/v1/purchases/${purchase.body.purchase.id}/receive`).set(auth(org));
     expect(again.status).toBe(409);
   });
+
+  it('gère un achat multi-lignes, un règlement initial puis le paiement de la dette', async () => {
+    const org = await createOrg();
+    const a = await createProduct(org, { price: 2000, purchasePrice: 1000 });
+    const b = await createProduct(org, { price: 5000, purchasePrice: 3000 });
+    const supplier = await request(app).post('/api/v1/suppliers').set(auth(org)).send({ name: 'Fournisseur Multi' });
+
+    // Achat multi-lignes : 10×1000 + 2×3000 = 16000, avec 6000 réglés d'avance.
+    const purchase = await request(app)
+      .post('/api/v1/purchases')
+      .set(auth(org))
+      .send({
+        storeId: org.storeId,
+        supplierId: supplier.body.supplier.id,
+        items: [
+          { variantId: a.variantId, quantity: 10, unitCost: 1000 },
+          { variantId: b.variantId, quantity: 2, unitCost: 3000 },
+        ],
+        payment: { method: 'WAVE', amount: 6000 },
+      });
+    expect(purchase.status).toBe(201);
+    const purchaseId = purchase.body.purchase.id as string;
+    expect(purchase.body.purchase.total).toBe(16000);
+
+    // Le stock n'augmente qu'à la réception.
+    let inv = await prisma.inventory.findFirst({ where: { variantId: a.variantId, storeId: org.storeId } });
+    expect(inv?.quantity ?? 0).toBe(0);
+    const receive = await request(app).post(`/api/v1/purchases/${purchaseId}/receive`).set(auth(org));
+    expect(receive.status).toBe(200);
+    inv = await prisma.inventory.findFirst({ where: { variantId: a.variantId, storeId: org.storeId } });
+    expect(inv?.quantity).toBe(10);
+    inv = await prisma.inventory.findFirst({ where: { variantId: b.variantId, storeId: org.storeId } });
+    expect(inv?.quantity).toBe(2);
+
+    // Dette fournisseur : 16000 − 6000 = 10000.
+    const outstanding = await request(app).get(`/api/v1/purchases/${purchaseId}/outstanding`).set(auth(org));
+    expect(outstanding.body.outstanding).toBe(10000);
+    const fiche = await request(app).get(`/api/v1/suppliers/${supplier.body.supplier.id}`).set(auth(org));
+    expect(fiche.body.supplier.debt).toBe(10000);
+    expect(fiche.body.supplier.totalPurchased).toBe(16000);
+
+    // Règlement du reste dû.
+    const pay = await request(app)
+      .post(`/api/v1/purchases/${purchaseId}/payments`)
+      .set(auth(org))
+      .send({ method: 'ORANGE_MONEY', amount: 10000 });
+    expect(pay.status).toBe(200);
+    expect(pay.body.outstanding).toBe(0);
+
+    const after = await request(app).get(`/api/v1/suppliers/${supplier.body.supplier.id}`).set(auth(org));
+    expect(after.body.supplier.debt).toBe(0);
+  });
+
+  it('refuse un règlement supérieur à la dette fournisseur', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { purchasePrice: 1000 });
+    const supplier = await request(app).post('/api/v1/suppliers').set(auth(org)).send({ name: 'Fournisseur Strict' });
+    const purchase = await request(app)
+      .post('/api/v1/purchases')
+      .set(auth(org))
+      .send({ storeId: org.storeId, supplierId: supplier.body.supplier.id, items: [{ variantId, quantity: 1, unitCost: 1000 }] });
+    await request(app).post(`/api/v1/purchases/${purchase.body.purchase.id}/receive`).set(auth(org));
+
+    const tooMuch = await request(app)
+      .post(`/api/v1/purchases/${purchase.body.purchase.id}/payments`)
+      .set(auth(org))
+      .send({ method: 'CASH', amount: 5000 });
+    expect(tooMuch.status).toBe(400);
+  });
 });
 
 describe('commandes en ligne', () => {

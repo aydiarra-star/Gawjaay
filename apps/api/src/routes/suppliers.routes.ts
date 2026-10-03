@@ -32,14 +32,28 @@ router.get('/:id', requirePermission('suppliers:read'), asyncHandler(async (req,
   if (!req.auth) throw AppError.unauthorized();
   const supplier = await prisma.supplier.findFirst({
     where: { id: req.params.id, organizationId: req.auth.organizationId },
-    include: { products: { select: { id: true, name: true } }, purchases: { include: { payments: true }, orderBy: { createdAt: 'desc' }, take: 50 } },
+    include: {
+      products: { select: { id: true, name: true } },
+      purchases: {
+        include: {
+          payments: true,
+          items: { include: { variant: { include: { product: { select: { name: true } } } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      },
+    },
   });
   if (!supplier) throw AppError.notFound('Fournisseur introuvable');
   const debt = supplier.purchases.reduce((sum, p) => {
     const paid = p.payments.filter((x) => x.status === 'SUCCESSFUL').reduce((s, x) => s + x.amount, 0);
     return sum + Math.max(0, p.total - paid);
   }, 0);
-  res.json({ supplier: { ...supplier, debt } });
+  const totalPurchased = supplier.purchases
+    .filter((p) => p.status === 'RECEIVED')
+    .reduce((sum, p) => sum + p.total, 0);
+  const lastPurchaseAt = supplier.purchases[0]?.createdAt ?? null;
+  res.json({ supplier: { ...supplier, debt, totalPurchased, lastPurchaseAt } });
 }));
 
 router.post('/', requirePermission('suppliers:create'), asyncHandler(async (req, res) => {

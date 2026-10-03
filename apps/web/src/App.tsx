@@ -9,6 +9,7 @@ import { ShopPage } from './pages/ShopPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { PosPage } from './pages/PosPage';
+import { HistoryPage } from './pages/HistoryPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { StockPage } from './pages/StockPage';
 import { OrdersPage } from './pages/OrdersPage';
@@ -57,6 +58,16 @@ export function App() {
           <RequireAuth>
             <AppLayout>
               <PosPage />
+            </AppLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/app/history"
+        element={
+          <RequireAuth>
+            <AppLayout>
+              <HistoryPage />
             </AppLayout>
           </RequireAuth>
         }

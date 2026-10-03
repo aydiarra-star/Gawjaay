@@ -43,3 +43,32 @@ export async function purchaseOutstanding(tx: Tx, purchaseId: string): Promise<n
   const paid = purchase.payments.filter((p) => p.status === 'SUCCESSFUL').reduce((s, p) => s + p.amount, 0);
   return Math.max(0, purchase.total - paid);
 }
+
+/**
+ * Enregistre un règlement (partiel ou total) d'une dette fournisseur sur un achat
+ * réceptionné. Miroir de `collectSalePayment` côté créances clients : aucune
+ * confirmation PSP, le marchand saisit le règlement réellement effectué.
+ */
+export async function collectPurchasePayment(
+  tx: Tx,
+  orgId: string,
+  purchaseId: string,
+  payment: { method: string; amount: number },
+) {
+  const purchase = await tx.purchase.findFirst({
+    where: { id: purchaseId, organizationId: orgId },
+    include: { payments: true },
+  });
+  if (!purchase) throw AppError.notFound('Achat introuvable');
+  if (purchase.status !== 'RECEIVED') throw AppError.conflict('Seul un achat réceptionné peut être réglé');
+
+  const outstanding = await purchaseOutstanding(tx, purchaseId);
+  const amount = Math.round(payment.amount);
+  if (amount <= 0) throw AppError.badRequest('Montant invalide');
+  if (amount > outstanding) throw AppError.badRequest('Le montant dépasse le reste dû');
+
+  await tx.purchasePayment.create({
+    data: { purchaseId, amount, method: payment.method, status: 'SUCCESSFUL' },
+  });
+  return { outstanding: outstanding - amount };
+}
