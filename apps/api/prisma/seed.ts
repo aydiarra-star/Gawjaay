@@ -82,6 +82,8 @@ async function main() {
       name: 'DEMO Riz parfumé 5kg',
       sku: 'DEMO-RIZ-001',
       description: 'Produit de DÉMONSTRATION — données fictives.',
+      packaging: 'sac',
+      format: '5 kg',
       purchasePrice: 3000,
       price: 4000,
       alertThreshold: 5,

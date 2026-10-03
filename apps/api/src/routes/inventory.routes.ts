@@ -25,17 +25,25 @@ router.get('/', requirePermission('stock:read'), asyncHandler(async (req, res) =
     orderBy: { updatedAt: 'desc' },
   });
   res.json({
-    items: inventories.map((inv) => ({
-      storeId: inv.storeId,
-      storeName: inv.store.name,
-      variantId: inv.variantId,
-      sku: inv.variant.sku,
-      productName: inv.variant.product.name,
-      variantName: inv.variant.name,
-      quantity: inv.quantity,
-      threshold: inv.variant.product.alertThreshold,
-      low: inv.variant.product.alertThreshold > 0 && inv.quantity <= inv.variant.product.alertThreshold,
-    })),
+    items: inventories.map((inv) => {
+      const threshold = inv.variant.lowStockThreshold || inv.variant.product.alertThreshold;
+      return {
+        storeId: inv.storeId,
+        storeName: inv.store.name,
+        variantId: inv.variantId,
+        sku: inv.variant.sku,
+        productId: inv.variant.product.id,
+        productName: inv.variant.product.name,
+        variantName: inv.variant.name,
+        packaging: inv.variant.product.packaging,
+        format: inv.variant.product.format,
+        hasImage: Boolean(inv.variant.product.imageData || inv.variant.product.imageUrl),
+        quantity: inv.quantity,
+        threshold,
+        low: threshold > 0 && inv.quantity <= threshold,
+        out: inv.quantity <= 0,
+      };
+    }),
   });
 }));
 
@@ -46,11 +54,33 @@ router.get('/movements', requirePermission('stock:read'), asyncHandler(async (re
   if (storeId) assertStoreAccess(req, storeId);
   const movements = await prisma.inventoryMovement.findMany({
     where: { store: { organizationId: req.auth.organizationId, ...(storeId ? { id: storeId } : {}) } },
-    include: { variant: { include: { product: { select: { name: true } } } }, store: { select: { name: true } } },
+    include: {
+      variant: { include: { product: { select: { id: true, name: true, packaging: true, format: true } } } },
+      store: { select: { name: true } },
+      user: { select: { id: true, fullName: true } },
+    },
     orderBy: { createdAt: 'desc' },
     take: 200,
   });
-  res.json({ movements });
+  res.json({
+    movements: movements.map((m) => ({
+      id: m.id,
+      createdAt: m.createdAt,
+      type: m.type,
+      quantity: m.quantity,
+      reference: m.reference,
+      note: m.note,
+      storeId: m.storeId,
+      storeName: m.store.name,
+      variantId: m.variantId,
+      variantName: m.variant.name,
+      productId: m.variant.product.id,
+      productName: m.variant.product.name,
+      packaging: m.variant.product.packaging,
+      format: m.variant.product.format,
+      userName: m.user?.fullName ?? null,
+    })),
+  });
 }));
 
 const adjustSchema = z.object({

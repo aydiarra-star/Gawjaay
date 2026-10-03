@@ -4,6 +4,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
 import { Alert, EmptyState, SkeletonGrid } from '../components/ui';
 import { IconMapPin, IconPackage, IconStore } from '../components/icons';
+import { PublicProductImage } from '../components/product';
 import { ProductDownloadButton, TerangaBanner } from '../components/premium';
 
 interface ShopResponse {
@@ -23,6 +24,7 @@ interface ShopResponse {
     name: string;
     description: string | null;
     imageUrl: string | null;
+    hasImage?: boolean;
     category: { id: string; name: string } | null;
     price: number;
     originalPrice: number | null;
@@ -136,13 +138,7 @@ export function ShopPage() {
                       return (
                         <article className="product-card" key={p.id}>
                           <div className="product-media">
-                            {p.imageUrl ? (
-                              <img src={p.imageUrl} alt={p.name} loading="lazy" />
-                            ) : (
-                              <div className="product-thumb" aria-hidden="true">
-                                {p.name.charAt(0).toUpperCase()}
-                              </div>
-                            )}
+                            <PublicProductImage productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
                             {p.originalPrice && <span className="product-promo">Promo</span>}
                           </div>
                           <div className="product-body">

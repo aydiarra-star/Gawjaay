@@ -50,6 +50,9 @@ router.get('/shops/:slug', asyncHandler(async (req, res) => {
       name: p.name,
       description: p.description,
       imageUrl: p.imageUrl,
+      hasImage: Boolean(p.imageData || p.imageUrl),
+      packaging: p.packaging,
+      format: p.format,
       category: p.category,
       price: p.promoPrice ?? p.price,
       originalPrice: p.promoPrice ? p.price : null,
@@ -117,6 +120,9 @@ router.get('/marketplace', asyncHandler(async (req, res) => {
         name: p.name,
         description: p.description,
         imageUrl: p.imageUrl,
+        hasImage: Boolean(p.imageData || p.imageUrl),
+        packaging: p.packaging,
+        format: p.format,
         category: p.category,
         price: p.promoPrice ?? p.price,
         originalPrice: p.promoPrice ? p.price : null,
@@ -142,6 +148,34 @@ router.get('/marketplace', asyncHandler(async (req, res) => {
   });
 
   res.json({ items, categories, page, pageSize });
+}));
+
+/**
+ * Photo publique d'un produit (marketplace / vitrine) : ne sert l'image que si
+ * le produit est actif et visible publiquement, et qu'il appartient à une
+ * boutique publique active. Aucune donnée privée n'est exposée.
+ */
+router.get('/products/:id/photo', asyncHandler(async (req, res) => {
+  const product = await prisma.product.findFirst({
+    where: {
+      id: req.params.id,
+      isActive: true,
+      marketplaceVisible: true,
+      variants: { some: { inventories: { some: { quantity: { gt: 0 }, store: { isPublic: true, isActive: true } } } } },
+    },
+    select: { imageData: true, imageMime: true, imageUrl: true },
+  });
+  if (!product) throw AppError.notFound('Photo introuvable');
+  if (product.imageData) {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.type(product.imageMime ?? 'image/jpeg').send(Buffer.from(product.imageData.split(',')[1] ?? '', 'base64'));
+    return;
+  }
+  if (product.imageUrl) {
+    res.redirect(product.imageUrl);
+    return;
+  }
+  throw AppError.notFound('Photo introuvable');
 }));
 
 export default router;

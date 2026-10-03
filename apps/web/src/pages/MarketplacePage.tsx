@@ -5,6 +5,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
 import { Alert, Chips, EmptyState, SearchField, SkeletonGrid } from '../components/ui';
 import { IconHeart, IconMapPin, IconMarket, IconStore, IconTag } from '../components/icons';
+import { PublicProductImage } from '../components/product';
 import { ProductDownloadButton, TerangaBanner } from '../components/premium';
 
 interface Offer {
@@ -23,6 +24,7 @@ interface MarketplaceItem {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  hasImage?: boolean;
   category: { id: string; name: string } | null;
   price: number;
   originalPrice: number | null;
@@ -179,13 +181,7 @@ export function MarketplacePage() {
                     return (
                       <article className="product-card" key={item.id}>
                         <div className="product-media">
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} loading="lazy" />
-                          ) : (
-                            <div className="product-thumb" aria-hidden="true">
-                              {item.name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          <PublicProductImage productId={item.id} name={item.name} hasImage={item.hasImage} imageUrl={item.imageUrl} />
                           {item.originalPrice && <span className="product-promo">Promo</span>}
                           <button
                             type="button"

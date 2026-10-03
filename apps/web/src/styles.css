@@ -1552,3 +1552,266 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================================
+   Expérience marchand 2026 — photo, fiche produit, stock
+   ========================================================================= */
+
+/* --- Sélecteur de photo --- */
+.photo-field {
+  margin-bottom: var(--s4);
+}
+.photo-field-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.83rem;
+  margin-bottom: 8px;
+  color: var(--ink-2);
+}
+.photo-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 240px;
+  border-radius: var(--r);
+  border: 1px dashed var(--line-2);
+  background: linear-gradient(160deg, var(--surface-3), var(--surface-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.photo-preview.has-image {
+  border-style: solid;
+}
+.photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-placeholder {
+  font-size: 2.4rem;
+  opacity: 0.5;
+}
+.photo-loading {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: rgb(var(--shadow-ink) / 0.6);
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  text-align: center;
+}
+.photo-actions {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+/* --- Carte produit marchand --- */
+.merchant-grid {
+  display: grid;
+  gap: var(--s4);
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+.merchant-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.merchant-card:hover {
+  box-shadow: var(--e3);
+  border-color: var(--gold-line);
+  transform: translateY(-2px);
+}
+.merchant-media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(160deg, var(--surface-3), var(--surface-2));
+  overflow: hidden;
+}
+.merchant-media img,
+.merchant-media .product-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  font-size: 2rem;
+}
+.merchant-body {
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.merchant-name {
+  font-weight: 680;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+}
+.merchant-pack {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.merchant-price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.merchant-stock {
+  font-size: 0.86rem;
+  color: var(--ink-2);
+}
+.merchant-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 6px;
+}
+.merchant-actions .btn {
+  flex: 1;
+  min-width: 88px;
+}
+
+/* --- État du stock --- */
+.stock-grid {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.stock-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--s4);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stock-card .stock-qty {
+  font-size: 1.5rem;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.stock-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 620;
+}
+.stock-state::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.stock-state.in {
+  color: var(--ok);
+}
+.stock-state.low {
+  color: var(--warn);
+}
+.stock-state.out {
+  color: var(--danger);
+}
+
+/* --- Historique des mouvements --- */
+.movement-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.movement-row:last-child {
+  border-bottom: none;
+}
+.movement-main {
+  min-width: 0;
+}
+.movement-qty {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.movement-qty.in {
+  color: var(--ok);
+}
+.movement-qty.out {
+  color: var(--danger);
+}
+
+/* --- Bottom sheet / modale --- */
+.modal.sheet {
+  max-width: 560px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 92dvh;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-bottom: 1px solid var(--line);
+}
+.sheet-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+.sheet-body {
+  padding: var(--s5);
+  overflow-y: auto;
+}
+.sheet-foot {
+  padding: var(--s4) var(--s5) calc(var(--s4) + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: var(--s3);
+}
+.sheet-foot .btn {
+  flex: 1;
+}
+
+/* --- Aperçu produit après enregistrement --- */
+.merchant-summary {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+.merchant-summary .merchant-media {
+  width: 84px;
+  height: 84px;
+  aspect-ratio: auto;
+  border-radius: var(--r-sm);
+  flex: none;
+}
+
+@media (max-width: 560px) {
+  .merchant-grid {
+    grid-template-columns: 1fr;
+  }
+  .stock-grid {
+    grid-template-columns: 1fr;
+  }
+  .sheet-foot {
+    flex-direction: column-reverse;
+  }
+}
+

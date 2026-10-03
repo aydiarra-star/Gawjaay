@@ -192,6 +192,13 @@ model Product {
   sku             String
   description     String?
   imageUrl        String?
+  // Photo durable stockée en base (data-URI base64) : survit aux redémarrages,
+  // contrairement au filesystem éphémère de Render. `imageUrl` reste prioritaire
+  // si un hébergement d'images externe est un jour branché.
+  imageData       String?
+  imageMime       String?
+  packaging       String   @default("unite") // conditionnement : sac, carton, bidon…
+  format          String? // ex. « 50 kg », « 12 bouteilles », « 5 L »
   purchasePrice   Int      @default(0)
   price           Int      @default(0) // prix de vente public
   promoPrice      Int? // prix promotionnel
@@ -219,6 +226,9 @@ model ProductVariant {
   attributes String? // JSON texte {taille, couleur, ...}
   price      Int? // prix spécifique à la variante (sinon prix produit)
   imageUrl   String?
+  imageData  String? // photo durable de la variante (data-URI base64)
+  imageMime  String?
+  lowStockThreshold Int @default(0) // seuil d'alerte propre à la variante (0 = seuil produit)
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
