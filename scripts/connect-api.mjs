@@ -50,8 +50,14 @@ if (/all-hands\.dev|prod-runtime/i.test(base) || /^(localhost|127\.0\.0\.1)$/.te
 
 console.log(`→ API cible : ${base}`);
 
-console.log('→ build du frontend…');
-execSync('npm run build:web', { cwd: root, stdio: 'inherit' });
+// GitHub Pages sert le site sous /<dépôt>/ : les assets doivent être préfixés,
+// sinon la page publiée reste blanche. On déduit le nom du dépôt du remote.
+const remote = execSync('git remote get-url origin', { cwd: root }).toString().trim();
+const repo = remote.replace(/\.git$/, '').split('/').pop();
+const basePath = `/${repo}/`;
+
+console.log(`→ build du frontend (base ${basePath})…`);
+execSync('npm run build:web', { cwd: root, stdio: 'inherit', env: { ...process.env, VITE_BASE_PATH: basePath } });
 
 if (!existsSync(distDir)) {
   console.error('Le build n’a produit aucun dossier dist/. Abandon.');
