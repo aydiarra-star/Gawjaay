@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { COMMON_PACKAGING, PACKAGING_LABELS, PACKAGING_TYPES, formatPackaging, type PackagingType } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { formatXOF, packagingLine } from '../lib/format';
+import { formatXOF, packagingLine, formatDateTime } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
 import { Modal, PhotoPicker, ProductThumb } from '../components/product';
@@ -20,8 +20,19 @@ interface Product {
   alertThreshold: number;
   hasImage: boolean;
   imageUrl: string | null;
+  marketplaceVisible: boolean;
+  marketplaceSellable?: boolean;
+  marketplaceBlocked?: boolean;
   category: { id: string; name: string } | null;
   variants: Array<{ id: string; name: string; sku: string; lowStockThreshold: number }>;
+}
+
+interface PriceHistoryEntry {
+  id: string;
+  field: 'purchasePrice' | 'price' | string;
+  oldValue: number | null;
+  newValue: number;
+  createdAt: string;
 }
 
 interface ProductsResponse {
@@ -73,6 +84,11 @@ export function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<Product | null>(null);
+  const [manage, setManage] = useState<Product | null>(null);
+  const [promoInput, setPromoInput] = useState('');
+  const [manageBusy, setManageBusy] = useState(false);
+  const [manageError, setManageError] = useState<string | null>(null);
+  const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
 
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
     () =>
@@ -104,6 +120,42 @@ export function ProductsPage() {
     setShowForm(false);
     setSaved(null);
     setError(null);
+  }
+
+  async function openManage(p: Product) {
+    setManage(p);
+    setPromoInput(p.promoPrice != null ? String(p.promoPrice) : '');
+    setManageError(null);
+    setHistory([]);
+    try {
+      const res = await api.get<{ priceHistory: PriceHistoryEntry[] }>(`/products/${p.id}`);
+      setHistory(res.priceHistory ?? []);
+    } catch {
+      /* l'historique est optionnel */
+    }
+  }
+
+  async function patchProduct(id: string, body: Record<string, unknown>): Promise<Product | null> {
+    setManageError(null);
+    setManageBusy(true);
+    try {
+      const res = await api.patch<{ product: Product }>(`/products/${id}`, body);
+      setManage(res.product);
+      reload();
+      return res.product;
+    } catch (err) {
+      setManageError(err instanceof ApiError ? err.message : 'Mise à jour impossible');
+      return null;
+    } finally {
+      setManageBusy(false);
+    }
+  }
+
+  function shareProduct(p: Product) {
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}marketplace?search=${encodeURIComponent(p.name)}`;
+    const text = `${p.name} — ${formatXOF(p.promoPrice ?? p.price)} · sur GawJaay`;
+    const wa = `https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`;
+    window.open(wa, '_blank', 'noopener');
   }
 
   async function ensureCategoryId(): Promise<string | undefined> {
@@ -234,17 +286,29 @@ export function ProductsPage() {
                   <div className="merchant-body">
                     <div className="merchant-name">{p.name}</div>
                     <div className="merchant-pack">{packagingLine(p.packaging, p.format)}</div>
-                    <div className="merchant-price">{formatXOF(p.promoPrice ?? p.price)}</div>
+                    <div className="merchant-price">
+                      {formatXOF(p.promoPrice ?? p.price)}
+                      {p.promoPrice != null && <span className="was">{formatXOF(p.price)}</span>}
+                    </div>
                     <div className="merchant-stock">
                       Stock : <strong>{formatPackaging(qty, p.packaging)}</strong>{' '}
                       <span className={`stock-state ${state.tone}`}>{state.label}</span>
+                    </div>
+                    <div className="row" style={{ gap: 6 }}>
+                      {p.marketplaceVisible ? (
+                        <span className="badge badge-success">Publié marketplace</span>
+                      ) : (
+                        <span className="badge">Non publié</span>
+                      )}
+                      {p.marketplaceBlocked && <span className="badge badge-warning">Publié mais sans stock</span>}
+                      {p.promoPrice != null && <span className="badge badge-primary">Promo</span>}
                     </div>
                     <div className="merchant-actions">
                       <button className="btn btn-sm" onClick={() => navigate(`/app/pos?product=${p.id}`)}>
                         Vendre
                       </button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/stock')}>
-                        + Stock
+                      <button className="btn btn-secondary btn-sm" onClick={() => openManage(p)}>
+                        Gérer
                       </button>
                     </div>
                   </div>
@@ -425,6 +489,119 @@ export function ProductsPage() {
               </div>
             </form>
           )}
+        </Modal>
+      )}
+
+      {manage && (
+        <Modal
+          title={`Gérer — ${manage.name}`}
+          onClose={() => setManage(null)}
+          footer={
+            <button type="button" className="btn btn-secondary" onClick={() => setManage(null)}>
+              Fermer
+            </button>
+          }
+        >
+          <div className="stack">
+            {manageError && <Alert kind="error">{manageError}</Alert>}
+
+            <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Publication marketplace</div>
+              <p className="small muted" style={{ margin: '6px 0 10px' }}>
+                Un produit publié apparaît dans la marketplace lorsqu'il est en stock. Prix de vente actuel :{' '}
+                <strong>{formatXOF(manage.price)}</strong>.
+              </p>
+              <button
+                className={`btn btn-sm ${manage.marketplaceVisible ? 'btn-secondary' : ''}`}
+                disabled={manageBusy}
+                onClick={() => patchProduct(manage.id, { marketplaceVisible: !manage.marketplaceVisible })}
+              >
+                {manage.marketplaceVisible ? 'Retirer de la marketplace' : 'Publier sur la marketplace'}
+              </button>
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Prix promotionnel</div>
+              <p className="small muted" style={{ margin: '6px 0 10px' }}>
+                Un prix promo doit être inférieur au prix de vente. Le serveur refuse toute valeur incohérente.
+              </p>
+              <div className="row" style={{ gap: 8 }}>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  placeholder="Ex. 11000"
+                />
+                <button
+                  className="btn btn-sm"
+                  disabled={manageBusy}
+                  onClick={() => patchProduct(manage.id, { promoPrice: Number(promoInput || 0) })}
+                >
+                  Définir
+                </button>
+                {manage.promoPrice != null && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    disabled={manageBusy}
+                    onClick={() => {
+                      setPromoInput('');
+                      patchProduct(manage.id, { promoPrice: null });
+                    }}
+                  >
+                    Retirer
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Partager</div>
+              <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => shareProduct(manage)}>
+                  WhatsApp
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${import.meta.env.BASE_URL}marketplace?search=${encodeURIComponent(manage.name)}`;
+                    void navigator.clipboard?.writeText(url);
+                  }}
+                >
+                  Copier le lien
+                </button>
+              </div>
+            </div>
+
+            {history.length > 0 && (
+              <div className="card" style={{ padding: 16 }}>
+                <div className="stat-label">Historique des prix</div>
+                <div className="table-wrap" style={{ border: 'none', marginTop: 8 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Champ</th>
+                        <th className="num">Avant</th>
+                        <th className="num">Après</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((h) => (
+                        <tr key={h.id}>
+                          <td className="small">{formatDateTime(h.createdAt)}</td>
+                          <td>{h.field === 'purchasePrice' ? "Prix d'achat" : 'Prix de vente'}</td>
+                          <td className="num">{h.oldValue != null ? formatXOF(h.oldValue) : '—'}</td>
+                          <td className="num">{formatXOF(h.newValue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         </Modal>
       )}
     </>

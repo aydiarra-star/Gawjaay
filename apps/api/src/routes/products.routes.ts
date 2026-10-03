@@ -10,6 +10,7 @@ import { requireOrganization, requirePermission, assertStoreAccess } from '../mi
 import { applyStockChange } from '../services/inventory.service.js';
 import { createSale } from '../services/sales.service.js';
 import { assertPlanAllowsProduct, generateSku } from '../services/products.service.js';
+import { recordPriceChange } from '../services/prices.service.js';
 import { imageColumnsFromInput, publicImage } from '../lib/media.js';
 
 const router = Router();
@@ -62,6 +63,16 @@ function stripProduct<T extends { imageData?: string | null; variants?: Array<{ 
   };
 }
 
+/** Ajoute la visibilité marketplace calculée : un produit publié mais non vendable
+ * (aucun stock, ou pas de prix de vente) est signalé `marketplaceBlocked`. */
+function withPublication<T extends { marketplaceVisible: boolean }>(product: T, sellable: boolean, inStock: boolean) {
+  return {
+    ...product,
+    marketplaceSellable: sellable,
+    marketplaceBlocked: product.marketplaceVisible && (!sellable || !inStock),
+  };
+}
+
 /** Liste paginée des produits de l'organisation active. */
 router.get('/', requirePermission('products:read'), asyncHandler(async (req, res) => {
   if (!req.auth) throw AppError.unauthorized();
@@ -88,7 +99,23 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req, res
     prisma.product.count({ where }),
   ]);
 
-  res.json({ items: items.map((p) => stripProduct(p)), total, page, pageSize });
+  const variantIds = items.flatMap((p) => p.variants.map((v) => v.id));
+  const positiveStock = await prisma.inventory.findMany({
+    where: { variantId: { in: variantIds }, quantity: { gt: 0 } },
+    select: { variantId: true },
+  });
+  const inStockVariants = new Set(positiveStock.map((i) => i.variantId));
+
+  res.json({
+    items: items.map((p) => {
+      const sellable = p.price > 0 && p.variants.some((v) => v.isActive);
+      const inStock = p.variants.some((v) => inStockVariants.has(v.id));
+      return withPublication(stripProduct(p), sellable, inStock);
+    }),
+    total,
+    page,
+    pageSize,
+  });
 }));
 
 router.get('/:id', requirePermission('products:read'), asyncHandler(async (req, res) => {
@@ -98,7 +125,16 @@ router.get('/:id', requirePermission('products:read'), asyncHandler(async (req, 
     include: { variants: true, category: true, supplier: true },
   });
   if (!product) throw AppError.notFound('Produit introuvable');
-  res.json({ product: stripProduct(product) });
+
+  // Historique des prix (dernier en premier) : permet de répondre factuellement
+  // à « quel était le prix à cette période ? ».
+  const history = await prisma.priceHistory.findMany({
+    where: { productId: product.id },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+
+  res.json({ product: stripProduct(product), priceHistory: history });
 }));
 
 router.post('/', requirePermission('products:create'), asyncHandler(async (req, res) => {
@@ -139,24 +175,88 @@ router.post('/', requirePermission('products:create'), asyncHandler(async (req, 
   });
 
   await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'product.create', entity: 'product', entityId: product.id });
+
+  // Historise les prix de référence à la création.
+  if (input.purchasePrice > 0) {
+    await recordPriceChange(prisma, {
+      organizationId: req.auth.organizationId,
+      productId: product.id,
+      userId: req.auth.userId,
+      field: 'purchasePrice',
+      oldValue: null,
+      newValue: input.purchasePrice,
+    });
+  }
+  if (input.price > 0) {
+    await recordPriceChange(prisma, {
+      organizationId: req.auth.organizationId,
+      productId: product.id,
+      userId: req.auth.userId,
+      field: 'price',
+      oldValue: null,
+      newValue: input.price,
+    });
+  }
+
   res.status(201).json({ product: stripProduct(product) });
 }));
 
 router.patch('/:id', requirePermission('products:update'), asyncHandler(async (req, res) => {
   if (!req.auth) throw AppError.unauthorized();
   const input = productSchema.partial().omit({ variants: true }).parse(req.body);
-  const existing = await prisma.product.findFirst({ where: { id: req.params.id, organizationId: req.auth.organizationId } });
+  const existing = await prisma.product.findFirst({
+    where: { id: req.params.id, organizationId: req.auth.organizationId },
+    include: { variants: { select: { id: true } } },
+  });
   if (!existing) throw AppError.notFound('Produit introuvable');
 
   const { imageData, ...rest } = input;
-  const product = await prisma.product.update({
-    where: { id: existing.id },
-    data: {
-      ...rest,
-      ...(imageData !== undefined ? imageColumnsFromInput(imageData) : {}),
-    },
-    include: { variants: true },
+
+  // Cohérence de la promotion : le prix promo doit rester inférieur au prix normal.
+  const finalPrice = rest.price ?? existing.price;
+  const finalPromo = rest.promoPrice === undefined ? existing.promoPrice : rest.promoPrice;
+  if (finalPromo != null && finalPromo >= finalPrice) {
+    throw AppError.badRequest('Le prix promotionnel doit être inférieur au prix de vente.');
+  }
+
+  // Rendre un produit visible en marketplace exige qu'il soit vendable (prix > 0).
+  if (rest.marketplaceVisible === true) {
+    if (finalPrice <= 0) throw AppError.badRequest('Un produit sans prix de vente ne peut pas être publié sur la marketplace.');
+    if (existing.variants.length === 0) throw AppError.badRequest('Un produit sans variante ne peut pas être publié.');
+  }
+
+  const product = await prisma.$transaction(async (tx) => {
+    const updated = await tx.product.update({
+      where: { id: existing.id },
+      data: {
+        ...rest,
+        ...(imageData !== undefined ? imageColumnsFromInput(imageData) : {}),
+      },
+      include: { variants: true },
+    });
+    if (rest.purchasePrice !== undefined && rest.purchasePrice !== existing.purchasePrice) {
+      await recordPriceChange(tx, {
+        organizationId: req.auth!.organizationId,
+        productId: existing.id,
+        userId: req.auth!.userId,
+        field: 'purchasePrice',
+        oldValue: existing.purchasePrice,
+        newValue: rest.purchasePrice,
+      });
+    }
+    if (rest.price !== undefined && rest.price !== existing.price) {
+      await recordPriceChange(tx, {
+        organizationId: req.auth!.organizationId,
+        productId: existing.id,
+        userId: req.auth!.userId,
+        field: 'price',
+        oldValue: existing.price,
+        newValue: rest.price,
+      });
+    }
+    return updated;
   });
+
   await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'product.update', entity: 'product', entityId: product.id });
   res.json({ product: stripProduct(product) });
 }));
@@ -282,6 +382,28 @@ router.post('/merchant', requirePermission('products:create'), asyncHandler(asyn
       });
     }
 
+    // Historique des prix initiaux (aucune écriture rétroactive sur les ventes).
+    if (input.purchasePrice > 0) {
+      await recordPriceChange(tx, {
+        organizationId: req.auth!.organizationId,
+        productId: product.id,
+        userId: req.auth!.userId,
+        field: 'purchasePrice',
+        oldValue: null,
+        newValue: input.purchasePrice,
+      });
+    }
+    if (input.price > 0) {
+      await recordPriceChange(tx, {
+        organizationId: req.auth!.organizationId,
+        productId: product.id,
+        userId: req.auth!.userId,
+        field: 'price',
+        oldValue: null,
+        newValue: input.price,
+      });
+    }
+
     return { product, storeId, initialStock: input.initialStock };
   });
 
@@ -327,6 +449,15 @@ router.post('/:id/stock', requirePermission('stock:adjust'), asyncHandler(async 
     });
     if (input.purchasePrice !== undefined) {
       await tx.product.update({ where: { id: product.id }, data: { purchasePrice: input.purchasePrice } });
+      // Historise le nouveau coût d'achat (dernier coût connu) sans toucher aux ventes passées.
+      await recordPriceChange(tx, {
+        organizationId: req.auth!.organizationId,
+        productId: product.id,
+        userId: req.auth!.userId,
+        field: 'purchasePrice',
+        oldValue: product.purchasePrice,
+        newValue: input.purchasePrice,
+      });
     }
     if (input.supplierId) {
       await tx.product.update({ where: { id: product.id }, data: { supplierId: input.supplierId } });

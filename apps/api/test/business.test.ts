@@ -93,6 +93,72 @@ describe('ventes (POS)', () => {
       .send({ storeId: org.storeId, items: [{ variantId, quantity: 1 }], payments: [] });
     expect(res.status).toBe(400);
   });
+
+  it('suit le solde client sur un encaissement partiel puis complet', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 2000 });
+    await setStock(org, variantId, 10);
+    const customer = await request(app).post('/api/v1/customers').set(auth(org)).send({ name: 'Client Partiel' });
+    const customerId = customer.body.customer.id;
+
+    // Vente à crédit de 4000, entièrement due (client identifié).
+    const credit = await request(app)
+      .post('/api/v1/sales')
+      .set(auth(org))
+      .send({ storeId: org.storeId, customerId, items: [{ variantId, quantity: 2 }], payments: [] });
+    expect(credit.status).toBe(201);
+    expect(credit.body.remaining).toBe(4000);
+
+    const fiche0 = await request(app).get(`/api/v1/customers/${customerId}`).set(auth(org));
+    expect(fiche0.body.customer.balance).toBe(4000);
+
+    // Encaissement PARTIEL de 1500.
+    const partial = await request(app)
+      .post(`/api/v1/sales/${credit.body.saleId}/payments`)
+      .set(auth(org))
+      .send({ method: 'WAVE', amount: 1500 });
+    expect(partial.status).toBe(200);
+    expect(partial.body.outstanding).toBe(2500);
+
+    const fiche1 = await request(app).get(`/api/v1/customers/${customerId}`).set(auth(org));
+    expect(fiche1.body.customer.balance).toBe(2500);
+
+    // Solde du reste.
+    const rest = await request(app)
+      .post(`/api/v1/sales/${credit.body.saleId}/payments`)
+      .set(auth(org))
+      .send({ method: 'CASH', amount: 2500 });
+    expect(rest.status).toBe(200);
+    expect(rest.body.outstanding).toBe(0);
+
+    const fiche2 = await request(app).get(`/api/v1/customers/${customerId}`).set(auth(org));
+    expect(fiche2.body.customer.balance).toBe(0);
+  });
+});
+
+describe('catalogue — filtre catégorie', () => {
+  it('filtre les produits par catégorie et ignore les autres', async () => {
+    const org = await createOrg();
+    const cat = await request(app).post('/api/v1/categories').set(auth(org)).send({ name: 'Boissons' });
+    expect(cat.status).toBe(201);
+    const categoryId = cat.body.category.id;
+
+    await request(app).post('/api/v1/products').set(auth(org)).send({
+      name: 'Jus de bissap', purchasePrice: 500, price: 1000, categoryId, variants: [{ name: 'Bouteille' }],
+    });
+    await request(app).post('/api/v1/products').set(auth(org)).send({
+      name: 'Sac de riz', purchasePrice: 12000, price: 14000, variants: [{ name: 'Sac 50 kg' }],
+    });
+
+    const filtered = await request(app).get(`/api/v1/products?categoryId=${categoryId}`).set(auth(org));
+    expect(filtered.status).toBe(200);
+    expect(filtered.body.items).toHaveLength(1);
+    expect(filtered.body.items[0].name).toBe('Jus de bissap');
+    expect(filtered.body.items.every((p: { category: unknown }) => p.category !== null)).toBe(true);
+
+    const all = await request(app).get('/api/v1/products').set(auth(org));
+    expect(all.body.items.length).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe('mouvements de stock', () => {

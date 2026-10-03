@@ -26,6 +26,9 @@ model User {
   passwordHash  String
   fullName      String
   phone         String?
+  // Vérification réelle du téléphone (OTP). Reste false tant qu'aucun code
+  // n'a été effectivement validé : jamais positionné automatiquement.
+  phoneVerified Boolean  @default(false)
   platformAdmin Boolean  @default(false) // SUPER_ADMIN GawJaay
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -39,6 +42,8 @@ model User {
   auditLogs         AuditLog[]
   customerProfile   Customer?
   orders            Order[]              @relation("OrderCustomerUser")
+  priceHistory      PriceHistory[]
+  phoneVerifications PhoneVerification[]
 }
 
 model PasswordReset {
@@ -67,6 +72,28 @@ model RefreshToken {
   @@index([userId])
 }
 
+/**
+ * Demande de vérification de téléphone par code (OTP). Fondation sans
+ * fournisseur SMS : le code n'est JAMAIS livré automatiquement (aucun envoi
+ * simulé). `status` reste PENDING tant qu'un code correct n'a pas été validé.
+ * Limitation des tentatives via `attempts`.
+ */
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  phone     String
+  codeHash  String
+  status    String   @default("PENDING") // PENDING | VERIFIED | EXPIRED | CANCELLED
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
 model Organization {
   id          String   @id @default(cuid())
   name        String
@@ -74,6 +101,8 @@ model Organization {
   description String?
   logoUrl     String?
   phone       String?
+  // Numéro WhatsApp public choisi par le commerçant (jamais déduit/inventé).
+  whatsapp    String?
   email       String?
   address     String?
   city        String?
@@ -94,6 +123,7 @@ model Organization {
   couriers      Courier[]
   subscription  Subscription?
   auditLogs     AuditLog[]
+  priceHistory  PriceHistory[]
 }
 
 model Membership {
@@ -212,10 +242,36 @@ model Product {
   category     Category?        @relation(fields: [categoryId], references: [id])
   supplier     Supplier?        @relation(fields: [supplierId], references: [id])
   variants     ProductVariant[]
+  priceHistory PriceHistory[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
   @@index([categoryId])
+}
+
+/**
+ * Historique des changements de prix (lu depuis `field` : "purchasePrice" |
+ * "price"). Chaque écriture de prix crée une ligne AVANT/APRÈS, ce qui permet
+ * de répondre factuellement à « quel était le prix d'achat / de vente à cette
+ * période ? ». N'écrit jamais dans les ventes déjà réalisées (celles-ci
+ * conservent leurs propres instantanés SaleItem.unitPrice / unitCost).
+ */
+model PriceHistory {
+  id             String   @id @default(cuid())
+  organizationId String
+  productId      String
+  field          String // "purchasePrice" | "price"
+  oldValue       Int?
+  newValue       Int
+  userId         String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([productId, field, createdAt])
+  @@index([organizationId])
 }
 
 model ProductVariant {
@@ -309,6 +365,11 @@ model Sale {
   discount    Int      @default(0)
   total       Int      @default(0)
   status      String   @default("COMPLETED") // COMPLETED | REFUNDED
+  refundedAt  DateTime?
+  // Clé d'idempotence fournie par le client : empêche une double soumission
+  // (double clic / retry réseau) de créer deux ventes. Unique par organisation
+  // via une clé composite globale `storeId`+`clientRequestId` ci-dessous.
+  clientRequestId String?
   createdAt   DateTime @default(now())
 
   store    Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -317,6 +378,7 @@ model Sale {
   items    SaleItem[]
   payments SalePayment[]
 
+  @@unique([storeId, clientRequestId])
   @@index([storeId, createdAt])
   @@index([customerId])
 }

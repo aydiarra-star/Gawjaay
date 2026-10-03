@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { type PackagingType } from '@gawjaay/shared';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF, formatDateTime, formatPackaging } from '../lib/format';
 import { useStore } from '../context/StoreContext';
@@ -17,6 +17,7 @@ interface Sale {
   id: string;
   total: number;
   createdAt: string;
+  status: string;
   customer: { id: string; name: string } | null;
   items: Array<{ id: string; name: string; quantity: number }>;
   payments: SalePayment[];
@@ -62,6 +63,8 @@ function sinceOf(range: Range): number {
 export function HistoryPage() {
   const { storeId } = useStore();
   const [range, setRange] = useState<Range>('today');
+  const [busyRefund, setBusyRefund] = useState<string | null>(null);
+  const [refundError, setRefundError] = useState<string | null>(null);
   const sales = useApi<{ sales: Sale[] }>(() => api.get(`/sales${storeId ? `?storeId=${storeId}` : ''}`), [storeId]);
   const movements = useApi<{ movements: Movement[] }>(
     () => api.get(`/inventory/movements${storeId ? `?storeId=${storeId}` : ''}`),
@@ -86,6 +89,20 @@ export function HistoryPage() {
   );
   const credit = Math.max(0, revenue - encaisse);
 
+  async function refund(saleId: string) {
+    setRefundError(null);
+    setBusyRefund(saleId);
+    try {
+      await api.post(`/sales/${saleId}/refund`, {});
+      sales.reload();
+      movements.reload();
+    } catch (err) {
+      setRefundError(err instanceof ApiError ? err.message : 'Remboursement impossible');
+    } finally {
+      setBusyRefund(null);
+    }
+  }
+
   return (
     <>
       <PageHead
@@ -101,6 +118,7 @@ export function HistoryPage() {
       </div>
 
       <Card title="Ventes">
+        {refundError && <Alert kind="error">{refundError}</Alert>}
         {sales.loading && <Spinner />}
         {sales.error && <Alert kind="error">{sales.error}</Alert>}
         {sales.data && filteredSales.length === 0 && (
@@ -116,6 +134,7 @@ export function HistoryPage() {
                   <th>Client</th>
                   <th>Paiement</th>
                   <th className="num">Total</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -129,6 +148,19 @@ export function HistoryPage() {
                     </td>
                     <td className="num" style={{ fontWeight: 620 }}>
                       {formatXOF(sale.total)}
+                    </td>
+                    <td>
+                      {sale.status === 'REFUNDED' ? (
+                        <span className="badge badge-warning">Remboursée</span>
+                      ) : (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={busyRefund === sale.id}
+                          onClick={() => refund(sale.id)}
+                        >
+                          {busyRefund === sale.id ? '…' : 'Rembourser'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

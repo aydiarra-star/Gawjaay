@@ -40,8 +40,10 @@ router.get('/:id', requirePermission('customers:read'), asyncHandler(async (req,
   });
   if (!customer) throw AppError.notFound('Client introuvable');
 
-  const totalPurchases = customer.sales.reduce((s, sale) => s + sale.total, 0);
-  const balance = customer.sales.reduce((sum, sale) => {
+  // Une vente remboursée ne compte ni dans les achats ni dans le solde dû.
+  const activeSales = customer.sales.filter((s) => s.status !== 'REFUNDED');
+  const totalPurchases = activeSales.reduce((s, sale) => s + sale.total, 0);
+  const balance = activeSales.reduce((sum, sale) => {
     const paid = sale.payments.filter((p) => p.status === 'SUCCESSFUL').reduce((s, p) => s + p.amount, 0);
     return sum + Math.max(0, sale.total - paid);
   }, 0);

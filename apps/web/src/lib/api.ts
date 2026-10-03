@@ -48,6 +48,8 @@ interface RequestOptions {
   body?: unknown;
   /** Route publique : ne pas envoyer d'en-tête d'authentification. */
   publicRoute?: boolean;
+  /** Réponse binaire (ex. export CSV) : ne pas tenter de la décoder en JSON. */
+  blob?: boolean;
   signal?: AbortSignal;
 }
 
@@ -74,6 +76,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     });
   } catch {
     throw new ApiError(0, 'NETWORK_ERROR', "Impossible de joindre le serveur GawJaay. Vérifiez votre connexion.");
+  }
+
+  if (options.blob && res.ok) {
+    return (await res.blob()) as T;
   }
 
   const text = await res.text();

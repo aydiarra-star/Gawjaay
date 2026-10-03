@@ -20,7 +20,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 router.get('/shops/:slug', asyncHandler(async (req, res) => {
   const store = await prisma.store.findUnique({
     where: { slug: req.params.slug },
-    include: { organization: { select: { name: true, description: true, logoUrl: true, phone: true, email: true } } },
+    include: { organization: { select: { name: true, description: true, logoUrl: true, phone: true, whatsapp: true, email: true, address: true, city: true, region: true, activity: true } } },
   });
   if (!store || !store.isActive || !store.isPublic) throw AppError.notFound('Boutique introuvable');
 
