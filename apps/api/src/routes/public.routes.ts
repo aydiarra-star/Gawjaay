@@ -140,6 +140,10 @@ router.get('/products/:id/photo', asyncHandler(async (req, res) => {
   if (!product) throw AppError.notFound('Photo introuvable');
   if (product.imageData) {
     res.setHeader('Cache-Control', 'public, max-age=86400');
+    // Photo publique destinée à être intégrée depuis une autre origine que
+    // l'API (ex. le frontend GitHub Pages) : autoriser explicitement le
+    // chargement inter-origines. Helmet pose `same-origin` par défaut.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.type(product.imageMime ?? 'image/jpeg').send(Buffer.from(product.imageData.split(',')[1] ?? '', 'base64'));
     return;
   }

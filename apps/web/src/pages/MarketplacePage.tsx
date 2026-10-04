@@ -4,12 +4,13 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
 import { DISCOVERY_RADII_KM, LISTING_CONDITION_LABELS, FULFILLMENT_LABELS } from '@gawjaay/shared';
-import { Alert, Chips, EmptyState, SearchField, SkeletonGrid } from '../components/ui';
+import { Alert, CategoryBar, Chips, EmptyState, SearchField, SkeletonGrid } from '../components/ui';
 import { IconHeart, IconMapPin, IconMarket, IconStore, IconTag } from '../components/icons';
 import { PublicProductImage } from '../components/product';
 import { ProductDownloadButton, TerangaBanner } from '../components/premium';
 import { BuyerHeader } from '../components/BuyerHeader';
 import { useCart } from '../context/CartContext';
+import { storeWhatsappLink } from '../lib/whatsapp';
 
 interface Offer {
   storeId: string;
@@ -338,12 +339,15 @@ export function MarketplacePage() {
             </div>
 
             {tab === 'products' && (
-              <div style={{ marginTop: 4 }}>
-                <Chips
-                  allLabel="Toutes les catégories"
-                  value={draft.categoryId}
-                  onChange={(categoryId) => setDraft({ ...draft, categoryId })}
-                  options={categories.map((c) => ({ value: c.id, label: c.name }))}
+              <div style={{ marginTop: 12 }}>
+                <CategoryBar
+                  categories={categories}
+                  value={applied.categoryId}
+                  onChange={(categoryId) => {
+                    setDraft((d) => ({ ...d, categoryId }));
+                    setApplied((a) => ({ ...a, categoryId }));
+                    setPage(1);
+                  }}
                 />
               </div>
             )}
@@ -482,40 +486,61 @@ export function MarketplacePage() {
                               </span>
                             )}
                           </div>
-                          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                            {item.available > 0 ? (
+                              <button
+                                type="button"
+                                className="btn btn-lg product-cta-primary"
+                                onClick={() => {
+                                  setCartNotice(null);
+                                  const result = cart.add({
+                                    productId: item.id,
+                                    variantId: offer.variantId,
+                                    name: item.name,
+                                    variantName: offer.variantName,
+                                    hasImage: Boolean(item.hasImage),
+                                    imageUrl: item.imageUrl,
+                                    unitPrice: offer.price ?? item.price,
+                                    storeId: offer.storeId,
+                                    storeName: offer.storeName,
+                                    storeSlug: offer.storeSlug,
+                                    city: offer.city,
+                                    region: offer.region,
+                                    quantity: 1,
+                                    available: offer.available,
+                                  });
+                                  setCartNotice(
+                                    result.ok
+                                      ? 'Ajouté au panier.'
+                                      : `Ce produit vient d'une autre boutique (${result.currentStoreName}). Ouvrez la fiche produit pour remplacer le panier.`,
+                                  );
+                                }}
+                              >
+                                Ajouter au panier
+                              </button>
+                            ) : (
+                              <button type="button" className="btn btn-lg" disabled>
+                                Indisponible
+                              </button>
+                            )}
                             <Link to={`/product/${item.id}`} className="btn btn-secondary btn-sm">
-                              Voir
+                              Voir la fiche
                             </Link>
-                            <button
-                              type="button"
-                              className="btn btn-sm"
-                              onClick={() => {
-                                setCartNotice(null);
-                                const result = cart.add({
-                                  productId: item.id,
-                                  variantId: offer.variantId,
-                                  name: item.name,
-                                  variantName: offer.variantName,
-                                  hasImage: Boolean(item.hasImage),
-                                  imageUrl: item.imageUrl,
-                                  unitPrice: offer.price ?? item.price,
-                                  storeId: offer.storeId,
-                                  storeName: offer.storeName,
-                                  storeSlug: offer.storeSlug,
-                                  city: offer.city,
-                                  region: offer.region,
-                                  quantity: 1,
-                                  available: offer.available,
-                                });
-                                setCartNotice(
-                                  result.ok
-                                    ? 'Ajouté au panier.'
-                                    : `Ce produit vient d'une autre boutique (${result.currentStoreName}). Ouvrez la fiche produit pour remplacer le panier.`,
-                                );
-                              }}
-                            >
-                              Ajouter
-                            </button>
+                            {(() => {
+                              const wa = storeWhatsappLink({
+                                storeWhatsapp: offer.storeWhatsapp,
+                                storePhone: offer.storePhone,
+                                storeName: offer.storeName,
+                                productName: item.name,
+                                variantName: offer.variantName,
+                              });
+                              if (!wa) return null;
+                              return (
+                                <a className="btn btn-ghost btn-sm" href={wa} target="_blank" rel="noopener noreferrer">
+                                  WhatsApp
+                                </a>
+                              );
+                            })()}
                           </div>
                           <ProductDownloadButton
                             product={{

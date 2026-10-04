@@ -6,7 +6,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine, formatDateTime } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
-import { Modal, PhotoPicker, ProductThumb } from '../components/product';
+import { Modal, PhotoPicker, ProductThumb, ImageLightbox, getCachedProductPhoto } from '../components/product';
 
 interface Product {
   id: string;
@@ -89,6 +89,7 @@ export function ProductsPage() {
   const [manageBusy, setManageBusy] = useState(false);
   const [manageError, setManageError] = useState<string | null>(null);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
+  const [lightbox, setLightbox] = useState<{ productId: string; name: string } | null>(null);
 
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
     () =>
@@ -281,7 +282,18 @@ export function ProductsPage() {
               return (
                 <article className="merchant-card" key={p.id}>
                   <div className="merchant-media">
-                    <ProductThumb productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
+                    {p.hasImage || p.imageUrl ? (
+                      <button
+                        type="button"
+                        className="merchant-media-btn"
+                        onClick={() => setLightbox({ productId: p.id, name: p.name })}
+                        aria-label={`Agrandir la photo de ${p.name}`}
+                      >
+                        <ProductThumb productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
+                      </button>
+                    ) : (
+                      <ProductThumb productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
+                    )}
                   </div>
                   <div className="merchant-body">
                     <div className="merchant-name">{p.name}</div>
@@ -609,6 +621,16 @@ export function ProductsPage() {
             )}
           </div>
         </Modal>
+      )}
+
+      {lightbox && getCachedProductPhoto(lightbox.productId) && (
+        <ImageLightbox
+          images={[{ src: getCachedProductPhoto(lightbox.productId)!, alt: lightbox.name }]}
+          index={0}
+          onIndexChange={() => undefined}
+          onClose={() => setLightbox(null)}
+          title={lightbox.name}
+        />
       )}
     </>
   );

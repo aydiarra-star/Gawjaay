@@ -330,3 +330,56 @@ describe('M4 — coordonnées boutique et proximité', () => {
     expect(all.body.items.some((i: { id: string }) => i.id === productId)).toBe(true);
   });
 });
+
+describe('M4 — photo produit intégrée en cross-origin', () => {
+  // PNG opaque minimal — image réelle, jamais une donnée inventée.
+  const PNG =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  it('la photo publique autorise le chargement depuis une autre origine (frontend GitHub Pages)', async () => {
+    const org = await createOrg();
+    const created = await request(app)
+      .post('/api/v1/products')
+      .set(auth(org))
+      .send({
+        name: 'Produit photo public',
+        price: 2500,
+        marketplaceVisible: true,
+        imageData: PNG,
+        variants: [{ name: 'Standard' }],
+      });
+    expect(created.status).toBe(201);
+    const productId = created.body.product.id as string;
+    const variantId = created.body.product.variants[0].id as string;
+    await setStock(org, variantId, 5);
+    await publishStore(org);
+
+    const photo = await request(app).get(`/api/v1/public/products/${productId}/photo`);
+    expect(photo.status).toBe(200);
+    expect(photo.headers['content-type']).toMatch(/image\/png/);
+    // Sans cet en-tête, le navigateur bloque l'image (ERR_BLOCKED_BY_RESPONSE).
+    expect(photo.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    // Les autres routes restent verrouillées en `same-origin` (Helmet).
+    const health = await request(app).get('/api/v1/health');
+    expect(health.headers['cross-origin-resource-policy']).toBe('same-origin');
+  });
+
+  it('une photo de produit non découvrable n’est jamais servie', async () => {
+    const org = await createOrg();
+    const created = await request(app)
+      .post('/api/v1/products')
+      .set(auth(org))
+      .send({
+        name: 'Produit caché',
+        price: 1000,
+        marketplaceVisible: false,
+        imageData: PNG,
+        variants: [{ name: 'Standard' }],
+      });
+    expect(created.status).toBe(201);
+    const productId = created.body.product.id as string;
+
+    const photo = await request(app).get(`/api/v1/public/products/${productId}/photo`);
+    expect(photo.status).toBe(404);
+  });
+});

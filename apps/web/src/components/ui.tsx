@@ -253,3 +253,48 @@ export function Chips<T extends string>({
     </div>
   );
 }
+
+/**
+ * Barre de catégories scrollable horizontalement (mobile-first) — affiche
+ * uniquement les catégories RÉELLES fournies par le backend, plus une entrée
+ * virtuelle « Tous » (aucun filtre de catégorie). Ne rend rien s'il n'y a
+ * aucune catégorie. Le clic filtre immédiatement.
+ */
+export function CategoryBar({
+  categories,
+  value,
+  onChange,
+  allLabel = 'Tous',
+}: {
+  categories: Array<{ id: string; name: string }>;
+  value: string;
+  onChange: (id: string) => void;
+  allLabel?: string;
+}) {
+  if (categories.length === 0) return null;
+  return (
+    <div className="category-bar" role="tablist" aria-label="Catégories">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === ''}
+        className={`category-chip${value === '' ? ' active' : ''}`}
+        onClick={() => onChange('')}
+      >
+        {allLabel}
+      </button>
+      {categories.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          role="tab"
+          aria-selected={value === c.id}
+          className={`category-chip${value === c.id ? ' active' : ''}`}
+          onClick={() => onChange(c.id)}
+        >
+          {c.name}
+        </button>
+      ))}
+    </div>
+  );
+}

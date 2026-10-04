@@ -6,9 +6,10 @@ import { formatXOF } from '../lib/format';
 import { PACKAGING_LABELS, isPackagingType } from '@gawjaay/shared';
 import { Alert, Card, EmptyState, SkeletonGrid } from '../components/ui';
 import { BuyerShell } from '../components/BuyerHeader';
-import { PublicProductImage } from '../components/product';
+import { PublicProductImage, ImageLightbox, publicProductImageSrc } from '../components/product';
 import { IconMapPin, IconPackage, IconStore } from '../components/icons';
 import { useCart } from '../context/CartContext';
+import { storeWhatsappLink } from '../lib/whatsapp';
 
 interface Offer {
   storeId: string;
@@ -44,9 +45,14 @@ interface PublicProduct {
 
 /** Construit un message WhatsApp factuel (le contact ouvre WhatsApp, ne crée AUCUNE commande GawJaay). */
 function whatsappLink(offer: Offer, productName: string, quantity: number) {
-  const phone = (offer.storeWhatsapp ?? offer.storePhone ?? '').replace(/[^0-9]/g, '');
-  const text = `Bonjour ${offer.storeName}, je suis intéressé(e) par « ${productName} »${offer.variantName ? ` (${offer.variantName})` : ''} — quantité ${quantity}, vu sur GawJaay.`;
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  return storeWhatsappLink({
+    storeWhatsapp: offer.storeWhatsapp,
+    storePhone: offer.storePhone,
+    storeName: offer.storeName,
+    productName,
+    variantName: offer.variantName,
+    quantity,
+  });
 }
 
 export function ProductDetailPage() {
@@ -61,7 +67,10 @@ export function ProductDetailPage() {
   const [offerKey, setOfferKey] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [notice, setNotice] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [conflict, setConflict] = useState<{ item: (typeof cart.items)[number]; currentStoreName: string } | null>(null);
+
+  const productImageSrc = product ? publicProductImageSrc({ productId: product.id, hasImage: product.hasImage, imageUrl: product.imageUrl }) : null;
 
   const selectedOffer = useMemo(() => {
     if (!product) return null;
@@ -124,7 +133,21 @@ export function ProductDetailPage() {
         <>
           <div className="product-detail">
             <div className="product-detail-media">
-              <PublicProductImage productId={product.id} name={product.name} hasImage={product.hasImage} imageUrl={product.imageUrl} />
+              {productImageSrc ? (
+                <button
+                  type="button"
+                  className="product-detail-image-btn"
+                  onClick={() => setLightboxOpen(true)}
+                  aria-label={`Agrandir la photo de ${product.name}`}
+                >
+                  <PublicProductImage productId={product.id} name={product.name} hasImage={product.hasImage} imageUrl={product.imageUrl} />
+                  <span className="product-detail-zoomhint" aria-hidden="true">
+                    Voir en grand
+                  </span>
+                </button>
+              ) : (
+                <PublicProductImage productId={product.id} name={product.name} hasImage={product.hasImage} imageUrl={product.imageUrl} />
+              )}
               {product.originalPrice && <span className="product-promo">Promo</span>}
             </div>
             <div className="product-detail-body">
@@ -200,16 +223,17 @@ export function ProductDetailPage() {
                       min={1}
                       max={Math.max(1, selectedOffer.available)}
                       value={quantity}
+                      disabled={selectedOffer.available <= 0}
                       onChange={(e) => setQuantity(Math.max(1, Math.min(Number(e.target.value) || 1, Math.max(1, selectedOffer.available))))}
                     />
                   </div>
                   <button className="btn btn-lg" onClick={addToCart} disabled={selectedOffer.available <= 0}>
-                    Ajouter au panier
+                    {selectedOffer.available <= 0 ? 'Indisponible' : 'Ajouter au panier'}
                   </button>
                   {(selectedOffer.storeWhatsapp || selectedOffer.storePhone) && (
                     <a
                       className="btn btn-secondary btn-lg"
-                      href={whatsappLink(selectedOffer, product.name, quantity)}
+                      href={whatsappLink(selectedOffer, product.name, quantity) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -217,6 +241,11 @@ export function ProductDetailPage() {
                     </a>
                   )}
                 </div>
+              )}
+              {selectedOffer && selectedOffer.available <= 0 && (
+                <p className="field-hint" style={{ marginTop: 8 }} role="status">
+                  Cet article n’est plus disponible dans cette boutique. Choisissez une autre boutique ou revenez plus tard.
+                </p>
               )}
 
               <p className="field-hint" style={{ marginTop: 10 }}>
@@ -253,6 +282,16 @@ export function ProductDetailPage() {
                 </button>
               </div>
             </div>
+          )}
+
+          {lightboxOpen && productImageSrc && (
+            <ImageLightbox
+              images={[{ src: productImageSrc, alt: product.name }]}
+              index={0}
+              onIndexChange={() => undefined}
+              onClose={() => setLightboxOpen(false)}
+              title={product.name}
+            />
           )}
         </>
       )}
