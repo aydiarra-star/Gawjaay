@@ -26,8 +26,9 @@ export interface CartItem {
   city: string | null;
   region: string | null;
   quantity: number;
-  /** Disponibilité connue au moment de l'ajout (indicative, revérifiée serveur). */
-  available: number;
+  /** Disponibilité connue au moment de l'ajout (indicative, revérifiée serveur).
+   *  `null` = inconnue/non calculable : jamais convertie en 0. */
+  available: number | null;
 }
 
 export type AddResult = { ok: true } | { ok: false; reason: 'OTHER_STORE'; currentStoreName: string };
@@ -78,7 +79,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => {
       const existing = prev.find((i) => i.variantId === item.variantId);
       if (existing) {
-        const quantity = Math.min(existing.quantity + item.quantity, Math.max(item.available, 1));
+        const cap = item.available == null ? Number.POSITIVE_INFINITY : Math.max(item.available, 1);
+        const quantity = Math.min(existing.quantity + item.quantity, cap);
         return prev.map((i) => (i.variantId === item.variantId ? { ...i, quantity, available: item.available } : i));
       }
       return [...prev, item];

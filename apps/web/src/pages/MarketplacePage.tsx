@@ -474,7 +474,9 @@ export function MarketplacePage() {
                             </div>
                           )}
                           <div className="product-meta">
-                            {item.available > 0 ? (
+                            {item.available == null ? (
+                              <span className="badge badge-info">Disponibilité à confirmer</span>
+                            ) : item.available > 0 ? (
                               <span className="badge badge-success">{item.available} en stock</span>
                             ) : (
                               <span className="badge badge-danger">Rupture</span>
@@ -487,7 +489,7 @@ export function MarketplacePage() {
                             )}
                           </div>
                           <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                            {item.available > 0 ? (
+                            {item.available !== 0 ? (
                               <button
                                 type="button"
                                 className="btn btn-lg product-cta-primary"
