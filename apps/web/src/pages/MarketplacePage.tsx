@@ -4,10 +4,13 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF } from '../lib/format';
 import { DISCOVERY_RADII_KM, LISTING_CONDITION_LABELS, FULFILLMENT_LABELS } from '@gawjaay/shared';
-import { Alert, Chips, EmptyState, SearchField, SkeletonGrid } from '../components/ui';
+import { Alert, CategoryBar, Chips, EmptyState, SearchField, SkeletonGrid } from '../components/ui';
 import { IconHeart, IconMapPin, IconMarket, IconStore, IconTag } from '../components/icons';
 import { PublicProductImage } from '../components/product';
 import { ProductDownloadButton, TerangaBanner } from '../components/premium';
+import { BuyerHeader } from '../components/BuyerHeader';
+import { useCart } from '../context/CartContext';
+import { storeWhatsappLink } from '../lib/whatsapp';
 
 interface Offer {
   storeId: string;
@@ -15,10 +18,14 @@ interface Offer {
   storeSlug: string;
   city: string | null;
   region: string | null;
+  storePhone?: string | null;
+  storeWhatsapp?: string | null;
   variantId: string;
   variantName: string;
+  variantPrice?: number | null;
   available: number;
   distanceKm: number | null;
+  price?: number;
 }
 interface MarketplaceItem {
   id: string;
@@ -101,6 +108,8 @@ export function MarketplacePage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoNote, setGeoNote] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const cart = useCart();
+  const [cartNotice, setCartNotice] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -218,21 +227,7 @@ export function MarketplacePage() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <Link to="/" className="brand" style={{ textDecoration: 'none' }}>
-          <span className="brand-mark">G</span>
-          Gaw<span>Jaay</span>
-        </Link>
-        <div className="topbar-spacer" />
-        <div className="row" style={{ gap: 8 }}>
-          <Link to="/login" className="btn btn-secondary btn-sm">
-            Connexion
-          </Link>
-          <Link to="/register" className="btn btn-sm">
-            Vendre
-          </Link>
-        </div>
-      </header>
+      <BuyerHeader />
 
       <main className="main">
         <div className="main-inner">
@@ -344,12 +339,15 @@ export function MarketplacePage() {
             </div>
 
             {tab === 'products' && (
-              <div style={{ marginTop: 4 }}>
-                <Chips
-                  allLabel="Toutes les catégories"
-                  value={draft.categoryId}
-                  onChange={(categoryId) => setDraft({ ...draft, categoryId })}
-                  options={categories.map((c) => ({ value: c.id, label: c.name }))}
+              <div style={{ marginTop: 12 }}>
+                <CategoryBar
+                  categories={categories}
+                  value={applied.categoryId}
+                  onChange={(categoryId) => {
+                    setDraft((d) => ({ ...d, categoryId }));
+                    setApplied((a) => ({ ...a, categoryId }));
+                    setPage(1);
+                  }}
                 />
               </div>
             )}
@@ -381,6 +379,11 @@ export function MarketplacePage() {
           </div>
 
           <div style={{ marginTop: 24 }}>
+            {cartNotice && (
+              <div style={{ marginBottom: 14 }}>
+                <Alert kind="info">{cartNotice}</Alert>
+              </div>
+            )}
             {(loading || listingsLoading) && <SkeletonGrid count={8} />}
             {error && tab === 'products' && (
               <div className="card">
@@ -434,7 +437,9 @@ export function MarketplacePage() {
                     return (
                       <article className="product-card" key={item.id}>
                         <div className="product-media">
-                          <PublicProductImage productId={item.id} name={item.name} hasImage={item.hasImage} imageUrl={item.imageUrl} />
+                          <Link to={`/product/${item.id}`} aria-label={`Voir ${item.name}`}>
+                            <PublicProductImage productId={item.id} name={item.name} hasImage={item.hasImage} imageUrl={item.imageUrl} />
+                          </Link>
                           {item.originalPrice && <span className="product-promo">Promo</span>}
                           <button
                             type="button"
@@ -448,7 +453,9 @@ export function MarketplacePage() {
                         </div>
                         <div className="product-body">
                           {item.category && <span className="badge">{item.category.name}</span>}
-                          <div className="product-name">{item.name}</div>
+                          <Link to={`/product/${item.id}`} className="product-name product-link">
+                            {item.name}
+                          </Link>
                           <div className="product-price">
                             {formatXOF(item.price)}
                             {item.originalPrice && <span className="was">{formatXOF(item.originalPrice)}</span>}
@@ -478,6 +485,62 @@ export function MarketplacePage() {
                                 <IconMapPin size={12} /> {item.minDistanceKm} km
                               </span>
                             )}
+                          </div>
+                          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                            {item.available > 0 ? (
+                              <button
+                                type="button"
+                                className="btn btn-lg product-cta-primary"
+                                onClick={() => {
+                                  setCartNotice(null);
+                                  const result = cart.add({
+                                    productId: item.id,
+                                    variantId: offer.variantId,
+                                    name: item.name,
+                                    variantName: offer.variantName,
+                                    hasImage: Boolean(item.hasImage),
+                                    imageUrl: item.imageUrl,
+                                    unitPrice: offer.price ?? item.price,
+                                    storeId: offer.storeId,
+                                    storeName: offer.storeName,
+                                    storeSlug: offer.storeSlug,
+                                    city: offer.city,
+                                    region: offer.region,
+                                    quantity: 1,
+                                    available: offer.available,
+                                  });
+                                  setCartNotice(
+                                    result.ok
+                                      ? 'Ajouté au panier.'
+                                      : `Ce produit vient d'une autre boutique (${result.currentStoreName}). Ouvrez la fiche produit pour remplacer le panier.`,
+                                  );
+                                }}
+                              >
+                                Ajouter au panier
+                              </button>
+                            ) : (
+                              <button type="button" className="btn btn-lg" disabled>
+                                Indisponible
+                              </button>
+                            )}
+                            <Link to={`/product/${item.id}`} className="btn btn-secondary btn-sm">
+                              Voir la fiche
+                            </Link>
+                            {(() => {
+                              const wa = storeWhatsappLink({
+                                storeWhatsapp: offer.storeWhatsapp,
+                                storePhone: offer.storePhone,
+                                storeName: offer.storeName,
+                                productName: item.name,
+                                variantName: offer.variantName,
+                              });
+                              if (!wa) return null;
+                              return (
+                                <a className="btn btn-ghost btn-sm" href={wa} target="_blank" rel="noopener noreferrer">
+                                  WhatsApp
+                                </a>
+                              );
+                            })()}
                           </div>
                           <ProductDownloadButton
                             product={{

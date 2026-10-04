@@ -7,6 +7,7 @@ import {
   discoverListings,
   discoverProducts,
   discoveryFacets,
+  getPublicProduct,
   getPublicSeller,
   parseDiscoveryQuery,
   productPriceView,
@@ -103,6 +104,18 @@ router.get('/sellers/:id', asyncHandler(async (req, res) => {
   res.json({ seller });
 }));
 
+/**
+ * Détail public d'un produit (M4 — parcours acheteur) : offres réelles par
+ * boutique, variantes et prix résolu côté serveur. Aucune coordonnée GPS,
+ * aucun prix d'achat, aucun SKU. 404 si le produit n'est pas découvrable.
+ */
+router.get('/products/:id', asyncHandler(async (req, res) => {
+  const filters = parseDiscoveryQuery(req.query as Record<string, unknown>);
+  const product = await getPublicProduct(req.params.id, filters.geo);
+  if (!product) throw AppError.notFound('Produit introuvable');
+  res.json({ product, proximityApplied: Boolean(filters.geo) });
+}));
+
 /** Catégories réellement publiables (aucune catégorie inventée). */
 router.get('/categories', asyncHandler(async (_req, res) => {
   const facets = await discoveryFacets();
@@ -127,6 +140,10 @@ router.get('/products/:id/photo', asyncHandler(async (req, res) => {
   if (!product) throw AppError.notFound('Photo introuvable');
   if (product.imageData) {
     res.setHeader('Cache-Control', 'public, max-age=86400');
+    // Photo publique destinée à être intégrée depuis une autre origine que
+    // l'API (ex. le frontend GitHub Pages) : autoriser explicitement le
+    // chargement inter-origines. Helmet pose `same-origin` par défaut.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.type(product.imageMime ?? 'image/jpeg').send(Buffer.from(product.imageData.split(',')[1] ?? '', 'base64'));
     return;
   }

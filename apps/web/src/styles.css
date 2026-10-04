@@ -695,6 +695,56 @@ p {
   box-shadow: 0 0 0 3px var(--gold-ring);
 }
 
+/* ------------------------------------------------------------------ */
+/* Barre de catégories (scroll horizontal, mobile-first)               */
+/* ------------------------------------------------------------------ */
+.category-bar {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  padding: 2px 0 6px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.category-bar::-webkit-scrollbar {
+  height: 4px;
+}
+.category-bar::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: var(--r-pill);
+}
+.category-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  padding: 8px 15px;
+  min-height: 38px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  font-weight: 580;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.category-chip:hover {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+  color: var(--brand-ink);
+}
+.category-chip.active {
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-strong) 100%);
+  border-color: var(--gold);
+  color: var(--on-warm);
+  font-weight: 650;
+  box-shadow: 0 0 0 3px var(--gold-ring);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
 /* =========================================================================
    Alertes
    ========================================================================= */
@@ -1151,6 +1201,130 @@ tbody tr:last-child td {
     opacity: 1;
     transform: none;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Visionneuse d'image (lightbox) — dimensionnement maîtrisé           */
+/* ------------------------------------------------------------------ */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--shadow-ink) / 0.78);
+  backdrop-filter: blur(3px);
+  padding: calc(var(--s5) + env(safe-area-inset-top, 0px)) calc(var(--s5) + env(safe-area-inset-right, 0px))
+    calc(var(--s5) + env(safe-area-inset-bottom, 0px)) calc(var(--s5) + env(safe-area-inset-left, 0px));
+  animation: fade var(--dur) var(--ease);
+}
+.lightbox-stage {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  /* Jamais plus grand que nécessaire, même avec une résolution élevée */
+  max-width: min(92vw, 960px);
+  max-height: min(88dvh, 900px);
+  max-height: min(88svh, 900px);
+}
+.lightbox-stage img {
+  display: block;
+  max-width: min(92vw, 960px);
+  max-height: min(80dvh, 820px);
+  max-height: min(80svh, 820px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 0.25);
+  box-shadow: 0 24px 60px rgb(var(--shadow-ink) / 0.5);
+  animation: pop var(--dur) var(--ease-out);
+}
+.lightbox-stage figcaption {
+  color: var(--on-warm);
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 92vw;
+}
+.lightbox-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.lightbox-close:hover {
+  background: rgb(255 255 255 / 0.26);
+}
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.lightbox-nav:hover {
+  background: rgb(255 255 255 / 0.26);
+}
+.lightbox-nav.prev {
+  left: calc(12px + env(safe-area-inset-left, 0px));
+}
+.lightbox-nav.next {
+  right: calc(12px + env(safe-area-inset-right, 0px));
+}
+.lightbox-dots {
+  position: absolute;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 8px;
+}
+.lightbox-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.55);
+  background: transparent;
+  cursor: pointer;
+}
+.lightbox-dot.on {
+  background: #fff;
+}
+
+/* Miniature produit agrandissable (côté marchand) */
+.merchant-media-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
 }
 
 /* =========================================================================
@@ -1812,6 +1986,167 @@ tbody tr:last-child td {
   }
   .sheet-foot {
     flex-direction: column-reverse;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Parcours acheteur M4 (produit, panier, commande, suivi)             */
+/* ------------------------------------------------------------------ */
+.product-detail {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) 1fr;
+  gap: var(--s4);
+  align-items: start;
+}
+.product-detail-media {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.product-detail-image-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  position: relative;
+}
+.product-detail-media img {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: var(--surface-2);
+}
+.product-detail-zoomhint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--on-warm);
+  background: color-mix(in srgb, var(--ink) 62%, transparent);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+.product-detail-body h1 {
+  margin: 6px 0 8px;
+}
+.product-detail-body .product-price {
+  margin: 6px 0 10px;
+}
+
+/* Ligne d'offre (boutique) sur la fiche produit */
+.offer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.offer-row:hover {
+  border-color: var(--line-2);
+}
+.offer-row.on {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.offer-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.offer-side {
+  text-align: right;
+  flex: none;
+}
+
+/* Panier */
+.cart-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.cart-line-main {
+  min-width: 0;
+}
+
+/* Commandes */
+.order-row {
+  display: block;
+  transition: border-color 0.15s ease;
+}
+.order-row:hover {
+  border-color: var(--line-2);
+}
+.product-link {
+  text-decoration: none;
+  color: inherit;
+}
+.product-link:hover {
+  text-decoration: underline;
+}
+
+.order-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.order-timeline li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  position: relative;
+}
+.order-timeline .timeline-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex: none;
+}
+.order-timeline li:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 18px;
+  bottom: -14px;
+  width: 1px;
+  background: var(--line-2);
+}
+
+@media (max-width: 720px) {
+  .product-detail {
+    grid-template-columns: 1fr;
+  }
+  .product-cta-primary {
+    flex: 1 1 auto;
+    min-height: 48px;
+  }
+  .lightbox-stage img {
+    max-width: 94vw;
+    max-height: 74svh;
   }
 }
 

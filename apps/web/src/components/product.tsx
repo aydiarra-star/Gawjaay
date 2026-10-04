@@ -67,6 +67,11 @@ export function ProductThumb({
   );
 }
 
+/** URL (blob) de la photo marchande déjà chargée et mise en cache, sinon null. */
+export function getCachedProductPhoto(productId: string): string | null {
+  return objectUrlCache.get(productId) ?? null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Photo publique (marketplace / vitrine)                              */
 /* ------------------------------------------------------------------ */
@@ -88,11 +93,132 @@ export function PublicProductImage({
   imageUrl?: string | null;
   className?: string;
 }) {
-  const src = imageUrl ?? (hasImage ? `${API_BASE}/public/products/${productId}/photo` : null);
+  const src = publicProductImageSrc({ productId, hasImage, imageUrl });
   if (src) return <img className={className} src={src} alt={name} loading="lazy" />;
   return (
     <div className={className} aria-hidden="true">
       {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+/** Source de la photo publique d'un produit (URL externe prioritaire, sinon route serveur). */
+export function publicProductImageSrc({
+  productId,
+  hasImage,
+  imageUrl,
+}: {
+  productId: string;
+  hasImage?: boolean;
+  imageUrl?: string | null;
+}): string | null {
+  return imageUrl ?? (hasImage ? `${API_BASE}/public/products/${productId}/photo` : null);
+}
+
+/* ------------------------------------------------------------------ */
+/* Visionneuse d'image (lightbox maîtrisée)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Affiche une image en grand SANS zoom forcé : `object-fit: contain`, taille
+ * bornée par le viewport (safe areas incluses), jamais plus grande que
+ * nécessaire même si la résolution d'origine est élevée. Fermeture par bouton,
+ * clic sur l'arrière-plan ou Échap. Galerie (points + flèches) si plusieurs
+ * images, avec navigation clavier et tactile.
+ */
+export function ImageLightbox({
+  images,
+  index,
+  onIndexChange,
+  onClose,
+  title,
+}: {
+  images: Array<{ src: string; alt: string }>;
+  index: number;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+  title?: string;
+}) {
+  const count = images.length;
+  const safeIndex = count ? Math.min(Math.max(index, 0), count - 1) : 0;
+  const current = images[safeIndex];
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight' && count > 1) onIndexChange((safeIndex + 1) % count);
+      else if (e.key === 'ArrowLeft' && count > 1) onIndexChange((safeIndex - 1 + count) % count);
+    }
+    document.addEventListener('keydown', onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [count, safeIndex, onClose, onIndexChange]);
+
+  if (!current) return null;
+
+  const go = (delta: number) => onIndexChange((safeIndex + delta + count) % count);
+
+  return (
+    <div className="lightbox" role="dialog" aria-modal="true" aria-label={title ?? 'Aperçu de l’image'} onClick={onClose}>
+      <button type="button" className="lightbox-close" onClick={onClose} aria-label="Fermer l’aperçu">
+        ✕
+      </button>
+
+      {count > 1 && (
+        <button
+          type="button"
+          className="lightbox-nav prev"
+          aria-label="Image précédente"
+          onClick={(e) => {
+            e.stopPropagation();
+            go(-1);
+          }}
+        >
+          ‹
+        </button>
+      )}
+
+      <figure className="lightbox-stage" onClick={(e) => e.stopPropagation()}>
+        <img src={current.src} alt={current.alt} />
+        {title && <figcaption>{title}</figcaption>}
+      </figure>
+
+      {count > 1 && (
+        <button
+          type="button"
+          className="lightbox-nav next"
+          aria-label="Image suivante"
+          onClick={(e) => {
+            e.stopPropagation();
+            go(1);
+          }}
+        >
+          ›
+        </button>
+      )}
+
+      {count > 1 && (
+        <div className="lightbox-dots" role="tablist" aria-label="Choisir une image">
+          {images.map((img, i) => (
+            <button
+              key={`${img.src}-${i}`}
+              type="button"
+              role="tab"
+              aria-selected={i === safeIndex}
+              aria-label={`Image ${i + 1} sur ${count}`}
+              className={`lightbox-dot${i === safeIndex ? ' on' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onIndexChange(i);
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

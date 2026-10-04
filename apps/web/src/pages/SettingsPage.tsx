@@ -40,6 +40,8 @@ interface Store {
   address: string | null;
   city: string | null;
   region: string | null;
+  latitude: number | null;
+  longitude: number | null;
   isPublic: boolean;
   isActive: boolean;
 }
@@ -278,6 +280,7 @@ function StoresSection({
                   {import.meta.env.BASE_URL}shop/{s.slug}
                 </p>
               )}
+              <StoreLocationEditor store={s} onChanged={onChanged} />
             </div>
           ))}
         </div>
@@ -298,6 +301,110 @@ function StoresSection({
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * Édition des coordonnées d'une boutique (proximité Marketplace).
+ * Deux chemins réels : « Ma position actuelle » (navigator.geolocation, consentie)
+ * ou saisie manuelle. Un refus GPS ne bloque jamais la boutique : on peut continuer
+ * sans coordonnées, et la marketplace fonctionne alors sans distance calculée.
+ * Les coordonnées exactes ne sont JAMAIS exposées publiquement.
+ */
+function StoreLocationEditor({ store, onChanged }: { store: Store; onChanged: () => void }) {
+  const [lat, setLat] = useState(store.latitude != null ? String(store.latitude) : '');
+  const [lng, setLng] = useState(store.longitude != null ? String(store.longitude) : '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function locate() {
+    setError(null);
+    setMsg(null);
+    if (!navigator.geolocation) {
+      setError("La géolocalisation n'est pas disponible sur cet appareil. Saisissez les coordonnées manuellement.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude.toFixed(6));
+        setLng(pos.coords.longitude.toFixed(6));
+        setMsg('Position obtenue. Enregistrez pour l’utiliser pour la proximité.');
+      },
+      () => setError('Position refusée. Saisissez les coordonnées manuellement ou continuez sans coordonnées.'),
+      { enableHighAccuracy: false, timeout: 8000 },
+    );
+  }
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    setMsg(null);
+    const latN = lat.trim() === '' ? null : Number(lat);
+    const lngN = lng.trim() === '' ? null : Number(lng);
+    if ((latN != null && (Number.isNaN(latN) || latN < -90 || latN > 90)) || (lngN != null && (Number.isNaN(lngN) || lngN < -180 || lngN > 180))) {
+      setError('Coordonnées invalides.');
+      setBusy(false);
+      return;
+    }
+    try {
+      await api.patch(`/stores/${store.id}`, { latitude: latN, longitude: lngN });
+      setMsg('Coordonnées enregistrées.');
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Enregistrement impossible');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clear() {
+    setLat('');
+    setLng('');
+    setBusy(true);
+    setError(null);
+    try {
+      await api.patch(`/stores/${store.id}`, { latitude: null, longitude: null });
+      setMsg('Coordonnées retirées.');
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Suppression impossible');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 12, borderTop: '1px solid var(--line, #eee)', paddingTop: 10 }}>
+      <div className="small muted" style={{ marginBottom: 6 }}>
+        Coordonnées (proximité) : jamais exposées publiquement — seules la ville, la région et une distance approximative le sont.
+      </div>
+      {error && <Alert kind="error">{error}</Alert>}
+      {msg && <Alert kind="success">{msg}</Alert>}
+      <div className="form-row">
+        <div className="field">
+          <label htmlFor={`lat-${store.id}`}>Latitude</label>
+          <input id={`lat-${store.id}`} value={lat} onChange={(e) => setLat(e.target.value)} placeholder="14.6928" inputMode="decimal" />
+        </div>
+        <div className="field">
+          <label htmlFor={`lng-${store.id}`}>Longitude</label>
+          <input id={`lng-${store.id}`} value={lng} onChange={(e) => setLng(e.target.value)} placeholder="-17.4467" inputMode="decimal" />
+        </div>
+      </div>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={locate}>
+          Ma position actuelle
+        </button>
+        <button type="button" className="btn btn-sm" onClick={save} disabled={busy}>
+          {busy ? 'Enregistrement…' : 'Enregistrer les coordonnées'}
+        </button>
+        {(store.latitude != null || lat !== '' || lng !== '') && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={clear} disabled={busy}>
+            Retirer
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

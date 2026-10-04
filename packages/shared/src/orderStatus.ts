@@ -55,6 +55,21 @@ export function isOrderStatus(value: unknown): value is OrderStatus {
   return typeof value === 'string' && (ORDER_STATUSES as readonly string[]).includes(value);
 }
 
+/**
+ * Identifiant lisible et FACTUEL d'une commande : « GJ-<date>-<suffixe> ».
+ * Dérivé uniquement de l'id réel et de la date de création de la commande —
+ * aucun numéro inventé, aucune séquence décorative. Le préfixe signalétique
+ * GawJaay est fixe.
+ */
+export function orderLabel(id: string, createdAt: string | Date): string {
+  const d = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
+  const ymd = Number.isNaN(d.getTime())
+    ? '--------'
+    : `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const suffix = (id ?? '').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase() || '------';
+  return `GJ-${ymd}-${suffix}`;
+}
+
 /** Le stock est décrémenté à la confirmation ; il est restitué si la commande est annulée après confirmation. */
 export function statusConsumesStock(status: OrderStatus): boolean {
   return status === 'CONFIRMED' || status === 'PREPARING' || status === 'READY' || status === 'OUT_FOR_DELIVERY' || status === 'DELIVERED' || status === 'RETURN_REQUESTED' || status === 'RETURNED';

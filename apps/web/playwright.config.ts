@@ -26,7 +26,9 @@ export default defineConfig({
       reuseExistingServer: true,
       timeout: 60_000,
       env: {
-        NODE_ENV: 'development',
+        // NODE_ENV=test désactive les limiteurs de débit et le logger (voir
+        // apps/api/src/app.ts) : indispensable pour une suite E2E complète.
+        NODE_ENV: 'test',
         PORT: '4000',
         // Prisma résout les chemins SQLite RELATIFS depuis le dossier du schéma
         // (apps/api/prisma/). `./dev.db` pointe donc bien sur apps/api/prisma/dev.db.

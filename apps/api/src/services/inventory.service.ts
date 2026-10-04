@@ -39,13 +39,41 @@ export async function applyStockChange(tx: Tx, change: StockChange): Promise<num
 
   const current = existing?.quantity ?? 0;
   const next = current + signed;
-  if (next < 0 && !change.allowNegative) {
-    throw AppError.conflict('Stock insuffisant', { storeId: change.storeId, variantId: change.variantId, available: current, requested: qty });
-  }
 
   if (existing) {
-    await tx.inventory.update({ where: { id: existing.id }, data: { quantity: next } });
+    if (signed > 0) {
+      await tx.inventory.update({ where: { id: existing.id }, data: { quantity: { increment: signed } } });
+    } else if (signed < 0) {
+      if (change.allowNegative) {
+        await tx.inventory.update({ where: { id: existing.id }, data: { quantity: { increment: signed } } });
+      } else {
+        // Décrément ATOMIQUE conditionnel : la clause `quantity >= qty` est
+        // évaluée au moment de l'écriture, ce qui empêche deux transactions
+        // concurrentes de vendre le dernier article. Si la ligne a déjà été
+        // décrémentée entre-temps, `count === 0` et on refuse honnêtement.
+        const res = await tx.inventory.updateMany({
+          where: { id: existing.id, quantity: { gte: qty } },
+          data: { quantity: { increment: signed } },
+        });
+        if (res.count === 0) {
+          throw AppError.conflict('Stock insuffisant', {
+            storeId: change.storeId,
+            variantId: change.variantId,
+            available: current,
+            requested: qty,
+          });
+        }
+      }
+    }
   } else {
+    if (next < 0 && !change.allowNegative) {
+      throw AppError.conflict('Stock insuffisant', {
+        storeId: change.storeId,
+        variantId: change.variantId,
+        available: 0,
+        requested: qty,
+      });
+    }
     await tx.inventory.create({
       data: { storeId: change.storeId, variantId: change.variantId, quantity: next },
     });
