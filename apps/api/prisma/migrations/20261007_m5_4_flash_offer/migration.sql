@@ -1,0 +1,21 @@
+-- Marketplace M5.4 — Vente Flash réelle.
+-- ADDITIVE ONLY: aucune suppression ni réinitialisation de données.
+CREATE TABLE "FlashOffer" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "organizationId" TEXT NOT NULL,
+  "storeId" TEXT NOT NULL,
+  "variantId" TEXT NOT NULL,
+  "flashPrice" INTEGER NOT NULL,
+  "quantityLimit" INTEGER,
+  "quantitySold" INTEGER NOT NULL DEFAULT 0,
+  "endsAt" DATETIME,
+  "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "FlashOffer_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "FlashOffer_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "FlashOffer_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX "FlashOffer_organizationId_status_idx" ON "FlashOffer"("organizationId","status");
+CREATE INDEX "FlashOffer_storeId_variantId_status_idx" ON "FlashOffer"("storeId","variantId","status");
+CREATE INDEX "FlashOffer_variantId_status_idx" ON "FlashOffer"("variantId","status");
