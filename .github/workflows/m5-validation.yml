@@ -1,0 +1,60 @@
+name: M5 validation
+
+on:
+  push:
+    branches:
+      - feat/m5-comparer-confiance
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      NODE_ENV: test
+      DATABASE_PROVIDER: sqlite
+      DATABASE_URL: file:./dev.db
+      JWT_ACCESS_SECRET: e2e-access-secret-0123456789abcdef012345
+      JWT_REFRESH_SECRET: e2e-refresh-secret-0123456789abcdef01234
+      FRONTEND_URL: http://localhost:4173
+      PAYMENTS_MODE: disabled
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npm run db:generate -w @gawjaay/api
+
+      - name: Prepare CI database
+        run: npm run db:push -w @gawjaay/api
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: API tests
+        run: npm test
+
+      - name: Production build and bundle verification
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E desktop/mobile
+        run: npm run test:e2e
