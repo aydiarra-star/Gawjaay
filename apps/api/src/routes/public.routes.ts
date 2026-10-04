@@ -7,6 +7,7 @@ import {
   discoverListings,
   discoverProducts,
   discoveryFacets,
+  getPublicProduct,
   getPublicSeller,
   parseDiscoveryQuery,
   productPriceView,
@@ -101,6 +102,18 @@ router.get('/sellers/:id', asyncHandler(async (req, res) => {
   const seller = await getPublicSeller(req.params.id);
   if (!seller) throw AppError.notFound('Vendeur introuvable');
   res.json({ seller });
+}));
+
+/**
+ * Détail public d'un produit (M4 — parcours acheteur) : offres réelles par
+ * boutique, variantes et prix résolu côté serveur. Aucune coordonnée GPS,
+ * aucun prix d'achat, aucun SKU. 404 si le produit n'est pas découvrable.
+ */
+router.get('/products/:id', asyncHandler(async (req, res) => {
+  const filters = parseDiscoveryQuery(req.query as Record<string, unknown>);
+  const product = await getPublicProduct(req.params.id, filters.geo);
+  if (!product) throw AppError.notFound('Produit introuvable');
+  res.json({ product, proximityApplied: Boolean(filters.geo) });
 }));
 
 /** Catégories réellement publiables (aucune catégorie inventée). */

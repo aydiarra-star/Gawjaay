@@ -183,8 +183,13 @@ export interface MarketplaceOffer {
   storeSlug: string;
   city: string | null;
   region: string | null;
+  /** Contact public de la boutique (déjà exposé sur la vitrine) pour WhatsApp. */
+  storePhone: string | null;
+  storeWhatsapp: string | null;
   variantId: string;
   variantName: string;
+  /** Prix propre de la variante (null = prix produit appliqué), pour commander la bonne variante. */
+  variantPrice: number | null;
   available: number;
   price: number;
   distanceKm: number | null;
@@ -253,7 +258,19 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
           inventories: {
             where: { quantity: { gt: 0 }, store: storeWhere },
             include: {
-              store: { select: { id: true, name: true, slug: true, latitude: true, longitude: true, city: true, region: true } },
+              store: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  latitude: true,
+                  longitude: true,
+                  city: true,
+                  region: true,
+                  phone: true,
+                  organization: { select: { whatsapp: true } },
+                },
+              },
             },
           },
         },
@@ -283,8 +300,11 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
           storeSlug: inv.store.slug,
           city: inv.store.city,
           region: inv.store.region,
+          storePhone: inv.store.phone,
+          storeWhatsapp: inv.store.organization?.whatsapp ?? null,
           variantId: v.id,
           variantName: v.name,
+          variantPrice: v.price,
           available: inv.quantity,
           price: variantPrice,
           distanceKm,
@@ -478,8 +498,95 @@ export async function discoverListings(f: CommonFilters): Promise<Page<PublicLis
   return paginate(items, f.page, f.pageSize);
 }
 
-/* ─────────────────────────── Vendeur public ─────────────────────────── */
+/* ─────────────────────────── Détail produit public (M4) ─────────────────────────── */
 
+export interface PublicProductDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  hasImage: boolean;
+  packaging: string;
+  format: string | null;
+  category: { id: string; name: string } | null;
+  price: number;
+  originalPrice: number | null;
+  available: number;
+  minDistanceKm: number | null;
+  variants: Array<{
+    id: string;
+    name: string;
+    price: number;
+    basePrice: number;
+    promoPrice: number | null;
+    available: number;
+  }>;
+  offers: MarketplaceOffer[];
+}
+
+/**
+ * Détail public d'un produit publié, avec ses offres réelles par boutique.
+ * Réutilise la même découverte (une seule source de vérité : produits publiés,
+ * en stock réel, dans des boutiques publiques actives). Aucune coordonnée GPS,
+ * aucun prix d'achat, aucun SKU n'est exposé. Renvoie null si introuvable.
+ */
+export async function getPublicProduct(id: string, geo?: CommonFilters['geo']): Promise<PublicProductDetail | null> {
+  // Bornage à la page 1/size max puis recherche de l'id : la découverte reste
+  // l'unique voie, donc le détail ne peut pas exposer un produit non découvrable.
+  const filters: CommonFilters = {
+    search: '',
+    inStockOnly: true,
+    page: 1,
+    pageSize: DISCOVERY_MAX_PAGE_SIZE,
+    geo,
+  };
+  const page = await discoverProducts(filters);
+  const item = page.items.find((i) => i.id === id);
+  if (!item) return null;
+
+  const product = await prisma.product.findFirst({
+    where: { id, isActive: true, marketplaceVisible: true },
+    include: {
+      category: { select: { id: true, name: true } },
+      variants: { where: { isActive: true }, orderBy: { createdAt: 'asc' } },
+    },
+  });
+  if (!product) return null;
+
+  const variants = product.variants.map((v) => {
+    const res = resolveUnitPrice({ variantPrice: v.price, productPrice: product.price, productPromoPrice: product.promoPrice });
+    const available = item.offers
+      .filter((o) => o.variantId === v.id)
+      .reduce((s, o) => s + o.available, 0);
+    return {
+      id: v.id,
+      name: v.name,
+      price: res.effectivePrice,
+      basePrice: res.basePrice,
+      promoPrice: res.promoPrice,
+      available,
+    };
+  });
+
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    imageUrl: item.imageUrl,
+    hasImage: item.hasImage,
+    packaging: item.packaging,
+    format: item.format,
+    category: item.category,
+    price: item.price,
+    originalPrice: item.originalPrice,
+    available: item.available,
+    minDistanceKm: item.minDistanceKm,
+    variants,
+    offers: item.offers,
+  };
+}
+
+/* ─────────────────────────── Vendeur public ─────────────────────────── */
 export interface PublicSeller {
   id: string;
   displayName: string;

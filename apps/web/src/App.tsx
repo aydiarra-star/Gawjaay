@@ -5,6 +5,11 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { MarketplacePage } from './pages/MarketplacePage';
+import { ProductDetailPage } from './pages/ProductDetailPage';
+import { CartPage } from './pages/CartPage';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { MyOrdersPage } from './pages/MyOrdersPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ShopPage } from './pages/ShopPage';
 import { SellerPage } from './pages/SellerPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -41,6 +46,11 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/marketplace" element={<MarketplacePage />} />
+      <Route path="/product/:id" element={<ProductDetailPage />} />
+      <Route path="/cart" element={<CartPage />} />
+      <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/orders" element={<MyOrdersPage />} />
+      <Route path="/orders/:id" element={<OrderDetailPage />} />
       <Route path="/shop/:slug" element={<ShopPage />} />
       <Route path="/seller/:id" element={<SellerPage />} />
 

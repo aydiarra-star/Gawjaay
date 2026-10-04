@@ -32,8 +32,21 @@ npm run test:e2e             # Playwright (desktop + mobile) — nécessite un b
 - `apps/web/scripts/verify-bundle.mjs` fait **échouer** tout build contenant `localhost`, `127.0.0.1` ou un runtime éphémère (`all-hands.dev`, `prod-runtime`).
 
 ## Backend en production
-- Aucune API de production n'est branchée aujourd'hui (`config.js` publié avec `apiUrl` vide → message d'état honnête).
+- API de production (Render) : `https://gawjaay-api.onrender.com` — health `GET /api/v1/health` → 200 `{"status":"ok"}`.
+- Le frontend publié pointe l'API via `config.js` (`window.__GAWJAAY_CONFIG__.apiUrl`), écrit par `npm run connect:api -- <url>/api/v1`.
 - Hébergement : `render.yaml` (API Docker + PostgreSQL) ou `docker-compose.yml` (VPS). GitHub Pages n'héberge **pas** l'API.
+
+## Marketplace M4 — « Acheter » (parcours acheteur)
+- Principe conservé : *« GawJaay donne l'information. L'acheteur décide. »* Aucun classement / score / note / « meilleure vente ».
+- Backend : `Order.clientRequestId` (nullable) + index unique `(storeId, clientRequestId)` → **idempotence** (double clic / retry = une seule commande). Migration additive `20261006_marketplace_m4` (aucune suppression).
+- Détail public : `GET /api/v1/public/products/:id` (offres réelles par boutique, variantes, prix résolu serveur ; jamais de coordonnées GPS, prix d'achat ni SKU). Service `getPublicProduct`.
+- Commande acheteur : `POST /api/v1/me/orders` (prix recalculé serveur, dispo vérifiée, `clientRequestId` accepté), `GET /me/orders`, `GET /me/orders/:id` (+ `cancellable`), `POST /me/orders/:id/cancel`.
+- Survendre : `applyStockChange` décrémente le stock de façon **atomique conditionnelle** (`updateMany` avec `quantity >= qty`) → jamais de stock négatif sous concurrence.
+- Coordonnées boutique : `PATCH /stores/:id` accepte `latitude`/`longitude` **nullable** (retrait explicite possible). Jamais exposées publiquement.
+- Web : pages `ProductDetailPage` (`/product/:id`), `CartPage` (`/cart`), `CheckoutPage` (`/checkout`), `MyOrdersPage` (`/orders`), `OrderDetailPage` (`/orders/:id`) ; `CartContext` (localStorage `gawjaay.cart`, **un seul magasin par panier**, le serveur reste l'autorité) ; `BuyerHeader`. CTA « Commander via WhatsApp » (contact direct, ne crée aucune commande GawJaay).
+- Paiement : **aucun paiement en ligne** ; l'UI ne présente jamais une commande comme payée sans paiement réel (`payments` SUCCESSFUL).
+- Tests : `apps/api/test/marketplace-m4.test.ts` (16) ; e2e `apps/web/e2e/buyer.spec.ts` (desktop + mobile).
+- **Non déployé** : M4 (backend + frontend) n'est pas sur `main`/Render au moment de la connexion API. Le frontend M3 publié reste compatible avec l'API Render M3. Ne pas publier le frontend M4 avant le backend M4.
 
 ## Produit / Stock (expérience marchand)
 - **Produit ≠ stock.** Le produit est « ce que je vends » ; le stock « ce que je possède ». Toute variation de stock passe par un mouvement `InventoryMovement` (jamais un simple nombre modifié).

@@ -1815,3 +1815,133 @@ tbody tr:last-child td {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Parcours acheteur M4 (produit, panier, commande, suivi)             */
+/* ------------------------------------------------------------------ */
+.product-detail {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) 1fr;
+  gap: var(--s4);
+  align-items: start;
+}
+.product-detail-media {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.product-detail-media img {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+.product-detail-body h1 {
+  margin: 6px 0 8px;
+}
+.product-detail-body .product-price {
+  margin: 6px 0 10px;
+}
+
+/* Ligne d'offre (boutique) sur la fiche produit */
+.offer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.offer-row:hover {
+  border-color: var(--line-2);
+}
+.offer-row.on {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.offer-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.offer-side {
+  text-align: right;
+  flex: none;
+}
+
+/* Panier */
+.cart-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.cart-line-main {
+  min-width: 0;
+}
+
+/* Commandes */
+.order-row {
+  display: block;
+  transition: border-color 0.15s ease;
+}
+.order-row:hover {
+  border-color: var(--line-2);
+}
+.product-link {
+  text-decoration: none;
+  color: inherit;
+}
+.product-link:hover {
+  text-decoration: underline;
+}
+
+.order-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.order-timeline li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  position: relative;
+}
+.order-timeline .timeline-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex: none;
+}
+.order-timeline li:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 18px;
+  bottom: -14px;
+  width: 1px;
+  background: var(--line-2);
+}
+
+@media (max-width: 720px) {
+  .product-detail {
+    grid-template-columns: 1fr;
+  }
+}
+

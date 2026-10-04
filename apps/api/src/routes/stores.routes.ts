@@ -18,8 +18,9 @@ const storeSchema = z.object({
   address: z.string().max(200).optional(),
   city: z.string().max(60).optional(),
   region: z.string().max(60).optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
+  // null permet de RETIRER explicitement des coordonnées erronées (proximité honnête).
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
   isPublic: z.boolean().default(false),
 });
 

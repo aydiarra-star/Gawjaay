@@ -13,11 +13,30 @@ export interface CreateOrderInput {
   note?: string;
   deliveryFee?: number;
   items: Array<{ variantId: string; quantity: number }>;
+  /**
+   * Clé d'idempotence fournie par l'acheteur. Si une commande existe déjà pour
+   * (storeId, clientRequestId), elle est renvoyée telle quelle au lieu d'en
+   * créer une seconde : un double clic ou un retry réseau ne double jamais la
+   * commande, et ne décrémente donc jamais le stock deux fois.
+   */
+  clientRequestId?: string | null;
+}
+
+/** Résumé renvoyé par la création d'une commande (identique en rejeu idempotent). */
+interface OrderSummary {
+  orderId: string;
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  replayed?: boolean;
 }
 
 /**
  * Crée une commande en ligne (cahier §26). Les prix viennent du serveur.
- * Le stock n'est PAS décrémenté ici : il l'est à la confirmation.
+ * Le stock n'est PAS décrémenté ici : il l'est à la confirmation (décrément
+ * atomique conditionnel — voir applyStockChange). On vérifie toutefois la
+ * disponibilité RÉELLE à la création, afin de refuser honnêtement une commande
+ * dont le stock est déjà insuffisant, sans jamais réserver ni inventer.
  */
 export async function createOrder(tx: Tx, input: CreateOrderInput) {
   if (input.items.length === 0) throw AppError.badRequest('La commande doit contenir au moins un article');
@@ -25,12 +44,34 @@ export async function createOrder(tx: Tx, input: CreateOrderInput) {
   const store = await tx.store.findUnique({ where: { id: input.storeId } });
   if (!store || !store.isActive) throw AppError.notFound('Boutique introuvable');
 
+  // Idempotence : un rejeu avec la même clé renvoie la commande déjà créée.
+  const clientRequestId = input.clientRequestId?.trim() || null;
+  if (clientRequestId) {
+    const existing = await tx.order.findFirst({ where: { storeId: input.storeId, clientRequestId } });
+    if (existing) {
+      return {
+        orderId: existing.id,
+        subtotal: existing.subtotal,
+        deliveryFee: existing.deliveryFee,
+        total: existing.total,
+        replayed: true,
+      } satisfies OrderSummary;
+    }
+  }
+
   const variantIds = input.items.map((i) => i.variantId);
   const variants = await tx.productVariant.findMany({
-    where: { id: { in: variantIds }, product: { organizationId: store.organizationId, isActive: true } },
+    where: { id: { in: variantIds }, product: { organizationId: store.organizationId, isActive: true }, isActive: true },
     include: { product: true },
   });
   const byId = new Map(variants.map((v) => [v.id, v]));
+
+  // Disponibilité réelle par variante dans la boutique (aucune valeur inventée).
+  const inventories = await tx.inventory.findMany({
+    where: { storeId: store.id, variantId: { in: variantIds } },
+    select: { variantId: true, quantity: true },
+  });
+  const stockById = new Map(inventories.map((i) => [i.variantId, i.quantity]));
 
   let subtotal = 0;
   const lines = input.items.map((item) => {
@@ -38,6 +79,10 @@ export async function createOrder(tx: Tx, input: CreateOrderInput) {
     if (!variant) throw AppError.badRequest(`Article indisponible: ${item.variantId}`);
     const quantity = Math.round(item.quantity);
     if (quantity <= 0) throw AppError.badRequest('Quantité invalide');
+    const available = stockById.get(variant.id) ?? 0;
+    if (available < quantity) {
+      throw AppError.conflict('Stock insuffisant', { variantId: variant.id, available, requested: quantity });
+    }
     // Coffre-fort de Confiance : même résolution unique que le POS et la marketplace.
     const unitPrice = resolveUnitPrice({
       variantPrice: variant.price,
@@ -75,6 +120,7 @@ export async function createOrder(tx: Tx, input: CreateOrderInput) {
       deliveryAddress: input.deliveryAddress ?? null,
       deliveryRegion: input.deliveryRegion ?? null,
       note: input.note ?? null,
+      clientRequestId,
     },
   });
 
@@ -83,7 +129,7 @@ export async function createOrder(tx: Tx, input: CreateOrderInput) {
   }
   await tx.orderEvent.create({ data: { orderId: order.id, toStatus: 'PENDING', note: 'Commande créée' } });
 
-  return { orderId: order.id, subtotal, deliveryFee, total };
+  return { orderId: order.id, subtotal, deliveryFee, total } satisfies OrderSummary;
 }
 
 /**

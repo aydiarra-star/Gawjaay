@@ -178,6 +178,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <IconMarket size={18} />
             Voir la marketplace
           </Link>
+          <Link to="/orders" className="nav-link">
+            <IconReceipt size={18} />
+            Mes commandes
+          </Link>
         </nav>
 
         <main className="main" id="main-content">
