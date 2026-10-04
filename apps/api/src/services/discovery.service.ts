@@ -598,7 +598,24 @@ export interface PublicSeller {
 }
 
 /** Profil vendeur public — champs strictement publics. Un vendeur suspendu = 404. */
-export async function getPublicSeller(id: string): Promise<PublicSeller | null> {
+export interface PublicSellerListing {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | null;
+  quantity: number | null;
+  condition: string | null;
+  fulfillment: string;
+  city: string | null;
+  region: string | null;
+  imageUrl: string | null;
+}
+
+export interface PublicSellerProfile extends PublicSeller {
+  listings: PublicSellerListing[];
+}
+
+export async function getPublicSeller(id: string): Promise<PublicSellerProfile | null> {
   const seller = await prisma.sellerProfile.findFirst({
     where: { id, status: 'ACTIVE' },
     select: {
@@ -608,7 +625,23 @@ export async function getPublicSeller(id: string): Promise<PublicSeller | null> 
       bio: true,
       city: true,
       region: true,
-      _count: { select: { listings: { where: { status: 'ACTIVE' } } } },
+      listings: {
+        where: { status: 'ACTIVE' },
+        orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
+        take: 50,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          price: true,
+          quantity: true,
+          condition: true,
+          fulfillment: true,
+          city: true,
+          region: true,
+          product: { select: { imageUrl: true } },
+        },
+      },
     },
   });
   if (!seller) return null;
@@ -619,7 +652,19 @@ export async function getPublicSeller(id: string): Promise<PublicSeller | null> 
     bio: seller.bio,
     city: seller.city,
     region: seller.region,
-    activeListings: seller._count.listings,
+    activeListings: seller.listings.length,
+    listings: seller.listings.map((listing) => ({
+      id: listing.id,
+      title: listing.title,
+      description: listing.description,
+      price: listing.price,
+      quantity: listing.quantity,
+      condition: listing.condition,
+      fulfillment: listing.fulfillment,
+      city: listing.city,
+      region: listing.region,
+      imageUrl: listing.product?.imageUrl ?? null,
+    })),
   };
 }
 
