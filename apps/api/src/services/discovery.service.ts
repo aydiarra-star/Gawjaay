@@ -192,6 +192,10 @@ export interface MarketplaceOffer {
   variantPrice: number | null;
   available: number;
   price: number;
+  normalPrice: number;
+  flashPrice: number | null;
+  flashEndsAt: Date | null;
+  flashQuantityRemaining: number | null;
   distanceKm: number | null;
 }
 
@@ -294,6 +298,13 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
       for (const inv of v.inventories) {
         const distanceKm = distanceFor(f.geo, { lat: inv.store.latitude, lng: inv.store.longitude });
         if (f.geo && (distanceKm == null || distanceKm > f.geo.radiusKm)) continue;
+        const normalPrice = resolveUnitPrice({ variantPrice: v.price, productPrice: p.price, productPromoPrice: p.promoPrice }).effectivePrice;
+        const flash = await prisma.flashOffer.findFirst({
+          where: { storeId: inv.store.id, variantId: v.id, status: 'ACTIVE' },
+          orderBy: { createdAt: 'desc' },
+        });
+        const flashActive = Boolean(flash && (!flash.endsAt || flash.endsAt > new Date()) && (flash.quantityLimit == null || flash.quantitySold < flash.quantityLimit) && flash.flashPrice < normalPrice);
+        const flashRemaining = flashActive && flash ? (flash.quantityLimit == null ? inv.quantity : Math.min(inv.quantity, Math.max(0, flash.quantityLimit - flash.quantitySold))) : null;
         offers.push({
           storeId: inv.store.id,
           storeName: inv.store.name,
@@ -306,7 +317,11 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
           variantName: v.name,
           variantPrice: v.price,
           available: inv.quantity,
-          price: variantPrice,
+          price: flashActive && flash ? flash.flashPrice : variantPrice,
+          normalPrice,
+          flashPrice: flashActive && flash ? flash.flashPrice : null,
+          flashEndsAt: flashActive && flash ? flash.endsAt : null,
+          flashQuantityRemaining: flashRemaining,
           distanceKm,
         });
       }
