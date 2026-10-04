@@ -13,4 +13,8 @@ npx prisma generate --schema prisma/schema.prisma
 # SQLite → `db push` (base jetable de dev).
 node scripts/db-migrate.mjs
 
+# Recalcule le nom normalisé de recherche (M3) pour les produits antérieurs.
+# Idempotent et non destructif.
+node scripts/backfill-search.mjs
+
 exec node dist/server.js
