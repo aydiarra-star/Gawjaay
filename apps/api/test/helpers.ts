@@ -8,6 +8,8 @@ export const app: Express = createApp();
 /** Supprime toutes les données (ordre respectant les clés étrangères). */
 export async function resetDb(): Promise<void> {
   await prisma.auditLog.deleteMany();
+  await prisma.listing.deleteMany();
+  await prisma.sellerProfile.deleteMany();
   await prisma.inventoryMovement.deleteMany();
   await prisma.delivery.deleteMany();
   await prisma.orderEvent.deleteMany();

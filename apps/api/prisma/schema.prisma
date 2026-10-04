@@ -44,6 +44,7 @@ model User {
   orders            Order[]              @relation("OrderCustomerUser")
   priceHistory      PriceHistory[]
   phoneVerifications PhoneVerification[]
+  sellerProfile     SellerProfile?
 }
 
 model PasswordReset {
@@ -124,6 +125,8 @@ model Organization {
   subscription  Subscription?
   auditLogs     AuditLog[]
   priceHistory  PriceHistory[]
+  sellerProfiles SellerProfile[]
+  listings      Listing[]
 }
 
 model Membership {
@@ -243,26 +246,33 @@ model Product {
   supplier     Supplier?        @relation(fields: [supplierId], references: [id])
   variants     ProductVariant[]
   priceHistory PriceHistory[]
+  listings     Listing[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
   @@index([categoryId])
+  @@index([marketplaceVisible])
 }
 
 /**
  * Historique des changements de prix (lu depuis `field` : "purchasePrice" |
- * "price"). Chaque écriture de prix crée une ligne AVANT/APRÈS, ce qui permet
- * de répondre factuellement à « quel était le prix d'achat / de vente à cette
- * période ? ». N'écrit jamais dans les ventes déjà réalisées (celles-ci
- * conservent leurs propres instantanés SaleItem.unitPrice / unitCost).
+ * "price" | "promoPrice"). Chaque écriture de prix crée une ligne AVANT/APRÈS, ce
+ * qui permet de répondre factuellement à « quel était le prix d'achat / de vente /
+ * promotionnel à cette période ? ». N'écrit jamais dans les ventes déjà réalisées
+ * (celles-ci conservent leurs propres instantanés SaleItem.unitPrice / unitCost).
+ *
+ * `newValue` est nullable : un changement peut correspondre à la SUPPRESSION d'un
+ * prix (ex. retrait d'un prix promotionnel). L'historique est append-only et
+ * commence au moment où le système est modifié — aucun historique passé n'est
+ * reconstruit artificiellement.
  */
 model PriceHistory {
   id             String   @id @default(cuid())
   organizationId String
   productId      String
-  field          String // "purchasePrice" | "price"
+  field          String // "purchasePrice" | "price" | "promoPrice"
   oldValue       Int?
-  newValue       Int
+  newValue       Int?
   userId         String?
   createdAt      DateTime @default(now())
 
@@ -294,6 +304,7 @@ model ProductVariant {
   saleItems          SaleItem[]
   purchaseItems      PurchaseItem[]
   orderItems         OrderItem[]
+  listings           Listing[]
 
   @@index([productId])
 }
@@ -616,4 +627,72 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@index([action])
+}
+
+// ─────────────────────── Marketplace — vendeurs & annonces ───────────────────────
+
+/**
+ * Profil vendeur Marketplace (M2). `sellerType` est DÉCLARATIF : aucune
+ * vérification officielle n'existe ici, et aucun libellé « vérifié » ne doit en
+ * être dérivé. Un vendeur MERCHANT/BUSINESS est rattaché à une Organization
+ * (`organizationId`) ; un INDIVIDUAL peut exister sans organisation.
+ */
+model SellerProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  sellerType     String   @default("INDIVIDUAL") // INDIVIDUAL | MERCHANT | BUSINESS
+  status         String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  displayName    String
+  bio            String?
+  phone          String?
+  organizationId String?
+  city           String?
+  region         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  listings     Listing[]
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([sellerType])
+}
+
+/**
+ * Annonce Marketplace (M2). N'est JAMAIS un second produit / stock / prix.
+ *  - MERCHANT/BUSINESS : `productId` (et `variantId` optionnel) référencent le
+ *    catalogue réel ; prix et disponibilité proviennent des sources existantes
+ *    (resolveUnitPrice + stock), donc `price`/`quantity` restent nuls.
+ *  - INDIVIDUAL : `price` et `quantity` explicites portent l'annonce.
+ */
+model Listing {
+  id             String   @id @default(cuid())
+  sellerId       String
+  organizationId String?
+  productId      String?
+  variantId      String?
+  storeId        String?
+  title          String
+  description    String?
+  condition      String? // NEW | USED (facultatif, déclaratif)
+  price          Int? // INDIVIDUAL uniquement
+  quantity       Int? // INDIVIDUAL uniquement
+  city           String?
+  region         String?
+  fulfillment    String   @default("PICKUP") // PICKUP | DELIVERY | BOTH
+  status         String   @default("ACTIVE") // ACTIVE | INACTIVE
+  publishedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  seller       SellerProfile   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  organization Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([sellerId, status])
+  @@index([organizationId, status])
+  @@index([productId])
 }

@@ -29,9 +29,9 @@ interface Product {
 
 interface PriceHistoryEntry {
   id: string;
-  field: 'purchasePrice' | 'price' | string;
+  field: 'purchasePrice' | 'price' | 'promoPrice' | string;
   oldValue: number | null;
-  newValue: number;
+  newValue: number | null;
   createdAt: string;
 }
 
@@ -591,9 +591,15 @@ export function ProductsPage() {
                       {history.map((h) => (
                         <tr key={h.id}>
                           <td className="small">{formatDateTime(h.createdAt)}</td>
-                          <td>{h.field === 'purchasePrice' ? "Prix d'achat" : 'Prix de vente'}</td>
+                          <td>
+                            {h.field === 'purchasePrice'
+                              ? "Prix d'achat"
+                              : h.field === 'promoPrice'
+                                ? 'Prix promotionnel'
+                                : 'Prix de vente'}
+                          </td>
                           <td className="num">{h.oldValue != null ? formatXOF(h.oldValue) : '—'}</td>
-                          <td className="num">{formatXOF(h.newValue)}</td>
+                          <td className="num">{h.newValue != null ? formatXOF(h.newValue) : '—'}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -23,6 +23,10 @@ export const PERMISSIONS = {
   users: ['manage'],
   settings: ['manage'],
   subscriptions: ['read', 'manage'],
+  // Marketplace — profil vendeur et annonces (M2). Source opérationnelle du
+  // commerçant ; un vendeur INDIVIDUAL est contrôlé par ownership, pas par rôle.
+  sellers: ['read', 'create', 'update'],
+  listings: ['read', 'create', 'update', 'delete'],
 } as const;
 
 export type Resource = keyof typeof PERMISSIONS;
@@ -63,6 +67,8 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     ['deliveries', PERMISSIONS.deliveries],
     ['payments', ['read', 'confirm']],
     ['reports', ['read', 'export']],
+    ['sellers', PERMISSIONS.sellers],
+    ['listings', PERMISSIONS.listings],
   ),
   VENDEUR: perms(
     ['products', ['read']],
@@ -73,6 +79,8 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     ['orders', ['read']],
     ['payments', ['read', 'confirm']],
     ['receivables', ['read']],
+    ['sellers', ['read']],
+    ['listings', ['read', 'create', 'update']],
   ),
   STOCK: perms(
     ['products', ['read']],

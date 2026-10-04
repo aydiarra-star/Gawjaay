@@ -1,6 +1,6 @@
 import { AppError } from '../lib/errors.js';
 import type { Tx } from '../lib/prisma.js';
-import { allowedTransitions, canTransition, isOrderStatus, statusConsumesStock, type OrderStatus } from '@gawjaay/shared';
+import { allowedTransitions, canTransition, isOrderStatus, resolveUnitPrice, statusConsumesStock, type OrderStatus } from '@gawjaay/shared';
 import { applyStockChange } from './inventory.service.js';
 
 export interface CreateOrderInput {
@@ -38,7 +38,12 @@ export async function createOrder(tx: Tx, input: CreateOrderInput) {
     if (!variant) throw AppError.badRequest(`Article indisponible: ${item.variantId}`);
     const quantity = Math.round(item.quantity);
     if (quantity <= 0) throw AppError.badRequest('Quantité invalide');
-    const unitPrice = variant.price ?? variant.product.promoPrice ?? variant.product.price;
+    // Coffre-fort de Confiance : même résolution unique que le POS et la marketplace.
+    const unitPrice = resolveUnitPrice({
+      variantPrice: variant.price,
+      productPrice: variant.product.price,
+      productPromoPrice: variant.product.promoPrice,
+    }).effectivePrice;
     const lineTotal = unitPrice * quantity;
     subtotal += lineTotal;
     return { variantId: variant.id, name: variant.name, quantity, unitPrice, lineTotal };
