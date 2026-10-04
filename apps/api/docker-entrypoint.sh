@@ -7,13 +7,10 @@ set -e
 node scripts/set-db-provider.mjs
 npx prisma generate --schema prisma/schema.prisma
 
-# Applique le schéma de façon idempotente :
-#  - si des migrations versionnées existent → `migrate deploy` (recommandé en prod) ;
-#  - sinon → `db push` (crée/met à jour le schéma sans perte si déjà aligné).
-if [ -d prisma/migrations ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
-  npx prisma migrate deploy --schema prisma/schema.prisma
-else
-  npx prisma db push --skip-generate --schema prisma/schema.prisma
-fi
+# Applique le schéma de façon idempotente, non interactive et non destructive.
+# PostgreSQL → migrations versionnées (`migrate deploy`), avec baseline
+# automatique de 0_init si la base existante n'a pas encore d'historique.
+# SQLite → `db push` (base jetable de dev).
+node scripts/db-migrate.mjs
 
 exec node dist/server.js
