@@ -43,14 +43,17 @@ describe('M5.2 — profil vendeur public et annonces actives', () => {
       });
     expect(listing.status).toBe(201);
 
+    const hiddenProduct = await createProduct(org, { price: 900, marketplaceVisible: true });
+    await setStock(org, hiddenProduct.variantId, 2);
     const hidden = await request(app)
       .post('/api/v1/listings')
       .set(auth(org))
       .send({
         title: 'Annonce masquée',
         description: 'Ne doit pas apparaître',
-        price: 999,
-        quantity: 1,
+        productId: hiddenProduct.productId,
+        variantId: hiddenProduct.variantId,
+        storeId: org.storeId,
         fulfillment: 'PICKUP',
       });
     expect(hidden.status).toBe(201);
