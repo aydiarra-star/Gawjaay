@@ -1,0 +1,61 @@
+name: Deploy GawJaay web
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gawjaay-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: production
+      VITE_BASE_PATH: /Gawjaay/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build production web
+        run: npm run build:web
+
+      - name: Add runtime API configuration
+        run: |
+          cat > apps/web/dist/config.js <<'EOF'
+          window.__GAWJAAY_CONFIG__ = { apiUrl: 'https://gawjaay-api.onrender.com/api/v1' };
+          EOF
+
+      - name: Publish to gh-pages
+        run: |
+          set -e
+          git fetch origin gh-pages --depth=1
+          rm -rf .gh-pages-work
+          git worktree add -f .gh-pages-work origin/gh-pages
+          find .gh-pages-work -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R apps/web/dist/. .gh-pages-work/
+          cd .gh-pages-work
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No deployment changes."
+            exit 0
+          fi
+          git commit -m "deploy(web): publish main"
+          git push origin HEAD:gh-pages
