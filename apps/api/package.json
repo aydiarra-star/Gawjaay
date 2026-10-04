@@ -14,7 +14,8 @@
     "db:provider": "node scripts/set-db-provider.mjs",
     "db:push": "node scripts/set-db-provider.mjs && prisma db push",
     "db:generate": "node scripts/set-db-provider.mjs && prisma generate",
-    "db:deploy": "node scripts/set-db-provider.mjs && prisma generate && prisma db push --skip-generate",
+    "db:deploy": "node scripts/set-db-provider.mjs && prisma generate && node scripts/db-migrate.mjs",
+    "db:migrate": "node scripts/set-db-provider.mjs && prisma generate && node scripts/db-migrate.mjs",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts"
   },
