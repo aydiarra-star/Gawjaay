@@ -125,11 +125,16 @@ export function PosPage() {
       [variantId]: {
         variantId,
         name: `${product.name} — ${variantName}`,
-        price: product.price,
+        price: variantEffectivePrice(product, variantId),
         quantity: current + 1,
         packaging: product.packaging,
       },
     }));
+  }
+
+  function variantEffectivePrice(product: Product, variantId: string) {
+    const variant = product.variants.find((v) => v.id === variantId);
+    return variant?.effectivePrice ?? variant?.price ?? product.price;
   }
 
   function removeLine(variantId: string) {
