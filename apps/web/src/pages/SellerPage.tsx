@@ -15,8 +15,21 @@ interface PublicSeller {
   activeListings: number;
 }
 
+interface PublicSellerListing {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | null;
+  quantity: number | null;
+  condition: string | null;
+  fulfillment: string;
+  city: string | null;
+  region: string | null;
+  imageUrl: string | null;
+}
+
 interface SellerResponse {
-  seller: PublicSeller;
+  seller: PublicSeller & { listings: PublicSellerListing[] };
 }
 
 /**
@@ -94,11 +107,41 @@ export function SellerPage() {
                 )}
               </div>
 
-              <div style={{ marginTop: 20 }}>
-                <Link to={`/marketplace`} className="btn btn-secondary btn-sm">
-                  Voir les produits disponibles
-                </Link>
-              </div>
+              <section style={{ marginTop: 20 }}>
+                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <h2 style={{ margin: 0 }}>Annonces du vendeur</h2>
+                    <p className="muted small" style={{ margin: '4px 0 0' }}>
+                      Informations déclarées par le vendeur. Aucun classement ni avis artificiel.
+                    </p>
+                  </div>
+                  <Link to="/marketplace" className="btn btn-secondary btn-sm">Marketplace</Link>
+                </div>
+                {seller.listings.length === 0 ? (
+                  <div className="card">
+                    <EmptyState title="Aucune annonce active" hint="Ce vendeur n'a pas actuellement d'annonce publique." icon={<IconStore size={22} />} />
+                  </div>
+                ) : (
+                  <div className="grid-3">
+                    {seller.listings.map((listing) => (
+                      <article className="card" key={listing.id}>
+                        {listing.imageUrl && (
+                          <img src={listing.imageUrl} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 12 }} />
+                        )}
+                        <div style={{ marginTop: listing.imageUrl ? 12 : 0 }}>
+                          <h3 style={{ margin: 0 }}>{listing.title}</h3>
+                          {listing.description && <p className="muted small">{listing.description}</p>}
+                          <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                            {listing.price != null && <span className="badge badge-primary">{listing.price.toLocaleString('fr-FR')} FCFA</span>}
+                            {listing.condition && <span className="badge">{listing.condition === 'USED' ? 'Occasion' : 'Neuf'}</span>}
+                            <span className="badge">{listing.fulfillment === 'BOTH' ? 'Retrait ou livraison' : listing.fulfillment === 'DELIVERY' ? 'Livraison' : 'Retrait'}</span>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
             </>
           )}
         </div>
