@@ -201,7 +201,7 @@ export function ProductDetailPage() {
               {/* Comparateur factuel : aucun score, aucune recommandation, aucun « meilleur vendeur ». */}
               <Card
                 title="Comparer les offres"
-                action={
+                actions={
                   product.offers.length > 1 ? (
                     <label className="offer-compare-sort">
                       <span className="small muted">Trier par</span>
