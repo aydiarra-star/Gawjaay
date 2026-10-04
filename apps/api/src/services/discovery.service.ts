@@ -639,7 +639,8 @@ export async function getPublicSeller(id: string): Promise<PublicSellerProfile |
           fulfillment: true,
           city: true,
           region: true,
-          product: { select: { imageUrl: true } },
+          product: { select: { imageUrl: true, price: true, promoPrice: true } },
+          variant: { select: { price: true, imageUrl: true } },
         },
       },
     },
@@ -657,13 +658,21 @@ export async function getPublicSeller(id: string): Promise<PublicSellerProfile |
       id: listing.id,
       title: listing.title,
       description: listing.description,
-      price: listing.price,
+      price:
+        listing.price ??
+        (listing.product
+          ? resolveUnitPrice({
+              variantPrice: listing.variant?.price,
+              productPrice: listing.product.price,
+              productPromoPrice: listing.product.promoPrice,
+            }).effectivePrice
+          : null),
       quantity: listing.quantity,
       condition: listing.condition,
       fulfillment: listing.fulfillment,
       city: listing.city,
       region: listing.region,
-      imageUrl: listing.product?.imageUrl ?? null,
+      imageUrl: listing.variant?.imageUrl ?? listing.product?.imageUrl ?? null,
     })),
   };
 }
