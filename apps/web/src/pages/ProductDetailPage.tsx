@@ -26,6 +26,8 @@ interface Offer {
   price: number;
   distanceKm: number | null;
 }
+type OfferSortMode = 'price' | 'distance' | 'availability';
+
 interface PublicProduct {
   id: string;
   name: string;
@@ -65,6 +67,7 @@ export function ProductDetailPage() {
 
   const product = data?.product;
   const [offerKey, setOfferKey] = useState<string | null>(null);
+  const [offerSort, setOfferSort] = useState<OfferSortMode>('price');
   const [quantity, setQuantity] = useState(1);
   const [notice, setNotice] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -77,6 +80,23 @@ export function ProductDetailPage() {
     const offers = product.offers;
     return offers.find((o) => `${o.storeId}:${o.variantId}` === offerKey) ?? offers[0] ?? null;
   }, [product, offerKey]);
+
+  const comparisonOffers = useMemo(() => {
+    if (!product) return [];
+    return [...product.offers].sort((a, b) => {
+      if (offerSort === 'price') {
+        return a.price - b.price || a.storeName.localeCompare(b.storeName) || a.variantName.localeCompare(b.variantName);
+      }
+      if (offerSort === 'distance') {
+        const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
+        const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
+        return da - db || a.price - b.price || a.storeName.localeCompare(b.storeName);
+      }
+      const da = a.available ?? Number.POSITIVE_INFINITY;
+      const db = b.available ?? Number.POSITIVE_INFINITY;
+      return db - da || a.price - b.price || a.storeName.localeCompare(b.storeName);
+    });
+  }, [product, offerSort]);
 
   const packLabel = product && isPackagingType(product.packaging) ? PACKAGING_LABELS[product.packaging].plural : 'unités';
 
@@ -178,10 +198,31 @@ export function ProductDetailPage() {
               </div>
               {product.description && <p className="muted">{product.description}</p>}
 
-              {/* Boutiques / offres réelles — liste factuelle, aucun classement. */}
-              <Card title="Boutiques disponibles">
+              {/* Comparateur factuel : aucun score, aucune recommandation, aucun « meilleur vendeur ». */}
+              <Card
+                title="Comparer les offres"
+                actions={
+                  product.offers.length > 1 ? (
+                    <label className="offer-compare-sort">
+                      <span className="small muted">Trier par</span>
+                      <select
+                        value={offerSort}
+                        onChange={(e) => setOfferSort(e.target.value as OfferSortMode)}
+                        aria-label="Trier les offres"
+                      >
+                        <option value="price">Prix</option>
+                        <option value="distance">Distance</option>
+                        <option value="availability">Disponibilité</option>
+                      </select>
+                    </label>
+                  ) : undefined
+                }
+              >
+                <p className="offer-compare-note">
+                  Informations factuelles uniquement. GawJaay ne désigne pas de meilleure offre.
+                </p>
                 <div className="stack">
-                  {product.offers.map((o) => {
+                  {comparisonOffers.map((o) => {
                     const key = `${o.storeId}:${o.variantId}`;
                     const active = selectedOffer && `${selectedOffer.storeId}:${selectedOffer.variantId}` === key;
                     return (
