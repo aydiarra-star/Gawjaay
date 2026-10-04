@@ -22,7 +22,7 @@ interface Offer {
   variantId: string;
   variantName: string;
   variantPrice: number | null;
-  available: number;
+  available: number | null;
   price: number;
   distanceKm: number | null;
 }
@@ -37,7 +37,7 @@ interface PublicProduct {
   category: { id: string; name: string } | null;
   price: number;
   originalPrice: number | null;
-  available: number;
+  available: number | null;
   minDistanceKm: number | null;
   variants: Array<{ id: string; name: string; price: number; basePrice: number; promoPrice: number | null; available: number }>;
   offers: Offer[];
@@ -79,6 +79,14 @@ export function ProductDetailPage() {
   }, [product, offerKey]);
 
   const packLabel = product && isPackagingType(product.packaging) ? PACKAGING_LABELS[product.packaging].plural : 'unités';
+
+  // Disponibilité honnête : 0 = rupture réelle, null = inconnue/non calculable
+  // (jamais transformée en « 0 en stock » ni en quantité inventée).
+  const productUnknown = product?.available == null;
+  const offerUnknown = selectedOffer?.available == null;
+  const offerSoldOut = selectedOffer != null && selectedOffer.available !== null && selectedOffer.available <= 0;
+  const offerPurchasable = selectedOffer != null && (selectedOffer.available === null || selectedOffer.available > 0);
+  const quantityMax = selectedOffer?.available != null && selectedOffer.available > 0 ? selectedOffer.available : 1;
 
   function buildCartItem() {
     if (!product || !selectedOffer) return null;
@@ -158,7 +166,9 @@ export function ProductDetailPage() {
                 {product.originalPrice && <span className="was">{formatXOF(product.originalPrice)}</span>}
               </div>
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                {product.available > 0 ? (
+                {productUnknown ? (
+                  <span className="badge badge-info">Disponibilité à confirmer</span>
+                ) : product.available! > 0 ? (
                   <span className="badge badge-success">{product.available} en stock</span>
                 ) : (
                   <span className="badge badge-danger">Rupture de stock</span>
@@ -198,7 +208,7 @@ export function ProductDetailPage() {
                         <span className="offer-side">
                           <strong>{formatXOF(o.price)}</strong>
                           <span className="small muted">
-                            {o.available} en stock
+                            {o.available === null ? 'Disponibilité à confirmer' : `${o.available} en stock`}
                             {o.distanceKm != null && (
                               <>
                                 {' '}
@@ -221,14 +231,14 @@ export function ProductDetailPage() {
                       id="qty"
                       type="number"
                       min={1}
-                      max={Math.max(1, selectedOffer.available)}
+                      max={quantityMax}
                       value={quantity}
-                      disabled={selectedOffer.available <= 0}
-                      onChange={(e) => setQuantity(Math.max(1, Math.min(Number(e.target.value) || 1, Math.max(1, selectedOffer.available))))}
+                      disabled={!offerPurchasable}
+                      onChange={(e) => setQuantity(Math.max(1, Math.min(Number(e.target.value) || 1, quantityMax)))}
                     />
                   </div>
-                  <button className="btn btn-lg" onClick={addToCart} disabled={selectedOffer.available <= 0}>
-                    {selectedOffer.available <= 0 ? 'Indisponible' : 'Ajouter au panier'}
+                  <button className="btn btn-lg" onClick={addToCart} disabled={!offerPurchasable}>
+                    {offerSoldOut ? 'Indisponible' : 'Ajouter au panier'}
                   </button>
                   {(selectedOffer.storeWhatsapp || selectedOffer.storePhone) && (
                     <a
@@ -242,7 +252,13 @@ export function ProductDetailPage() {
                   )}
                 </div>
               )}
-              {selectedOffer && selectedOffer.available <= 0 && (
+              {offerUnknown && (
+                <p className="field-hint" style={{ marginTop: 8 }} role="status">
+                  La disponibilité exacte n’est pas confirmée par cette boutique. Vous pouvez commander : le vendeur
+                  validera la disponibilité avant préparation.
+                </p>
+              )}
+              {offerSoldOut && (
                 <p className="field-hint" style={{ marginTop: 8 }} role="status">
                   Cet article n’est plus disponible dans cette boutique. Choisissez une autre boutique ou revenez plus tard.
                 </p>

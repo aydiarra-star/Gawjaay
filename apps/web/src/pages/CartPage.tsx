@@ -49,7 +49,10 @@ export function CartPage() {
                   {item.variantName && <span className="small muted"> · {item.variantName}</span>}
                   <div className="small muted">
                     {formatXOF(item.unitPrice)} × {item.quantity} = <strong>{formatXOF(item.unitPrice * item.quantity)}</strong>
-                    {item.available < item.quantity && <span style={{ color: 'var(--danger)' }}> · stock réel : {item.available}</span>}
+                    {item.available != null && item.available < item.quantity && (
+                      <span style={{ color: 'var(--danger)' }}> · stock réel : {item.available}</span>
+                    )}
+                    {item.available == null && <span className="muted"> · disponibilité à confirmer</span>}
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8, alignItems: 'center' }}>

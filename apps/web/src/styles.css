@@ -1209,14 +1209,18 @@ tbody tr:last-child td {
 .lightbox {
   position: fixed;
   inset: 0;
+  /* dvh = zone réellement visible (barres navigateur iOS incluses) ; vh en repli. */
+  height: 100vh;
+  height: 100dvh;
   z-index: 60;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgb(var(--shadow-ink) / 0.78);
   backdrop-filter: blur(3px);
-  padding: calc(var(--s5) + env(safe-area-inset-top, 0px)) calc(var(--s5) + env(safe-area-inset-right, 0px))
-    calc(var(--s5) + env(safe-area-inset-bottom, 0px)) calc(var(--s5) + env(safe-area-inset-left, 0px));
+  /* Enveloppe visuelle : marge extérieure + safe areas. L'image ne colle jamais aux bords. */
+  padding: calc(var(--s6) + env(safe-area-inset-top, 0px)) calc(var(--s6) + env(safe-area-inset-right, 0px))
+    calc(var(--s6) + env(safe-area-inset-bottom, 0px)) calc(var(--s6) + env(safe-area-inset-left, 0px));
   animation: fade var(--dur) var(--ease);
 }
 .lightbox-stage {
@@ -1224,17 +1228,25 @@ tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  /* Jamais plus grand que nécessaire, même avec une résolution élevée */
-  max-width: min(92vw, 960px);
-  max-height: min(88dvh, 900px);
-  max-height: min(88svh, 900px);
+  /* Occupe l'espace disponible (déjà réduit par la marge), plafonné à une taille
+     confortable sur grand écran. Les plafonds sont en px : jamais plus larges que
+     l'enveloppe, donc aucun débordement possible sur petit écran. */
+  width: 100%;
+  max-width: 960px;
+  height: 100%;
+  max-height: 820px;
+  min-width: 0;
+  min-height: 0;
 }
 .lightbox-stage img {
   display: block;
-  max-width: min(92vw, 960px);
-  max-height: min(80dvh, 820px);
-  max-height: min(80svh, 820px);
+  /* 100 % de l'enveloppe disponible ; jamais plus. Proportions conservées. */
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -1243,11 +1255,19 @@ tbody tr:last-child td {
   box-shadow: 0 24px 60px rgb(var(--shadow-ink) / 0.5);
   animation: pop var(--dur) var(--ease-out);
 }
+/* Légende présente : on lui réserve sa place, l'image ne peut pas la chevaucher. */
+.lightbox-stage:has(figcaption) img {
+  max-height: calc(100% - 2.4rem);
+}
 .lightbox-stage figcaption {
+  flex: none;
   color: var(--on-warm);
   font-size: 0.9rem;
   text-align: center;
-  max-width: 92vw;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .lightbox-close {
   position: absolute;
@@ -2144,9 +2164,8 @@ tbody tr:last-child td {
     flex: 1 1 auto;
     min-height: 48px;
   }
-  .lightbox-stage img {
-    max-width: 94vw;
-    max-height: 74svh;
-  }
+  /* La lightbox reste maîtrisée sur petit écran : le cadre vient du conteneur
+     (padding + safe areas), aucune contrainte viewport supplémentaire n'est
+     nécessaire ici — l'image est bornée par l'enveloppe du stage. */
 }
 
