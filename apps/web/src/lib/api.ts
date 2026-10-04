@@ -6,14 +6,14 @@ import { getAccessToken, getOrganizationId } from './session';
  *  1. `window.__GAWJAAY_CONFIG__.apiUrl` (fichier `config.js` servi par GitHub Pages) :
  *     permet de pointer le site vers un backend SANS reconstruire ni toucher aux workflows.
  *  2. `VITE_API_URL` : injecté au build par GitHub Actions (CI) ou docker-compose.
- *  3. Développement local : `http://localhost:4000/api/v1`.
+ *  3. Développement local : même hôte que le frontend, port API 4000.
  *
  * En production, si aucune des deux premières sources n'est définie, l'application
  * refuse de démarrer silencieusement : elle affiche un message explicite au lieu
  * d'envoyer l'utilisateur vers un serveur qui n'existe pas. Aucune URL de
  * production n'est codée en dur.
  */
-const DEV_FALLBACK = 'http://localhost:4000/api/v1';
+const DEV_FALLBACK = `${window.location.protocol}//${window.location.hostname}:4000/api/v1`;
 
 export const API_BASE: string = (() => {
   const runtime = window.__GAWJAAY_CONFIG__?.apiUrl?.trim();
