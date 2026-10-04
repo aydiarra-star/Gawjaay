@@ -11,3 +11,4 @@ export * from './plans.js';
 export * from './regions.js';
 export * from './seller.js';
 export * from './listing.js';
+export * from './discovery.js';

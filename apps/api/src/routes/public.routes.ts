@@ -3,47 +3,22 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
 import { resolveUnitPrice } from '@gawjaay/shared';
+import {
+  discoverListings,
+  discoverProducts,
+  discoveryFacets,
+  getPublicSeller,
+  parseDiscoveryQuery,
+  productPriceView,
+} from '../services/discovery.service.js';
 
 const router = Router();
 
 /**
- * Vue de prix d'un produit pour l'affichage public : prix le plus bas réellement
- * applicable parmi les variantes actives (résolution unique), afin que le prix
- * affiché corresponde toujours au prix de vente réel (POS / commandes).
- * `originalPrice` n'est renseigné que si une promotion réelle est active.
+ * Vitrine publique d'une boutique (cahier §23).
+ * Aucune coordonnée GPS n'est exposée : seulement la ville et la région, qui
+ * sont des informations géographiques non précises réellement renseignées.
  */
-function productPriceView(product: {
-  price: number;
-  promoPrice: number | null;
-  variants: Array<{ price: number | null }>;
-}) {
-  const resolutions = product.variants.map((v) =>
-    resolveUnitPrice({ variantPrice: v.price, productPrice: product.price, productPromoPrice: product.promoPrice }),
-  );
-  if (resolutions.length === 0) {
-    const res = resolveUnitPrice({ productPrice: product.price, productPromoPrice: product.promoPrice });
-    return { effectivePrice: res.effectivePrice, originalPrice: res.promoPrice != null && res.basePrice > res.promoPrice ? res.basePrice : null };
-  }
-  const effectivePrice = Math.min(...resolutions.map((r) => r.effectivePrice));
-  const cheapest = resolutions.find((r) => r.effectivePrice === effectivePrice)!;
-  return {
-    effectivePrice,
-    originalPrice: cheapest.promoPrice != null && cheapest.basePrice > cheapest.promoPrice ? cheapest.basePrice : null,
-  };
-}
-
-/** Distance Haversine en km (cahier §24 : proximité réelle). */
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-/** Vitrine publique d'une boutique (cahier §23). */
 router.get('/shops/:slug', asyncHandler(async (req, res) => {
   const store = await prisma.store.findUnique({
     where: { slug: req.params.slug },
@@ -68,8 +43,6 @@ router.get('/shops/:slug', asyncHandler(async (req, res) => {
       address: store.address,
       city: store.city,
       region: store.region,
-      latitude: store.latitude,
-      longitude: store.longitude,
       organization: store.organization,
     },
     products: products.map((p) => {
@@ -99,89 +72,41 @@ router.get('/shops/:slug', asyncHandler(async (req, res) => {
 /**
  * Marketplace : recherche + filtres + proximité (cahier §24).
  * Ne renvoie que les produits `marketplaceVisible` de boutiques publiques actives.
+ * Ordre imposé : filtrage → proximité → tri → pagination.
  */
 router.get('/marketplace', asyncHandler(async (req, res) => {
-  const search = typeof req.query.search === 'string' ? req.query.search.trim() : undefined;
-  const categoryId = typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined;
-  const lat = req.query.lat ? Number(req.query.lat) : undefined;
-  const lng = req.query.lng ? Number(req.query.lng) : undefined;
-  const radiusKm = req.query.radiusKm ? Number(req.query.radiusKm) : undefined;
-  const page = Math.max(1, Number(req.query.page ?? 1));
-  const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize ?? 20)));
-
-  const products = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      marketplaceVisible: true,
-      ...(categoryId ? { categoryId } : {}),
-      ...(search ? { OR: [{ name: { contains: search } }, { description: { contains: search } }] } : {}),
-      variants: { some: { inventories: { some: { quantity: { gt: 0 }, store: { isPublic: true, isActive: true } } } } },
-    },
-    include: {
-      category: { select: { id: true, name: true } },
-      variants: { include: { inventories: { include: { store: { select: { id: true, name: true, slug: true, latitude: true, longitude: true, city: true, region: true, isPublic: true, isActive: true } } } } } },
-    },
-    orderBy: { createdAt: 'desc' },
-    skip: (page - 1) * pageSize,
-    take: pageSize,
+  const filters = parseDiscoveryQuery(req.query as Record<string, unknown>);
+  const [page, facets] = await Promise.all([discoverProducts(filters), discoveryFacets()]);
+  res.json({
+    items: page.items,
+    total: page.total,
+    page: page.page,
+    pageSize: page.pageSize,
+    categories: facets.categories,
+    regions: facets.regions,
+    cities: facets.cities,
+    proximityApplied: Boolean(filters.geo),
   });
+}));
 
-  const items = products
-    .map((p) => {
-      const view = productPriceView(p);
-      const offers = p.variants.flatMap((v) =>
-        v.inventories
-          .filter((inv) => inv.quantity > 0 && inv.store.isPublic && inv.store.isActive)
-          .map((inv) => ({
-            storeId: inv.store.id,
-            storeName: inv.store.name,
-            storeSlug: inv.store.slug,
-            city: inv.store.city,
-            region: inv.store.region,
-            variantId: v.id,
-            variantName: v.name,
-            available: inv.quantity,
-            // Prix réellement pratiqué par cette variante (identique POS / commandes).
-            price: resolveUnitPrice({ variantPrice: v.price, productPrice: p.price, productPromoPrice: p.promoPrice }).effectivePrice,
-            distanceKm: lat != null && lng != null && inv.store.latitude != null && inv.store.longitude != null
-              ? Math.round(haversineKm(lat, lng, inv.store.latitude, inv.store.longitude) * 10) / 10
-              : null,
-          })),
-      );
-      return {
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        imageUrl: p.imageUrl,
-        hasImage: Boolean(p.imageData || p.imageUrl),
-        packaging: p.packaging,
-        format: p.format,
-        category: p.category,
-        // Prix affiché = plus bas prix réellement applicable (identique au POS et aux commandes).
-        price: view.effectivePrice,
-        originalPrice: view.originalPrice,
-        offers,
-      };
-    })
-    // Filtre par rayon si coordonnées fournies.
-    .filter((item) => {
-      if (radiusKm == null || lat == null || lng == null) return true;
-      return item.offers.some((o) => o.distanceKm != null && o.distanceKm <= radiusKm);
-    })
-    .sort((a, b) => {
-      if (lat == null || lng == null) return 0;
-      const da = Math.min(...a.offers.map((o) => o.distanceKm ?? Infinity));
-      const db = Math.min(...b.offers.map((o) => o.distanceKm ?? Infinity));
-      return da - db;
-    });
+/** Découverte des annonces publiques (fondation M2). */
+router.get('/listings', asyncHandler(async (req, res) => {
+  const filters = parseDiscoveryQuery(req.query as Record<string, unknown>);
+  const page = await discoverListings(filters);
+  res.json({ items: page.items, total: page.total, page: page.page, pageSize: page.pageSize });
+}));
 
-  const categories = await prisma.category.findMany({
-    where: { isActive: true, products: { some: { isActive: true, marketplaceVisible: true } } },
-    select: { id: true, name: true, slug: true },
-    orderBy: { name: 'asc' },
-  });
+/** Profil vendeur public (champs strictement publics ; vendeur suspendu = 404). */
+router.get('/sellers/:id', asyncHandler(async (req, res) => {
+  const seller = await getPublicSeller(req.params.id);
+  if (!seller) throw AppError.notFound('Vendeur introuvable');
+  res.json({ seller });
+}));
 
-  res.json({ items, categories, page, pageSize });
+/** Catégories réellement publiables (aucune catégorie inventée). */
+router.get('/categories', asyncHandler(async (_req, res) => {
+  const facets = await discoveryFacets();
+  res.json({ categories: facets.categories, regions: facets.regions, cities: facets.cities });
 }));
 
 /**
@@ -195,7 +120,7 @@ router.get('/products/:id/photo', asyncHandler(async (req, res) => {
       id: req.params.id,
       isActive: true,
       marketplaceVisible: true,
-      variants: { some: { inventories: { some: { quantity: { gt: 0 }, store: { isPublic: true, isActive: true } } } } },
+      variants: { some: { isActive: true, inventories: { some: { quantity: { gt: 0 }, store: { isPublic: true, isActive: true } } } } },
     },
     select: { imageData: true, imageMime: true, imageUrl: true },
   });

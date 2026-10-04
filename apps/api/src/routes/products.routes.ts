@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { PACKAGING_TYPES, resolveUnitPrice } from '@gawjaay/shared';
+import { PACKAGING_TYPES, buildProductSearchText, resolveUnitPrice } from '@gawjaay/shared';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
@@ -148,6 +148,7 @@ router.post('/', requirePermission('products:create'), asyncHandler(async (req, 
       name: input.name,
       sku: input.sku ?? generateSku(),
       description: input.description ?? null,
+      searchName: buildProductSearchText([input.name, input.description, input.format]),
       imageUrl: input.imageUrl ?? null,
       ...imageColumnsFromInput(input.imageData),
       packaging: input.packaging,
@@ -240,6 +241,10 @@ router.patch('/:id', requirePermission('products:update'), asyncHandler(async (r
       where: { id: existing.id },
       data: {
         ...rest,
+        // Recalcule le nom normalisé de recherche si un champ indexé change.
+        ...(rest.name !== undefined || rest.description !== undefined || rest.format !== undefined
+          ? { searchName: buildProductSearchText([rest.name ?? existing.name, rest.description ?? existing.description, rest.format ?? existing.format]) }
+          : {}),
         ...(imageData !== undefined ? imageColumnsFromInput(imageData) : {}),
       },
       include: { variants: true },
@@ -363,6 +368,7 @@ router.post('/merchant', requirePermission('products:create'), asyncHandler(asyn
         name: input.name,
         sku: input.sku ?? generateSku(),
         description: input.description ?? null,
+        searchName: buildProductSearchText([input.name, input.description, input.format]),
         imageUrl: input.imageUrl ?? null,
         ...imageColumnsFromInput(input.imageData),
         packaging: input.packaging,
