@@ -203,7 +203,7 @@ export function PosPage() {
           <div className="merchant-grid">
             {filtered.map((p) => (
               <div className="merchant-card" key={p.id}>
-                <div className="merchant-media">
+                <div className="merchant-media pos-product-media">
                   <ProductThumb productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
                 </div>
                 <div className="merchant-body">
