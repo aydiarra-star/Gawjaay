@@ -12,7 +12,7 @@
     "build:api": "npm run build -w @gawjaay/api",
     "build:web": "npm run build -w @gawjaay/web",
     "build": "npm run build:shared && npm run build:api && npm run build:web",
-    "typecheck": "npm run typecheck -w @gawjaay/shared && npm run typecheck -w @gawjaay/api && npm run typecheck -w @gawjaay/web",
+    "typecheck": "npm run build:shared && npm run typecheck -w @gawjaay/shared && npm run typecheck -w @gawjaay/api && npm run typecheck -w @gawjaay/web",
     "test": "npm run test -w @gawjaay/api",
     "test:e2e": "npm run test:e2e -w @gawjaay/web",
     "dev:api": "npm run dev -w @gawjaay/api",
