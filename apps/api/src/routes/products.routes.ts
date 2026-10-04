@@ -80,6 +80,8 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req, res
   const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize ?? 20)));
   const search = typeof req.query.search === 'string' ? req.query.search : undefined;
   const categoryId = typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined;
+  const storeId = typeof req.query.storeId === 'string' ? req.query.storeId : undefined;
+  if (storeId) assertStoreAccess(req, storeId);
 
   const where = {
     organizationId: req.auth.organizationId,
@@ -106,11 +108,29 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req, res
   });
   const inStockVariants = new Set(positiveStock.map((i) => i.variantId));
 
+  const flashByVariant = new Map<string, { flashPrice: number; flashEndsAt: Date | null; flashRemaining: number | null }>();
+  if (storeId && variantIds.length) {
+    const offers = await prisma.flashOffer.findMany({ where: { storeId, variantId: { in: variantIds }, status: 'ACTIVE' } });
+    const inventories = await prisma.inventory.findMany({ where: { storeId, variantId: { in: variantIds } }, select: { variantId: true, quantity: true } });
+    const stockMap = new Map(inventories.map((i) => [i.variantId, i.quantity]));
+    for (const o of offers) {
+      const variant = items.flatMap((p) => p.variants).find((v) => v.id === o.variantId);
+      if (!variant || (o.endsAt && o.endsAt <= new Date()) || (o.quantityLimit != null && o.quantitySold >= o.quantityLimit)) continue;
+      const normal = resolveUnitPrice({ variantPrice: variant.price, productPrice: items.find((p) => p.variants.some((v) => v.id === variant.id))!.price, productPromoPrice: items.find((p) => p.variants.some((v) => v.id === variant.id))!.promoPrice }).effectivePrice;
+      if (o.flashPrice >= normal) continue;
+      flashByVariant.set(o.variantId, { flashPrice: o.flashPrice, flashEndsAt: o.endsAt, flashRemaining: o.quantityLimit == null ? stockMap.get(o.variantId) ?? 0 : Math.min(stockMap.get(o.variantId) ?? 0, Math.max(0, o.quantityLimit - o.quantitySold)) });
+    }
+  }
   res.json({
     items: items.map((p) => {
       const sellable = p.price > 0 && p.variants.some((v) => v.isActive);
       const inStock = p.variants.some((v) => inStockVariants.has(v.id));
-      return withPublication(stripProduct(p), sellable, inStock);
+      const base = stripProduct(p);
+      const variants = (base.variants ?? []).map((v) => {
+        const flash = flashByVariant.get(v.id);
+        return { ...v, effectivePrice: flash?.flashPrice ?? resolveUnitPrice({ variantPrice: v.price, productPrice: p.price, productPromoPrice: p.promoPrice }).effectivePrice, flashPrice: flash?.flashPrice ?? null, flashEndsAt: flash?.flashEndsAt ?? null, flashQuantityRemaining: flash?.flashRemaining ?? null };
+      });
+      return withPublication({ ...base, variants }, sellable, inStock);
     }),
     total,
     page,
