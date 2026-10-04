@@ -32,9 +32,11 @@ npm run test:e2e             # Playwright (desktop + mobile) — nécessite un b
 - `apps/web/scripts/verify-bundle.mjs` fait **échouer** tout build contenant `localhost`, `127.0.0.1` ou un runtime éphémère (`all-hands.dev`, `prod-runtime`).
 
 ## Backend en production
-- API de production (Render) : `https://gawjaay-api.onrender.com` — health `GET /api/v1/health` → 200 `{"status":"ok"}`.
+- API de production (Render) : `https://gawjaay-api.onrender.com` — health `GET /api/v1/health` → 200 `{"status":"ok"}`. Service `gawjaay-api`, blueprint `render.yaml`, `autoDeploy: true` → tout merge sur `main` redéploie l'API.
 - Le frontend publié pointe l'API via `config.js` (`window.__GAWJAAY_CONFIG__.apiUrl`), écrit par `npm run connect:api -- <url>/api/v1`.
+- **Photos produit et cross-origin** : Helmet pose `Cross-Origin-Resource-Policy: same-origin` par défaut, ce qui fait **bloquer** les images servies par l'API lorsqu'elles sont intégrées par le frontend Pages (origine différente → `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`). La route publique `GET /api/v1/public/products/:id/photo` pose donc explicitement `cross-origin` ; le reste demeure `same-origin`. Testé dans `apps/api/test/marketplace-m4.test.ts`.
 - Hébergement : `render.yaml` (API Docker + PostgreSQL) ou `docker-compose.yml` (VPS). GitHub Pages n'héberge **pas** l'API.
+- **Publication Pages** : `npm run connect:api` pousse sur `gh-pages` et exige un jeton Git **avec droit d'écriture**. Le jeton intégration fourni par défaut à l'agent est en **lecture seule** (403 « Resource not accessible by integration » sur `git push` et même sur l'API `refs`), donc l'agent ne peut pas publier ; la mise à jour de `gh-pages` doit être faite par un humain ou un jeton disposant du scope `contents: write`.
 
 ## Marketplace M4 — « Acheter » (parcours acheteur)
 - Principe conservé : *« GawJaay donne l'information. L'acheteur décide. »* Aucun classement / score / note / « meilleure vente ».
