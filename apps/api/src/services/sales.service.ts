@@ -1,6 +1,5 @@
 import { AppError } from '../lib/errors.js';
 import type { Tx } from '../lib/prisma.js';
-import { resolveUnitPrice } from '@gawjaay/shared';
 import { applyStockChange } from './inventory.service.js';
 import { effectiveUnitPrice, consumeFlashOffer } from './flash-offers.service.js';
 
