@@ -107,6 +107,27 @@ export function SellerPage() {
                 )}
               </div>
 
+              <section aria-label="Transparence du vendeur" style={{ marginTop: 14 }}>
+                <div className="card" style={{ padding: '16px 18px' }}>
+                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: '1rem' }}>Confiance & transparence</h2>
+                      <p className="muted small" style={{ margin: '4px 0 0' }}>
+                        GawJaay affiche uniquement les informations publiques réellement disponibles.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                    <span className="badge">Type : {SELLER_TYPE_LABELS[seller.sellerType as SellerType] ?? seller.sellerType}</span>
+                    {location && <span className="badge">Zone déclarée : {location}</span>}
+                    <span className="badge">{seller.activeListings} annonce{seller.activeListings > 1 ? 's' : ''} publique{seller.activeListings > 1 ? 's' : ''}</span>
+                  </div>
+                  <p className="muted small" style={{ margin: '12px 0 0' }}>
+                    Aucun badge « vérifié », aucune note, aucun score ou classement n’est attribué sans donnée réelle et vérifiable.
+                  </p>
+                </div>
+              </section>
+
               <section style={{ marginTop: 20 }}>
                 <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                   <div>
