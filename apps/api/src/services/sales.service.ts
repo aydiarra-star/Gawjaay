@@ -1,5 +1,6 @@
 import { AppError } from '../lib/errors.js';
 import type { Tx } from '../lib/prisma.js';
+import { resolveUnitPrice } from '@gawjaay/shared';
 import { applyStockChange } from './inventory.service.js';
 
 export interface SaleLineInput {
@@ -92,7 +93,12 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
     if (!variant) throw AppError.badRequest(`Variante inconnue: ${item.variantId}`);
     const quantity = Math.round(item.quantity);
     if (quantity <= 0) throw AppError.badRequest('Quantité invalide');
-    const unitPrice = variant.price ?? variant.product.price;
+    // Coffre-fort de Confiance : résolution unique du prix (variante > promo > prix).
+    const unitPrice = resolveUnitPrice({
+      variantPrice: variant.price,
+      productPrice: variant.product.price,
+      productPromoPrice: variant.product.promoPrice,
+    }).effectivePrice;
     const lineTotal = unitPrice * quantity;
     subtotal += lineTotal;
     return {

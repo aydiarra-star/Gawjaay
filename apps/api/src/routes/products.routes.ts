@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { PACKAGING_TYPES } from '@gawjaay/shared';
+import { PACKAGING_TYPES, resolveUnitPrice } from '@gawjaay/shared';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
@@ -197,6 +197,16 @@ router.post('/', requirePermission('products:create'), asyncHandler(async (req, 
       newValue: input.price,
     });
   }
+  if (input.promoPrice != null && input.promoPrice > 0) {
+    await recordPriceChange(prisma, {
+      organizationId: req.auth.organizationId,
+      productId: product.id,
+      userId: req.auth.userId,
+      field: 'promoPrice',
+      oldValue: null,
+      newValue: input.promoPrice,
+    });
+  }
 
   res.status(201).json({ product: stripProduct(product) });
 }));
@@ -252,6 +262,16 @@ router.patch('/:id', requirePermission('products:update'), asyncHandler(async (r
         field: 'price',
         oldValue: existing.price,
         newValue: rest.price,
+      });
+    }
+    if (rest.promoPrice !== undefined && rest.promoPrice !== existing.promoPrice) {
+      await recordPriceChange(tx, {
+        organizationId: req.auth!.organizationId,
+        productId: existing.id,
+        userId: req.auth!.userId,
+        field: 'promoPrice',
+        oldValue: existing.promoPrice,
+        newValue: rest.promoPrice ?? null,
       });
     }
     return updated;
@@ -403,6 +423,16 @@ router.post('/merchant', requirePermission('products:create'), asyncHandler(asyn
         newValue: input.price,
       });
     }
+    if (input.promoPrice != null && input.promoPrice > 0) {
+      await recordPriceChange(tx, {
+        organizationId: req.auth!.organizationId,
+        productId: product.id,
+        userId: req.auth!.userId,
+        field: 'promoPrice',
+        oldValue: null,
+        newValue: input.promoPrice,
+      });
+    }
 
     return { product, storeId, initialStock: input.initialStock };
   });
@@ -495,7 +525,11 @@ router.post('/:id/sale', requirePermission('sales:create'), asyncHandler(async (
   assertStoreAccess(req, storeId);
 
   const variant = product.variants.find((v) => v.id === variantId)!;
-  const unitPrice = variant.price ?? product.price;
+  const unitPrice = resolveUnitPrice({
+    variantPrice: variant.price,
+    productPrice: product.price,
+    productPromoPrice: product.promoPrice,
+  }).effectivePrice;
 
   const result = await prisma.$transaction((tx) =>
     createSale(tx, req.auth!.organizationId, {

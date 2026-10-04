@@ -2,8 +2,35 @@ import { Router } from 'express';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../lib/errors.js';
+import { resolveUnitPrice } from '@gawjaay/shared';
 
 const router = Router();
+
+/**
+ * Vue de prix d'un produit pour l'affichage public : prix le plus bas réellement
+ * applicable parmi les variantes actives (résolution unique), afin que le prix
+ * affiché corresponde toujours au prix de vente réel (POS / commandes).
+ * `originalPrice` n'est renseigné que si une promotion réelle est active.
+ */
+function productPriceView(product: {
+  price: number;
+  promoPrice: number | null;
+  variants: Array<{ price: number | null }>;
+}) {
+  const resolutions = product.variants.map((v) =>
+    resolveUnitPrice({ variantPrice: v.price, productPrice: product.price, productPromoPrice: product.promoPrice }),
+  );
+  if (resolutions.length === 0) {
+    const res = resolveUnitPrice({ productPrice: product.price, productPromoPrice: product.promoPrice });
+    return { effectivePrice: res.effectivePrice, originalPrice: res.promoPrice != null && res.basePrice > res.promoPrice ? res.basePrice : null };
+  }
+  const effectivePrice = Math.min(...resolutions.map((r) => r.effectivePrice));
+  const cheapest = resolutions.find((r) => r.effectivePrice === effectivePrice)!;
+  return {
+    effectivePrice,
+    originalPrice: cheapest.promoPrice != null && cheapest.basePrice > cheapest.promoPrice ? cheapest.basePrice : null,
+  };
+}
 
 /** Distance Haversine en km (cahier §24 : proximité réelle). */
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -45,24 +72,27 @@ router.get('/shops/:slug', asyncHandler(async (req, res) => {
       longitude: store.longitude,
       organization: store.organization,
     },
-    products: products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      imageUrl: p.imageUrl,
-      hasImage: Boolean(p.imageData || p.imageUrl),
-      packaging: p.packaging,
-      format: p.format,
-      category: p.category,
-      price: p.promoPrice ?? p.price,
-      originalPrice: p.promoPrice ? p.price : null,
-      variants: p.variants.map((v) => ({
-        id: v.id,
-        name: v.name,
-        price: v.price ?? p.promoPrice ?? p.price,
-        available: v.inventories.reduce((s, inv) => s + inv.quantity, 0),
-      })),
-    })),
+    products: products.map((p) => {
+      const view = productPriceView(p);
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        imageUrl: p.imageUrl,
+        hasImage: Boolean(p.imageData || p.imageUrl),
+        packaging: p.packaging,
+        format: p.format,
+        category: p.category,
+        price: view.effectivePrice,
+        originalPrice: view.originalPrice,
+        variants: p.variants.map((v) => ({
+          id: v.id,
+          name: v.name,
+          price: resolveUnitPrice({ variantPrice: v.price, productPrice: p.price, productPromoPrice: p.promoPrice }).effectivePrice,
+          available: v.inventories.reduce((s, inv) => s + inv.quantity, 0),
+        })),
+      };
+    }),
   });
 }));
 
@@ -98,6 +128,7 @@ router.get('/marketplace', asyncHandler(async (req, res) => {
 
   const items = products
     .map((p) => {
+      const view = productPriceView(p);
       const offers = p.variants.flatMap((v) =>
         v.inventories
           .filter((inv) => inv.quantity > 0 && inv.store.isPublic && inv.store.isActive)
@@ -110,6 +141,8 @@ router.get('/marketplace', asyncHandler(async (req, res) => {
             variantId: v.id,
             variantName: v.name,
             available: inv.quantity,
+            // Prix réellement pratiqué par cette variante (identique POS / commandes).
+            price: resolveUnitPrice({ variantPrice: v.price, productPrice: p.price, productPromoPrice: p.promoPrice }).effectivePrice,
             distanceKm: lat != null && lng != null && inv.store.latitude != null && inv.store.longitude != null
               ? Math.round(haversineKm(lat, lng, inv.store.latitude, inv.store.longitude) * 10) / 10
               : null,
@@ -124,8 +157,9 @@ router.get('/marketplace', asyncHandler(async (req, res) => {
         packaging: p.packaging,
         format: p.format,
         category: p.category,
-        price: p.promoPrice ?? p.price,
-        originalPrice: p.promoPrice ? p.price : null,
+        // Prix affiché = plus bas prix réellement applicable (identique au POS et aux commandes).
+        price: view.effectivePrice,
+        originalPrice: view.originalPrice,
         offers,
       };
     })
