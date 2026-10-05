@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { API_BASE } from '../lib/api';
 import { getAccessToken, getOrganizationId } from '../lib/session';
 
@@ -142,13 +143,17 @@ export function ImageLightbox({
   const count = images.length;
   const safeIndex = count ? Math.min(Math.max(index, 0), count - 1) : 0;
   const current = images[safeIndex];
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => setImageError(false), [current?.src]);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    if (!current) return;
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowRight' && count > 1) onIndexChange((safeIndex + 1) % count);
       else if (e.key === 'ArrowLeft' && count > 1) onIndexChange((safeIndex - 1 + count) % count);
-    }
+    };
     document.addEventListener('keydown', onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -156,71 +161,57 @@ export function ImageLightbox({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = previous;
     };
-  }, [count, safeIndex, onClose, onIndexChange]);
+  }, [count, safeIndex, current, onClose, onIndexChange]);
 
-  if (!current) return null;
+  if (!current || typeof document === 'undefined') return null;
 
   const go = (delta: number) => onIndexChange((safeIndex + delta + count) % count);
-
-  return (
+  const content = (
     <div className="lightbox" role="dialog" aria-modal="true" aria-label={title ?? 'Aperçu de l’image'} onClick={onClose}>
-      <button type="button" className="lightbox-close" onClick={onClose} aria-label="Fermer l’aperçu">
-        ✕
-      </button>
+      <button type="button" className="lightbox-close" onClick={onClose} aria-label="Fermer l’aperçu">✕</button>
 
       {count > 1 && (
-        <button
-          type="button"
-          className="lightbox-nav prev"
-          aria-label="Image précédente"
-          onClick={(e) => {
-            e.stopPropagation();
-            go(-1);
-          }}
-        >
-          ‹
-        </button>
+        <button type="button" className="lightbox-nav prev" aria-label="Image précédente" onClick={(e) => { e.stopPropagation(); go(-1); }}>‹</button>
       )}
 
       <figure className="lightbox-stage" onClick={(e) => e.stopPropagation()}>
-        <img src={current.src} alt={current.alt} />
+        <div className="lightbox-image-frame">
+          {!imageError ? (
+            <img
+              src={current.src}
+              alt={current.alt}
+              decoding="async"
+              fetchPriority="high"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="lightbox-image-error" role="status">
+              <strong>Photo indisponible</strong>
+              <span>Impossible d’afficher cette image pour le moment.</span>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Fermer</button>
+            </div>
+          )}
+        </div>
         {title && <figcaption>{title}</figcaption>}
       </figure>
 
       {count > 1 && (
-        <button
-          type="button"
-          className="lightbox-nav next"
-          aria-label="Image suivante"
-          onClick={(e) => {
-            e.stopPropagation();
-            go(1);
-          }}
-        >
-          ›
-        </button>
+        <button type="button" className="lightbox-nav next" aria-label="Image suivante" onClick={(e) => { e.stopPropagation(); go(1); }}>›</button>
       )}
 
       {count > 1 && (
         <div className="lightbox-dots" role="tablist" aria-label="Choisir une image">
           {images.map((img, i) => (
-            <button
-              key={`${img.src}-${i}`}
-              type="button"
-              role="tab"
-              aria-selected={i === safeIndex}
-              aria-label={`Image ${i + 1} sur ${count}`}
-              className={`lightbox-dot${i === safeIndex ? ' on' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onIndexChange(i);
-              }}
-            />
+            <button key={`${img.src}-${i}`} type="button" role="tab" aria-selected={i === safeIndex} aria-label={`Image ${i + 1} sur ${count}`} className={`lightbox-dot${i === safeIndex ? ' on' : ''}`} onClick={(e) => { e.stopPropagation(); onIndexChange(i); }} />
           ))}
         </div>
       )}
     </div>
   );
+
+  // Portal vers body : la lightbox ne peut plus être contrainte par un parent
+  // transform/overflow et reste réellement plein écran sur iOS et desktop.
+  return createPortal(content, document.body);
 }
 
 /* ------------------------------------------------------------------ */
