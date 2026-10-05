@@ -2259,3 +2259,134 @@ tbody tr:last-child td {
      nécessaire ici — l'image est bornée par l'enveloppe du stage. */
 }
 
+
+
+/* ------------------------------------------------------------------ */
+/* Correctifs mobile photo / panier / POS — M5.5                       */
+/* ------------------------------------------------------------------ */
+.pos-cart-thumb,
+.cart-item-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  max-width: 56px;
+  max-height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.pos-cart-name {
+  min-width: 0;
+  max-width: 38ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart-line-product {
+  min-width: 0;
+  flex: 1 1 280px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cart-line-actions {
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.product-detail,
+.product-detail-media,
+.product-detail-image-btn,
+.merchant-card,
+.cart-line,
+.card,
+.table-wrap {
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .main {
+    width: 100%;
+    min-width: 0;
+    padding: 20px 12px calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .main-inner {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .product-detail {
+    width: 100%;
+    gap: 14px;
+  }
+
+  .product-detail-media {
+    width: 100%;
+  }
+
+  .product-detail-image-btn,
+  .product-detail-media img {
+    max-width: 100%;
+  }
+
+  .cart-line {
+    width: 100%;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .cart-line-product {
+    flex-basis: 100%;
+  }
+
+  .cart-line-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .cart-line-actions .btn {
+    max-width: 100%;
+  }
+
+  .cart-line-actions input {
+    max-width: 72px;
+  }
+
+  .pos-cart-thumb,
+  .cart-item-thumb {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    min-height: 52px;
+  }
+
+  .pos-cart-name {
+    max-width: calc(100vw - 150px);
+  }
+
+  .table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-wrap table {
+    min-width: 520px;
+  }
+}
