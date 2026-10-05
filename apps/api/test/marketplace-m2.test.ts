@@ -357,6 +357,7 @@ describe('M2 — annonces (listing)', () => {
 
   it('un INDIVIDUAL ne peut pas créer d\'annonce sans profil vendeur', async () => {
     const org = await createOrg();
+    await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
     const res = await request(app)
       .post('/api/v1/listings')
       .set({ Authorization: `Bearer ${org.token}` })
