@@ -53,7 +53,7 @@ export function PosPage() {
     [storeId],
   );
 
-  const [cart, setCart] = useState<Record<string, { variantId: string; name: string; price: number; quantity: number; packaging: PackagingType }>>({});
+  const [cart, setCart] = useState<Record<string, { productId: string; variantId: string; name: string; price: number; quantity: number; packaging: PackagingType; hasImage: boolean; imageUrl: string | null }>>({});
   const [customerId, setCustomerId] = useState('');
   const [payMethod, setPayMethod] = useState<PaymentMethod>('CASH');
   const [paidAmount, setPaidAmount] = useState('');
@@ -97,11 +97,14 @@ export function PosPage() {
       setCart((c) => ({
         ...c,
         [variant.id]: {
+          productId: product.id,
           variantId: variant.id,
           name: `${product.name} — ${variant.name}`,
           price: product.price,
           quantity: c[variant.id]?.quantity ?? 1,
           packaging: product.packaging,
+          hasImage: product.hasImage,
+          imageUrl: product.imageUrl,
         },
       }));
     }
@@ -123,11 +126,14 @@ export function PosPage() {
     setCart((c) => ({
       ...c,
       [variantId]: {
+        productId: product.id,
         variantId,
         name: `${product.name} — ${variantName}`,
         price: product.price,
         quantity: current + 1,
         packaging: product.packaging,
+        hasImage: product.hasImage,
+        imageUrl: product.imageUrl,
       },
     }));
   }
@@ -237,6 +243,7 @@ export function PosPage() {
               <table>
                 <thead>
                   <tr>
+                    <th aria-label="Photo"></th>
                     <th>Article</th>
                     <th className="num">Qté</th>
                     <th className="num">Prix</th>
@@ -247,7 +254,8 @@ export function PosPage() {
                 <tbody>
                   {lines.map((l) => (
                     <tr key={l.variantId}>
-                      <td>{l.name}</td>
+                      <td><ProductThumb productId={l.productId} name={l.name} hasImage={l.hasImage} imageUrl={l.imageUrl} className="pos-cart-thumb" /></td>
+                      <td className="pos-cart-name">{l.name}</td>
                       <td className="num">{l.quantity}</td>
                       <td className="num">{formatXOF(l.price)}</td>
                       <td className="num">{formatXOF(l.price * l.quantity)}</td>
