@@ -41,9 +41,15 @@ services:
       # CORS : origine réelle du frontend GitHub Pages.
       - key: FRONTEND_URL
         value: https://aydiarra-star.github.io
-      # Aucun prestataire de paiement réel n'est connecté.
+      # Paiement carte : les secrets restent saisis dans Render, jamais dans Git.
       - key: PAYMENTS_MODE
         value: disabled
+      - key: APP_PUBLIC_URL
+        value: https://aydiarra-star.github.io/Gawjaay
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
 
 databases:
   - name: gawjaay-db
