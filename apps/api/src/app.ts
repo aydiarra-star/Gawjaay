@@ -31,6 +31,7 @@ import exportsRoutes from './routes/exports.routes.js';
 import phoneRoutes from './routes/phone.routes.js';
 import sellerRoutes from './routes/sellers.routes.js';
 import listingRoutes from './routes/listings.routes.js';
+import { stripeWebhookHandler } from './routes/payments.routes.js';
 
 export function createApp() {
   const app = express();
@@ -51,6 +52,9 @@ export function createApp() {
       credentials: true,
     }),
   );
+
+  // Stripe exige le corps brut pour vérifier la signature du webhook.
+  app.post('/api/v1/payments/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => void stripeWebhookHandler(req, res));
 
   // Les photos produit sont transportées en data-URI base64 (bornées à ~700 Ko
   // côté validation) : la limite de corps doit les accueillir sans excès.
