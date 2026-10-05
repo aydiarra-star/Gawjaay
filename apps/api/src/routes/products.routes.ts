@@ -125,7 +125,7 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req, res
     items: items.map((p) => {
       const sellable = p.price > 0 && p.variants.some((v) => v.isActive);
       const inStock = p.variants.some((v) => inStockVariants.has(v.id));
-      const base = stripProduct(p);
+      const base = stripProduct(p) as typeof p & { variants?: typeof p.variants };
       const variants = (base.variants ?? []).map((v) => {
         const flash = flashByVariant.get(v.id);
         return { ...v, effectivePrice: flash?.flashPrice ?? resolveUnitPrice({ variantPrice: v.price, productPrice: p.price, productPromoPrice: p.promoPrice }).effectivePrice, flashPrice: flash?.flashPrice ?? null, flashEndsAt: flash?.flashEndsAt ?? null, flashQuantityRemaining: flash?.flashRemaining ?? null };
