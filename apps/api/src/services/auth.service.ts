@@ -10,8 +10,9 @@ export interface RegisterInput {
   password: string;
   fullName: string;
   phone?: string;
-  organizationName: string;
-  storeName: string;
+  accountType: 'BUSINESS' | 'INDIVIDUAL';
+  organizationName?: string;
+  storeName?: string;
   region?: string;
   city?: string;
 }
@@ -51,6 +52,25 @@ export async function register(input: RegisterInput) {
       data: { email, passwordHash, fullName: input.fullName.trim(), phone: input.phone ?? null },
     });
 
+    if (input.accountType === 'INDIVIDUAL') {
+      const seller = await tx.sellerProfile.create({
+        data: {
+          userId: user.id,
+          sellerType: 'INDIVIDUAL',
+          status: 'ACTIVE',
+          displayName: input.fullName.trim(),
+          phone: input.phone ?? null,
+          city: input.city ?? null,
+          region: input.region ?? null,
+        },
+      });
+      return { user, organization: null, store: null, seller };
+    }
+
+    if (!input.organizationName || !input.storeName) {
+      throw AppError.badRequest('Le nom de l’entreprise et de la boutique sont requis pour un compte boutique.');
+    }
+
     const orgSlug = await uniqueSlug(slugify(input.organizationName), async (s) =>
       Boolean(await tx.organization.findUnique({ where: { slug: s } })),
     );
@@ -83,17 +103,30 @@ export async function register(input: RegisterInput) {
     await tx.subscription.create({
       data: { organizationId: organization.id, plan: 'FREE', status: 'ACTIVE' },
     });
+    await tx.sellerProfile.create({
+      data: {
+        userId: user.id,
+        sellerType: 'MERCHANT',
+        status: 'ACTIVE',
+        displayName: organization.name,
+        phone: input.phone ?? null,
+        organizationId: organization.id,
+        city: input.city ?? null,
+        region: input.region ?? null,
+      },
+    });
 
-    return { user, organization, store };
+    return { user, organization, store, seller: null };
   });
 
   const tokens = await issueTokens(result.user.id, result.user.email, result.user.platformAdmin);
-  await audit({ organizationId: result.organization.id, userId: result.user.id, action: 'auth.register', entity: 'user', entityId: result.user.id });
+  await audit({ organizationId: result.organization?.id ?? null, userId: result.user.id, action: 'auth.register', entity: 'user', entityId: result.user.id });
 
   return {
     user: publicUser(result.user),
-    organization: { id: result.organization.id, name: result.organization.name, slug: result.organization.slug },
-    store: { id: result.store.id, name: result.store.name, slug: result.store.slug },
+    organization: result.organization ? { id: result.organization.id, name: result.organization.name, slug: result.organization.slug } : null,
+    store: result.store ? { id: result.store.id, name: result.store.name, slug: result.store.slug } : null,
+    seller: result.seller ? { id: result.seller.id, sellerType: result.seller.sellerType } : null,
     ...tokens,
   };
 }
