@@ -33,7 +33,7 @@ interface Product {
   format: string | null;
   hasImage: boolean;
   imageUrl: string | null;
-  variants: Array<{ id: string; name: string; sku: string }>;
+  variants: Array<{ id: string; name: string; sku: string; price?: number | null; effectivePrice?: number; flashPrice?: number | null; flashEndsAt?: string | null; flashQuantityRemaining?: number | null }>;
 }
 
 /** Identifiant unique de tentative d'encaissement (idempotence POS). */
@@ -47,7 +47,7 @@ export function PosPage() {
   const { storeId } = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const products = useApi<{ items: Product[] }>(() => api.get('/products?pageSize=100'), []);
+  const products = useApi<{ items: Product[] }>(() => api.get(`/products?pageSize=100${storeId ? `&storeId=${encodeURIComponent(storeId)}` : ''}`), [storeId]);
   const stock = useApi<{ items: StockItem[] }>(
     () => api.get(`/inventory${storeId ? `?storeId=${storeId}` : ''}`),
     [storeId],
@@ -99,7 +99,7 @@ export function PosPage() {
         [variant.id]: {
           variantId: variant.id,
           name: `${product.name} — ${variant.name}`,
-          price: product.price,
+          price: variant.effectivePrice ?? variant.price ?? product.price,
           quantity: c[variant.id]?.quantity ?? 1,
           packaging: product.packaging,
         },
@@ -125,11 +125,16 @@ export function PosPage() {
       [variantId]: {
         variantId,
         name: `${product.name} — ${variantName}`,
-        price: product.price,
+        price: variantEffectivePrice(product, variantId),
         quantity: current + 1,
         packaging: product.packaging,
       },
     }));
+  }
+
+  function variantEffectivePrice(product: Product, variantId: string) {
+    const variant = product.variants.find((v) => v.id === variantId);
+    return variant?.effectivePrice ?? variant?.price ?? product.price;
   }
 
   function removeLine(variantId: string) {

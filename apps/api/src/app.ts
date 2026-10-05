@@ -31,6 +31,7 @@ import exportsRoutes from './routes/exports.routes.js';
 import phoneRoutes from './routes/phone.routes.js';
 import sellerRoutes from './routes/sellers.routes.js';
 import listingRoutes from './routes/listings.routes.js';
+import flashOfferRoutes from './routes/flash-offers.routes.js';
 
 export function createApp() {
   const app = express();
@@ -93,6 +94,7 @@ export function createApp() {
   app.use('/api/v1/me', phoneRoutes);
   app.use('/api/v1/sellers', sellerRoutes);
   app.use('/api/v1/listings', listingRoutes);
+app.use('/api/v1/flash-offers', flashOfferRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -24,6 +24,10 @@ interface Offer {
   variantPrice: number | null;
   available: number | null;
   price: number;
+  normalPrice?: number;
+  flashPrice?: number | null;
+  flashEndsAt?: string | null;
+  flashQuantityRemaining?: number | null;
   distanceKm: number | null;
 }
 type OfferSortMode = 'price' | 'distance' | 'availability';
@@ -249,7 +253,7 @@ export function ProductDetailPage() {
                         <span className="offer-side">
                           <strong>{formatXOF(o.price)}</strong>
                           <span className="small muted">
-                            {o.available === null ? 'Disponibilité à confirmer' : `${o.available} en stock`}
+                            {o.flashPrice != null ? 'Offre Flash' : o.available === null ? 'Disponibilité à confirmer' : `${o.available} en stock`}
                             {o.distanceKm != null && (
                               <>
                                 {' '}

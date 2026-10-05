@@ -127,6 +127,7 @@ model Organization {
   priceHistory  PriceHistory[]
   sellerProfiles SellerProfile[]
   listings      Listing[]
+  flashOffers   FlashOffer[]
 }
 
 model Membership {
@@ -173,6 +174,7 @@ model Store {
   purchases          Purchase[]
   orders             Order[]
   listings           Listing[]
+  flashOffers        FlashOffer[]
 
   @@index([organizationId])
   @@index([isPublic])
@@ -316,6 +318,7 @@ model ProductVariant {
   purchaseItems      PurchaseItem[]
   orderItems         OrderItem[]
   listings           Listing[]
+  flashOffers        FlashOffer[]
 
   @@index([productId])
 }
@@ -541,11 +544,14 @@ model OrderItem {
   quantity  Int
   unitPrice Int
   lineTotal Int
+  flashOfferId String?
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   variant ProductVariant @relation(fields: [variantId], references: [id])
+  flashOffer FlashOffer? @relation(fields: [flashOfferId], references: [id], onDelete: SetNull)
 
   @@index([orderId])
+  @@index([flashOfferId])
 }
 
 model OrderEvent {
@@ -716,4 +722,32 @@ model Listing {
   // Découverte publique : annonces actives par localisation / mode de remise.
   @@index([status, region, city])
   @@index([status, fulfillment])
+}
+
+
+// ─────────────────────────── Vente Flash — source de vérité ───────────────────────────
+/** Offre Flash réelle, adossée à une variante + boutique + stock existant.
+ * Aucun stock parallèle : la disponibilité est min(stock réel, quantité restante).
+ */
+model FlashOffer {
+  id             String   @id @default(cuid())
+  organizationId String
+  storeId        String
+  variantId      String
+  flashPrice     Int
+  quantityLimit  Int?
+  quantitySold   Int      @default(0)
+  endsAt         DateTime?
+  status         String   @default("ACTIVE") // ACTIVE | EXPIRED | EXHAUSTED | DISABLED
+  orderItems     OrderItem[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variant      ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([storeId, variantId, status])
+  @@index([variantId, status])
 }
