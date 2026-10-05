@@ -74,6 +74,192 @@ export function ProductThumb({
   }, [productId, hasImage, imageUrl]);
 
   if (url && !failed) return <img className={className} src={url} alt={name} loading="lazy" onError={() => setFailed(true)} />;
+  return (
+    <div className={className} aria-hidden="true">
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+/** URL (blob) de la photo marchande déjà chargée et mise en cache, sinon null. */
+export function getCachedProductPhoto(productId: string): string | null {
+  return objectUrlCache.get(productId) ?? null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Photo publique (marketplace / vitrine)                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Photo d'un produit exposé publiquement. Utilise l'URL externe si fournie,
+ * sinon la route publique (sans authentification) qui sert la photo persistée.
+ */
+export function PublicProductImage({
+  productId,
+  name,
+  hasImage,
+  imageUrl,
+  className = 'product-thumb',
+}: {
+  productId: string;
+  name: string;
+  hasImage?: boolean;
+  imageUrl?: string | null;
+  className?: string;
+}) {
+  const src = publicProductImageSrc({ productId, hasImage, imageUrl });
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  if (src && !failed) return <img className={className} src={src} alt={name} loading="lazy" onError={() => setFailed(true)} />;
+  return (
+    <div className={className} aria-hidden="true">
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+/** Source de la photo publique d'un produit (URL externe prioritaire, sinon route serveur). */
+export function publicProductImageSrc({
+  productId,
+  hasImage,
+  imageUrl,
+}: {
+  productId: string;
+  hasImage?: boolean;
+  imageUrl?: string | null;
+}): string | null {
+  return imageUrl ?? (hasImage ? `${API_BASE}/public/products/${productId}/photo` : null);
+}
+
+/* ------------------------------------------------------------------ */
+/* Visionneuse d'image (lightbox maîtrisée)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Affiche une image en grand SANS zoom forcé : `object-fit: contain`, taille
+ * bornée par le viewport (safe areas incluses), jamais plus grande que
+ * nécessaire même si la résolution d'origine est élevée. Fermeture par bouton,
+ * clic sur l'arrière-plan ou Échap. Galerie (points + flèches) si plusieurs
+ * images, avec navigation clavier et tactile.
+ */
+export function ImageLightbox({
+  images,
+  index,
+  onIndexChange,
+  onClose,
+  title,
+}: {
+  images: Array<{ src: string; alt: string }>;
+  index: number;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+  title?: string;
+}) {
+  const count = images.length;
+  const safeIndex = count ? Math.min(Math.max(index, 0), count - 1) : 0;
+  const current = images[safeIndex];
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => setImageError(false), [current?.src]);
+
+  useEffect(() => {
+    if (!current) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight' && count > 1) onIndexChange((safeIndex + 1) % count);
+      else if (e.key === 'ArrowLeft' && count > 1) onIndexChange((safeIndex - 1 + count) % count);
+    };
+    document.addEventListener('keydown', onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [count, safeIndex, current, onClose, onIndexChange]);
+
+  if (!current || typeof document === 'undefined') return null;
+
+  const go = (delta: number) => onIndexChange((safeIndex + delta + count) % count);
+  const content = (
+    <div className="lightbox" role="dialog" aria-modal="true" aria-label={title ?? 'Aperçu de l’image'} onClick={onClose}>
+      <button type="button" className="lightbox-close" onClick={onClose} aria-label="Fermer l’aperçu">✕</button>
+
+      {count > 1 && (
+        <button type="button" className="lightbox-nav prev" aria-label="Image précédente" onClick={(e) => { e.stopPropagation(); go(-1); }}>‹</button>
+      )}
+
+      <figure className="lightbox-stage" onClick={(e) => e.stopPropagation()}>
+        <div className="lightbox-image-frame">
+          {!imageError ? (
+            <img
+              src={current.src}
+              alt={current.alt}
+              decoding="async"
+              fetchPriority="high"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="lightbox-image-error" role="status">
+              <strong>Photo indisponible</strong>
+              <span>Impossible d’afficher cette image pour le moment.</span>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Fermer</button>
+            </div>
+          )}
+        </div>
+        {title && <figcaption>{title}</figcaption>}
+      </figure>
+
+      {count > 1 && (
+        <button type="button" className="lightbox-nav next" aria-label="Image suivante" onClick={(e) => { e.stopPropagation(); go(1); }}>›</button>
+      )}
+
+      {count > 1 && (
+        <div className="lightbox-dots" role="tablist" aria-label="Choisir une image">
+          {images.map((img, i) => (
+            <button key={`${img.src}-${i}`} type="button" role="tab" aria-selected={i === safeIndex} aria-label={`Image ${i + 1} sur ${count}`} className={`lightbox-dot${i === safeIndex ? ' on' : ''}`} onClick={(e) => { e.stopPropagation(); onIndexChange(i); }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Portal vers body : la lightbox ne peut plus être contrainte par un parent
+  // transform/overflow et reste réellement plein écran sur iOS et desktop.
+  return createPortal(content, document.body);
+}
+
+/* ------------------------------------------------------------------ */
+/* Sélecteur de photo (appareil / galerie)                             */
+/* ------------------------------------------------------------------ */
+
+export function PhotoPicker({
+  value,
+  onChange,
+  onError,
+  busy,
+  label = 'Photo du produit',
+}: {
+  value: string | null;
+  onChange: (dataUrl: string | null) => void;
+  onError?: (message: string) => void;
+  busy?: boolean;
+  label?: string;
+}) {
+  const cameraRef = useRef<HTMLInputElement | null>(null);
+  const galleryRef = useRef<HTMLInputElement | null>(null);
+
+  function handleFile(file: File | undefined) {
+    if (!file) return;
+    void import('../lib/image').then(async ({ prepareProductImage }) => {
+      try {
+        const prepared = await prepareProductImage(file);
+        onChange(prepared.dataUrl);
+      } catch (err) {
+        onError?.(err instanceof Error ? err.message : 'Photo illisible');
+      }
+    });
+  }
 
   return (
     <div className="photo-field">
