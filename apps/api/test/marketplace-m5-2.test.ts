@@ -10,8 +10,14 @@ afterAll(async () => {
 });
 
 describe('M5.2 — profil vendeur public et annonces actives', () => {
+  // Le parcours d'inscription crée déjà un profil vendeur ; ces tests veulent
+  // vérifier explicitement POST /sellers, donc ils repartent d'un compte sans profil.
+  async function clearAutoSeller(userId: string) {
+    await prisma.sellerProfile.deleteMany({ where: { userId } });
+  }
   it('retourne les annonces actives d’un vendeur sans données privées ni GPS', async () => {
     const org = await createOrg('seller-public');
+    await clearAutoSeller(org.userId);
     const seller = await request(app)
       .post('/api/v1/sellers')
       .set(auth(org))
