@@ -90,6 +90,7 @@ describe('M5.2 — profil vendeur public et annonces actives', () => {
 
   it('ne renvoie que les annonces actives et conserve l’état sans modifier le domaine', async () => {
     const org = await createOrg('seller-active');
+    await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
     const seller = await request(app)
       .post('/api/v1/sellers')
       .set(auth(org))
