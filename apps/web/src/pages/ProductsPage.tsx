@@ -6,7 +6,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine, formatDateTime } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
-import { Modal, PhotoPicker, ProductThumb, ImageLightbox, getCachedProductPhoto } from '../components/product';
+import { Modal, PhotoPicker, ProductThumb, ImageLightbox, loadProductPhoto, invalidateProductPhotoCache } from '../components/product';
 
 interface Product {
   id: string;
@@ -88,8 +88,12 @@ export function ProductsPage() {
   const [promoInput, setPromoInput] = useState('');
   const [manageBusy, setManageBusy] = useState(false);
   const [manageError, setManageError] = useState<string | null>(null);
+  const [managePhoto, setManagePhoto] = useState<string | null>(null);
+  const [managePhotoDirty, setManagePhotoDirty] = useState(false);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
-  const [lightbox, setLightbox] = useState<{ productId: string; name: string } | null>(null);
+  const [lightbox, setLightbox] = useState<{ productId: string; name: string; src: string } | null>(null);
+  const [lightboxLoadingId, setLightboxLoadingId] = useState<string | null>(null);
+  const [lightboxError, setLightboxError] = useState<string | null>(null);
 
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
     () =>
@@ -127,12 +131,33 @@ export function ProductsPage() {
     setManage(p);
     setPromoInput(p.promoPrice != null ? String(p.promoPrice) : '');
     setManageError(null);
+    setManagePhoto(null);
+    setManagePhotoDirty(false);
     setHistory([]);
     try {
       const res = await api.get<{ priceHistory: PriceHistoryEntry[] }>(`/products/${p.id}`);
       setHistory(res.priceHistory ?? []);
     } catch {
       /* l'historique est optionnel */
+    }
+  }
+
+  async function saveManagePhoto() {
+    if (!manage || !managePhotoDirty) return;
+    setManageError(null);
+    setManageBusy(true);
+    try {
+      const res = await api.patch<{ product: Product }>(`/products/${manage.id}`, { imageData: managePhoto });
+      const hasImage = Boolean(res.product.hasImage);
+      invalidateProductPhotoCache(manage.id);
+      setManage((current) => current ? { ...current, hasImage, imageUrl: null } : current);
+      setManagePhoto(null);
+      setManagePhotoDirty(false);
+      reload();
+    } catch (err) {
+      setManageError(err instanceof ApiError ? err.message : 'Photo impossible à enregistrer');
+    } finally {
+      setManageBusy(false);
     }
   }
 
@@ -149,6 +174,20 @@ export function ProductsPage() {
       return null;
     } finally {
       setManageBusy(false);
+    }
+  }
+
+  async function openProductPhoto(p: Product) {
+    setLightboxError(null);
+    setLightboxLoadingId(p.id);
+    try {
+      const src = await loadProductPhoto(p.id, p.hasImage, p.imageUrl);
+      if (!src) throw new Error('Photo indisponible');
+      setLightbox({ productId: p.id, name: p.name, src });
+    } catch {
+      setLightboxError('La photo ne peut pas être chargée pour le moment.');
+    } finally {
+      setLightboxLoadingId(null);
     }
   }
 
@@ -286,7 +325,7 @@ export function ProductsPage() {
                       <button
                         type="button"
                         className="merchant-media-btn"
-                        onClick={() => setLightbox({ productId: p.id, name: p.name })}
+                        onClick={() => void openProductPhoto(p)}
                         aria-label={`Agrandir la photo de ${p.name}`}
                       >
                         <ProductThumb productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
@@ -518,6 +557,25 @@ export function ProductsPage() {
             {manageError && <Alert kind="error">{manageError}</Alert>}
 
             <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Photo du produit</div>
+              <p className="small muted" style={{ margin: '6px 0 10px' }}>
+                Remplacez ou supprimez la photo enregistrée. La modification est persistée avant toute nouvelle publication.
+              </p>
+              <PhotoPicker
+                value={managePhoto}
+                onChange={(value) => { setManagePhoto(value); setManagePhotoDirty(true); }}
+                onError={setManageError}
+                busy={manageBusy}
+                label={manage.hasImage ? 'Nouvelle photo' : 'Ajouter une photo'}
+              />
+              {managePhotoDirty && (
+                <button type="button" className="btn btn-sm" disabled={manageBusy} onClick={() => void saveManagePhoto()}>
+                  {manageBusy ? 'Enregistrement…' : 'Enregistrer la photo'}
+                </button>
+              )}
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
               <div className="stat-label">Publication marketplace</div>
               <p className="small muted" style={{ margin: '6px 0 10px' }}>
                 Un produit publié apparaît dans la marketplace lorsqu'il est en stock. Prix de vente actuel :{' '}
@@ -623,9 +681,16 @@ export function ProductsPage() {
         </Modal>
       )}
 
-      {lightbox && getCachedProductPhoto(lightbox.productId) && (
+      {lightboxLoadingId && <div className="sr-only" role="status">Chargement de la photo…</div>}
+      {lightboxError && (
+        <div className="toast toast-error" role="status">
+          {lightboxError}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLightboxError(null)}>Fermer</button>
+        </div>
+      )}
+      {lightbox && (
         <ImageLightbox
-          images={[{ src: getCachedProductPhoto(lightbox.productId)!, alt: lightbox.name }]}
+          images={[{ src: lightbox.src, alt: lightbox.name }]}
           index={0}
           onIndexChange={() => undefined}
           onClose={() => setLightbox(null)}

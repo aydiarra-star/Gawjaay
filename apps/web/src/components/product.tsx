@@ -8,6 +8,7 @@ import { getAccessToken, getOrganizationId } from '../lib/session';
 /* ------------------------------------------------------------------ */
 
 const objectUrlCache = new Map<string, string>();
+const objectUrlInflight = new Map<string, Promise<string>>();
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -16,6 +17,26 @@ function authHeaders(): Record<string, string> {
   const orgId = getOrganizationId();
   if (orgId) headers['x-organization-id'] = orgId;
   return headers;
+}
+
+/** Charge une photo marchande une seule fois et conserve son Blob URL. */
+export async function loadProductPhoto(productId: string, hasImage?: boolean, imageUrl?: string | null): Promise<string | null> {
+  if (imageUrl) return imageUrl;
+  if (!hasImage) return null;
+  const cached = objectUrlCache.get(productId);
+  if (cached) return cached;
+  const pending = objectUrlInflight.get(productId);
+  if (pending) return pending;
+  const request = fetch(API_BASE + '/products/' + productId + '/photo', { headers: authHeaders() })
+    .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('Photo indisponible'))))
+    .then((blob) => {
+      const objectUrl = URL.createObjectURL(blob);
+      objectUrlCache.set(productId, objectUrl);
+      return objectUrl;
+    })
+    .finally(() => objectUrlInflight.delete(productId));
+  objectUrlInflight.set(productId, request);
+  return request;
 }
 
 /**
@@ -37,35 +58,34 @@ export function ProductThumb({
   className?: string;
 }) {
   const [url, setUrl] = useState<string | null>(() => imageUrl ?? objectUrlCache.get(productId) ?? null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (imageUrl || !hasImage) return;
-    const cached = objectUrlCache.get(productId);
-    if (cached) {
-      setUrl(cached);
-      return;
-    }
+    setFailed(false);
     let cancelled = false;
-    fetch(`${API_BASE}/products/${productId}/photo`, { headers: authHeaders() })
-      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('no photo'))))
-      .then((blob) => {
-        if (cancelled) return;
-        const objectUrl = URL.createObjectURL(blob);
-        objectUrlCache.set(productId, objectUrl);
-        setUrl(objectUrl);
+    void loadProductPhoto(productId, hasImage, imageUrl)
+      .then((next) => {
+        if (!cancelled && next) setUrl(next);
       })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => { cancelled = true; };
   }, [productId, hasImage, imageUrl]);
 
-  if (url) return <img className={className} src={url} alt={name} loading="lazy" />;
+  if (url && !failed) return <img className={className} src={url} alt={name} loading="lazy" onError={() => setFailed(true)} />;
   return (
     <div className={className} aria-hidden="true">
       {name.charAt(0).toUpperCase()}
     </div>
   );
+}
+
+/** Invalide la photo en cache après un remplacement/suppression. */
+export function invalidateProductPhotoCache(productId: string): void {
+  const url = objectUrlCache.get(productId);
+  if (url) URL.revokeObjectURL(url);
+  objectUrlCache.delete(productId);
 }
 
 /** URL (blob) de la photo marchande déjà chargée et mise en cache, sinon null. */
