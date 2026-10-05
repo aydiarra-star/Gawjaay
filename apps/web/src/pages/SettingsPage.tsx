@@ -46,8 +46,40 @@ interface Store {
   isActive: boolean;
 }
 
+function PersonalAccountSection({ user, onSaved }: { user: { id: string; email: string; fullName: string; phone: string | null } | null; onSaved: (user: { id: string; email: string; fullName: string; phone: string | null }) => void }) {
+  const [form, setForm] = useState({ fullName: user?.fullName ?? '', phone: user?.phone ?? '' });
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!user) return null;
+  async function save() {
+    setBusy(true); setError(null); setOk(false);
+    try {
+      const data = await api.patch<{ user: { id: string; email: string; fullName: string; phone: string | null } }>('/me/profile', {
+        fullName: form.fullName.trim(), phone: form.phone.trim() || null,
+      });
+      onSaved(data.user); setOk(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Modification impossible');
+    } finally { setBusy(false); }
+  }
+  return (
+    <Card title="Mon compte" actions={ok ? <span className="badge badge-success">Enregistré</span> : undefined}>
+      <p className="small muted" style={{ marginTop: 0 }}>Vos informations personnelles restent sous votre contrôle. L’adresse email sert à la connexion et ne peut pas être modifiée ici.</p>
+      {error && <Alert kind="error">{error}</Alert>}
+      <div className="field"><label>Email</label><input value={user.email} disabled /></div>
+      <div className="form-row">
+        <div className="field"><label htmlFor="profile-name">Nom complet</label><input id="profile-name" value={form.fullName} onChange={e => { setForm({ ...form, fullName: e.target.value }); setOk(false); }} /></div>
+        <div className="field"><label htmlFor="profile-phone">Téléphone</label><input id="profile-phone" value={form.phone} onChange={e => { setForm({ ...form, phone: e.target.value }); setOk(false); }} placeholder="+221…" /></div>
+      </div>
+      <button className="btn" onClick={() => void save()} disabled={busy || form.fullName.trim().length < 2}>{busy ? 'Enregistrement…' : 'Enregistrer mes informations'}</button>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
-  const { user, organizations, organizationId, refreshOrganizations } = useAuth();
+  const { user, organizations, organizationId, refreshOrganizations, updateUser } = useAuth();
+  const [profileUser, setProfileUser] = useState(user);
   const { stores, storeId, setStoreId, refreshStores } = useStore();
   const org = organizations.find((o) => o.id === organizationId);
 
@@ -61,14 +93,17 @@ export function SettingsPage() {
     <>
       <PageHead title="Paramètres" subtitle="Profil, boutiques, abonnement et moyens de paiement." />
 
-      <OrganizationProfile
-        org={orgData}
-        onSaved={() => {
-          orgData.reload();
-          refreshOrganizations();
-        }}
-      />
-      <StoresSection
+      <PersonalAccountSection user={profileUser} onSaved={(next) => { setProfileUser(next); updateUser(next); }} />
+      {organizationId && (
+        <>
+          <OrganizationProfile
+            org={orgData}
+            onSaved={() => {
+              orgData.reload();
+              refreshOrganizations();
+            }}
+          />
+          <StoresSection
         stores={storeData}
         storesCtx={stores}
         activeId={storeId}
@@ -77,16 +112,65 @@ export function SettingsPage() {
           storeData.reload();
           refreshStores();
         }}
-      />
+          />
+        </>
+      )}
+      <SellerProfileSection />
       <PhoneSection phone={phone} />
-      <MembersSection />
-      <ExportsSection />
-      <ProfileReadOnly user={user} org={org} />
-      <SubscriptionSection subscription={subscription} />
+      {organizationId && <MembersSection />}
+      {organizationId && <ExportsSection />}
+      <ProfileReadOnly user={profileUser} org={org} />
+      {organizationId && <SubscriptionSection subscription={subscription} />}
       <PaymentsSection caps={caps} />
 
       {organizations.length === 0 && <EmptyState title="Aucune organisation" hint="Votre compte n'est rattaché à aucune organisation." />}
     </>
+  );
+}
+
+function SellerProfileSection() {
+  const { data, loading, error, reload } = useApi<{ sellers: Array<{ id: string; displayName: string; bio: string | null; phone: string | null; city: string | null; region: string | null }> }>(() => api.get('/sellers'), []);
+  const [form, setForm] = useState<{ id: string; displayName: string; bio: string; phone: string; city: string; region: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const current = form ?? (() => {
+    const s = data?.sellers?.[0];
+    return s ? { id: s.id, displayName: s.displayName, bio: s.bio ?? '', phone: s.phone ?? '', city: s.city ?? '', region: s.region ?? '' } : null;
+  })();
+  if (loading) return <Card title="Profil vendeur"><Spinner /></Card>;
+  if (error || !current) return null;
+  function set<K extends keyof typeof current>(key: K, value: string) {
+    setForm({ ...current!, [key]: value });
+    setOk(false); setMessage(null);
+  }
+  async function save() {
+    setBusy(true); setMessage(null); setOk(false);
+    try {
+      await api.patch(`/sellers/${current!.id}`, {
+        displayName: current!.displayName.trim(),
+        bio: current!.bio.trim() || null,
+        phone: current!.phone.trim() || null,
+        city: current!.city.trim() || null,
+        region: current!.region.trim() || null,
+      });
+      await reload(); setForm(null); setOk(true); setMessage('Profil vendeur mis à jour.');
+    } catch (err) { setMessage(err instanceof ApiError ? err.message : 'Modification impossible'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <Card title="Profil vendeur" actions={ok ? <span className="badge badge-success">Enregistré</span> : undefined}>
+      <p className="small muted" style={{ marginTop: 0 }}>Ce profil est présenté avec les informations que vous fournissez. GawJaay n'ajoute aucune certification automatique.</p>
+      {message && <Alert kind={ok ? 'success' : 'error'}>{message}</Alert>}
+      <div className="field"><label>Nom public</label><input value={current.displayName} onChange={e => set('displayName', e.target.value)} /></div>
+      <div className="field"><label>Présentation</label><textarea rows={3} value={current.bio} onChange={e => set('bio', e.target.value)} placeholder="Présentez votre activité…" /></div>
+      <div className="form-row">
+        <div className="field"><label>Téléphone public</label><input value={current.phone} onChange={e => set('phone', e.target.value)} /></div>
+        <div className="field"><label>Ville</label><input value={current.city} onChange={e => set('city', e.target.value)} /></div>
+      </div>
+      <div className="field"><label>Région</label><select value={current.region} onChange={e => set('region', e.target.value)}><option value="">—</option>{SENEGAL_REGIONS.map(r => <option key={r.code} value={r.name}>{r.name}</option>)}</select></div>
+      <button className="btn" onClick={() => void save()} disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le profil vendeur'}</button>
+    </Card>
   );
 }
 
