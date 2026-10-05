@@ -103,6 +103,8 @@ export function PosPage() {
           price: product.price,
           quantity: c[variant.id]?.quantity ?? 1,
           packaging: product.packaging,
+          hasImage: product.hasImage,
+          imageUrl: product.imageUrl,
         },
       }));
     }
@@ -130,6 +132,8 @@ export function PosPage() {
         price: product.price,
         quantity: current + 1,
         packaging: product.packaging,
+        hasImage: product.hasImage,
+        imageUrl: product.imageUrl,
       },
     }));
   }
