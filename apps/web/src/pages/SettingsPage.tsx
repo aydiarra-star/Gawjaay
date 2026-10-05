@@ -128,7 +128,14 @@ export function SettingsPage() {
   );
 }
 
-interface SellerProfileForm { id: string; displayName: string; bio: string; phone: string; city: string; region: string; }
+interface SellerProfileForm {
+  id: string;
+  displayName: string;
+  bio: string;
+  phone: string;
+  city: string;
+  region: string;
+}
 
 function SellerProfileSection() {
   const { data, loading, error, reload } = useApi<{ sellers: Array<{ id: string; displayName: string; bio: string | null; phone: string | null; city: string | null; region: string | null }> }>(() => api.get('/sellers'), []);
