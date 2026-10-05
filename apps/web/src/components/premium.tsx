@@ -32,6 +32,30 @@ export function TerangaBanner({
 }
 
 /* ------------------------------------------------------------------ */
+/* Bandeau d'annonces — défilement gauche → droite                     */
+/* ------------------------------------------------------------------ */
+export function AnnouncementTicker({ messages }: { messages: string[] }) {
+  const items = messages.filter(Boolean);
+  if (!items.length) return null;
+  const sequence = [...items, ...items];
+  return (
+    <section className="announcement-ticker" aria-label="Annonces GawJaay">
+      <div className="announcement-label">Annonce</div>
+      <div className="announcement-viewport">
+        <div className="announcement-track">
+          {sequence.map((message, index) => (
+            <span className="announcement-item" key={message + '-' + index}>
+              <IconSparkle size={13} aria-hidden="true" />
+              <span>{message}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Notation en étoiles dorées                                          */
 /* ------------------------------------------------------------------ */
 export function Stars({ value, count }: { value: number; count?: number }) {
