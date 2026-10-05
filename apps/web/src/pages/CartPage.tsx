@@ -3,6 +3,7 @@ import { formatXOF } from '../lib/format';
 import { EmptyState } from '../components/ui';
 import { BuyerShell } from '../components/BuyerHeader';
 import { IconCart, IconStore } from '../components/icons';
+import { PublicProductImage } from '../components/product';
 import { useCart } from '../context/CartContext';
 
 export function CartPage() {
@@ -44,7 +45,9 @@ export function CartPage() {
           <div className="stack" style={{ marginTop: 16 }}>
             {cart.items.map((item) => (
               <div className="card cart-line" key={item.variantId}>
-                <div className="cart-line-main">
+                <div className="cart-line-product">
+                  <PublicProductImage productId={item.productId} name={item.name} hasImage={item.hasImage} imageUrl={item.imageUrl} className="cart-item-thumb" />
+                  <div className="cart-line-main">
                   <strong>{item.name}</strong>
                   {item.variantName && <span className="small muted"> · {item.variantName}</span>}
                   <div className="small muted">
@@ -54,8 +57,9 @@ export function CartPage() {
                     )}
                     {item.available == null && <span className="muted"> · disponibilité à confirmer</span>}
                   </div>
+                  </div>
                 </div>
-                <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                <div className="cart-line-actions row" style={{ gap: 8, alignItems: 'center' }}>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
