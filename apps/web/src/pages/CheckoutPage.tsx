@@ -31,6 +31,7 @@ export function CheckoutPage() {
   const [stripeAvailable, setStripeAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const paymentCancelled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('payment') === 'cancelled';
 
   const requiresDeliveryAddress = false; // Retrait en boutique prioritaire ; adresse facultative.
 
@@ -110,6 +111,7 @@ export function CheckoutPage() {
           </Link>
         </Alert>
       )}
+      {paymentCancelled && <Alert kind="warning">Paiement annulé. Votre commande n’a pas été créée pour ce paiement ; votre panier est conservé.</Alert>}
       {error && <Alert kind="error">{error}</Alert>}
 
       <div className="card">
