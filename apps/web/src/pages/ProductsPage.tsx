@@ -6,7 +6,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine, formatDateTime } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
-import { Modal, PhotoPicker, ProductThumb, ImageLightbox, loadProductPhoto } from '../components/product';
+import { Modal, PhotoPicker, ProductThumb, ImageLightbox, loadProductPhoto, invalidateProductPhotoCache } from '../components/product';
 
 interface Product {
   id: string;
@@ -88,6 +88,8 @@ export function ProductsPage() {
   const [promoInput, setPromoInput] = useState('');
   const [manageBusy, setManageBusy] = useState(false);
   const [manageError, setManageError] = useState<string | null>(null);
+  const [managePhoto, setManagePhoto] = useState<string | null>(null);
+  const [managePhotoDirty, setManagePhotoDirty] = useState(false);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [lightbox, setLightbox] = useState<{ productId: string; name: string; src: string } | null>(null);
   const [lightboxLoadingId, setLightboxLoadingId] = useState<string | null>(null);
@@ -129,12 +131,32 @@ export function ProductsPage() {
     setManage(p);
     setPromoInput(p.promoPrice != null ? String(p.promoPrice) : '');
     setManageError(null);
+    setManagePhoto(null);
+    setManagePhotoDirty(false);
     setHistory([]);
     try {
       const res = await api.get<{ priceHistory: PriceHistoryEntry[] }>(`/products/${p.id}`);
       setHistory(res.priceHistory ?? []);
     } catch {
       /* l'historique est optionnel */
+    }
+  }
+
+  async function saveManagePhoto() {
+    if (!manage || !managePhotoDirty) return;
+    setManageError(null);
+    setManageBusy(true);
+    try {
+      const res = await api.put<{ hasImage: boolean }>(`/products/${manage.id}/photo`, { imageData: managePhoto });
+      invalidateProductPhotoCache(manage.id);
+      setManage((current) => current ? { ...current, hasImage: res.hasImage, imageUrl: null } : current);
+      setManagePhoto(null);
+      setManagePhotoDirty(false);
+      reload();
+    } catch (err) {
+      setManageError(err instanceof ApiError ? err.message : 'Photo impossible à enregistrer');
+    } finally {
+      setManageBusy(false);
     }
   }
 
@@ -532,6 +554,25 @@ export function ProductsPage() {
         >
           <div className="stack">
             {manageError && <Alert kind="error">{manageError}</Alert>}
+
+            <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Photo du produit</div>
+              <p className="small muted" style={{ margin: '6px 0 10px' }}>
+                Remplacez ou supprimez la photo enregistrée. La modification est persistée avant toute nouvelle publication.
+              </p>
+              <PhotoPicker
+                value={managePhoto}
+                onChange={(value) => { setManagePhoto(value); setManagePhotoDirty(true); }}
+                onError={setManageError}
+                busy={manageBusy}
+                label={manage.hasImage ? 'Nouvelle photo' : 'Ajouter une photo'}
+              />
+              {managePhotoDirty && (
+                <button type="button" className="btn btn-sm" disabled={manageBusy} onClick={() => void saveManagePhoto()}>
+                  {manageBusy ? 'Enregistrement…' : 'Enregistrer la photo'}
+                </button>
+              )}
+            </div>
 
             <div className="card" style={{ padding: 16 }}>
               <div className="stat-label">Publication marketplace</div>
