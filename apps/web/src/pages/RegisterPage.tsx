@@ -14,6 +14,7 @@ export function RegisterPage() {
     email: '',
     phone: '',
     password: '',
+    accountType: 'BUSINESS' as 'BUSINESS' | 'INDIVIDUAL',
     organizationName: '',
     storeName: '',
     region: 'Dakar',
@@ -29,6 +30,10 @@ export function RegisterPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (form.accountType === 'BUSINESS' && (!form.organizationName.trim() || !form.storeName.trim())) {
+      setError('Le nom de l’entreprise et de la boutique sont requis pour un compte boutique.');
+      return;
+    }
     if (form.password.length < 8) {
       setError('Le mot de passe doit contenir au moins 8 caractères.');
       return;
@@ -36,6 +41,7 @@ export function RegisterPage() {
     setBusy(true);
     try {
       await register({
+        accountType: form.accountType,
         email: form.email,
         password: form.password,
         fullName: form.fullName,
@@ -45,7 +51,7 @@ export function RegisterPage() {
         region: form.region,
         city: form.city || undefined,
       });
-      navigate('/app');
+      navigate(form.accountType === 'INDIVIDUAL' ? '/seller' : '/app');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Inscription impossible');
     } finally {
@@ -61,23 +67,20 @@ export function RegisterPage() {
           Gaw<span>Jaay</span>
         </Link>
         <div className="card" style={{ padding: 28 }}>
-          <h1>Créer ma boutique</h1>
+          <h1>{form.accountType === 'BUSINESS' ? 'Créer ma boutique' : 'Créer mon compte particulier'}</h1>
           <p className="muted small" style={{ marginBottom: 20 }}>
             Votre compte, votre entreprise et votre première boutique sont créés en une seule étape.
           </p>
           {error && <Alert kind="error">{error}</Alert>}
 
           <form onSubmit={onSubmit} noValidate>
-            <div className="row" style={{ gap: 8, marginBottom: 16 }}>
-              <span className="badge badge-primary">
-                <IconUsers size={13} /> Vous
-              </span>
-              <span className="badge">
-                <IconBuilding size={13} /> Entreprise
-              </span>
-              <span className="badge">
-                <IconStore size={13} /> Boutique
-              </span>
+            <div className="row" style={{ gap: 8, marginBottom: 20 }}>
+              <button type="button" className={`btn btn-sm ${form.accountType === 'BUSINESS' ? '' : 'btn-secondary'}`} onClick={() => update('accountType', 'BUSINESS')}>
+                <IconStore size={14} /> Boutique
+              </button>
+              <button type="button" className={`btn btn-sm ${form.accountType === 'INDIVIDUAL' ? '' : 'btn-secondary'}`} onClick={() => update('accountType', 'INDIVIDUAL')}>
+                <IconUsers size={14} /> Particulier
+              </button>
             </div>
 
             <div className="form-row">
@@ -106,6 +109,7 @@ export function RegisterPage() {
               />
             </div>
 
+{form.accountType === 'BUSINESS' && (
             <hr className="divider" />
 
             <div className="form-row">
@@ -133,6 +137,9 @@ export function RegisterPage() {
                 <label htmlFor="city">Ville (optionnel)</label>
                 <input id="city" value={form.city} onChange={(e) => update('city', e.target.value)} />
               </div>
+
+            )}
+
             </div>
 
             <button className="btn btn-block btn-lg" type="submit" disabled={busy}>
