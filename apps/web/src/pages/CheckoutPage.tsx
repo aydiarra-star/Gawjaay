@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { formatXOF } from '../lib/format';
@@ -34,11 +34,11 @@ export function CheckoutPage() {
 
   const requiresDeliveryAddress = false; // Retrait en boutique prioritaire ; adresse facultative.
 
-  useState(() => {
+  useEffect(() => {
     void api.get<{ onlinePaymentEnabled: boolean }>('/payments/capabilities', { publicRoute: true })
       .then((data) => setStripeAvailable(data.onlinePaymentEnabled))
       .catch(() => setStripeAvailable(false));
-  });
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
