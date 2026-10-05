@@ -94,14 +94,16 @@ export function SettingsPage() {
       <PageHead title="Paramètres" subtitle="Profil, boutiques, abonnement et moyens de paiement." />
 
       <PersonalAccountSection user={profileUser} onSaved={(next) => { setProfileUser(next); updateUser(next); }} />
-      {organizationId && <OrganizationProfile
-        org={orgData}
-        onSaved={() => {
-          orgData.reload();
-          refreshOrganizations();
-        }}
-      />
-      {organizationId && <StoresSection
+      {organizationId && (
+        <>
+          <OrganizationProfile
+            org={orgData}
+            onSaved={() => {
+              orgData.reload();
+              refreshOrganizations();
+            }}
+          />
+          <StoresSection
         stores={storeData}
         storesCtx={stores}
         activeId={storeId}
@@ -110,7 +112,9 @@ export function SettingsPage() {
           storeData.reload();
           refreshStores();
         }}
-      />
+          />
+        </>
+      )}
       <PhoneSection phone={phone} />
       {organizationId && <MembersSection />}
       {organizationId && <ExportsSection />}
