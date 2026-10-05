@@ -147,9 +147,10 @@ export function ProductsPage() {
     setManageError(null);
     setManageBusy(true);
     try {
-      const res = await api.put<{ hasImage: boolean }>(`/products/${manage.id}/photo`, { imageData: managePhoto });
+      const res = await api.patch<{ product: Product }>(`/products/${manage.id}`, { imageData: managePhoto });
+      const hasImage = Boolean(res.product.hasImage);
       invalidateProductPhotoCache(manage.id);
-      setManage((current) => current ? { ...current, hasImage: res.hasImage, imageUrl: null } : current);
+      setManage((current) => current ? { ...current, hasImage, imageUrl: null } : current);
       setManagePhoto(null);
       setManagePhotoDirty(false);
       reload();
