@@ -6,7 +6,7 @@ import { AppError } from '../lib/errors.js';
 import { audit } from '../lib/audit.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireOrganization, requirePermission, assertStoreAccess } from '../middleware/tenant.js';
-import { createFlashOffer, getActiveFlashOffer, flashRemaining } from '../services/flash-offers.service.js';
+import { createFlashOffer, flashRemaining } from '../services/flash-offers.service.js';
 import { resolveUnitPrice } from '@gawjaay/shared';
 
 const router = Router();
@@ -43,7 +43,7 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req, res
   if (storeId) assertStoreAccess(req, storeId);
   const offers = await prisma.flashOffer.findMany({
     where: { organizationId: req.auth.organizationId, ...(storeId ? { storeId } : {}) },
-    include: { variant: { select: { id: true, name: true, product: { select: { id: true, name: true, price: true, promoPrice: true } } } }, store: { select: { id: true, name: true } } },
+    include: { variant: { select: { id: true, name: true, product: { select: { id: true, name: true, price: true, promoPrice: true } }, price: true } }, store: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' },
     take: 100,
   });
