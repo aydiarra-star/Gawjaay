@@ -20,6 +20,10 @@ async function publishStore(org: TestOrg, overrides: Record<string, unknown> = {
 
 /** Crée un profil vendeur pour l'utilisateur d'une organisation (MERCHANT/BUSINESS). */
 async function createSeller(org: TestOrg, sellerType: 'INDIVIDUAL' | 'MERCHANT' | 'BUSINESS', body: Record<string, unknown> = {}) {
+  // L'inscription BUSINESS crée désormais automatiquement un profil MERCHANT.
+  // Les tests Marketplace veulent piloter explicitement le type du profil : on remplace
+  // le profil d'inscription avant d'exercer l'endpoint POST /sellers.
+  await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
   const res = await request(app)
     .post('/api/v1/sellers')
     .set({ Authorization: `Bearer ${org.token}` })
