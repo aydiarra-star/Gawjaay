@@ -22,6 +22,8 @@ async function publishStore(org: TestOrg, overrides: Record<string, unknown> = {
 }
 
 async function createSeller(org: TestOrg, sellerType: 'INDIVIDUAL' | 'MERCHANT' | 'BUSINESS', body: Record<string, unknown> = {}) {
+  // L'inscription BUSINESS crée désormais automatiquement un profil MERCHANT.
+  await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
   return request(app)
     .post('/api/v1/sellers')
     .set({ Authorization: `Bearer ${org.token}` })

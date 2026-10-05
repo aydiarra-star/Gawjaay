@@ -95,7 +95,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const setQuantity = useCallback((variantId: string, quantity: number) => {
     setItems((prev) =>
       prev
-        .map((i) => (i.variantId === variantId ? { ...i, quantity: Math.max(0, Math.floor(quantity)) } : i))
+        .map((i) => {
+          if (i.variantId !== variantId) return i;
+          const requested = Math.max(0, Math.floor(quantity));
+          const capped = i.available == null ? requested : Math.min(requested, Math.max(i.available, 0));
+          return { ...i, quantity: capped };
+        })
         .filter((i) => i.quantity > 0),
     );
   }, []);

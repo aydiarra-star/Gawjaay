@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ORDER_STATUS_LABELS, type OrderStatus } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
@@ -36,6 +36,13 @@ export function OrderDetailPage() {
   );
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const paymentSuccess = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('payment') === 'success';
+
+  useEffect(() => {
+    if (!paymentSuccess || !data?.order || data.order.status !== 'PENDING') return;
+    const timer = window.setTimeout(() => reload(), 1500);
+    return () => window.clearTimeout(timer);
+  }, [paymentSuccess, data?.order?.status, reload]);
 
   async function cancel() {
     setActionError(null);
@@ -68,6 +75,11 @@ export function OrderDetailPage() {
       {loading && <Spinner />}
       {error && <Alert kind="error">{error}</Alert>}
       {actionError && <Alert kind="error">{actionError}</Alert>}
+      {paymentSuccess && (
+        <Alert kind={order?.status === 'CONFIRMED' ? 'success' : 'warning'}>
+          {order?.status === 'CONFIRMED' ? 'Paiement Stripe confirmé. Votre commande est confirmée.' : 'Retour de Stripe reçu. La confirmation du paiement est en cours ; cette page se met à jour automatiquement.'}
+        </Alert>
+      )}
 
       {!loading && !error && !order && (
         <div className="card">
