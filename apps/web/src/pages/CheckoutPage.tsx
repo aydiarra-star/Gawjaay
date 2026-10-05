@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { formatXOF } from '../lib/format';
@@ -27,10 +27,18 @@ export function CheckoutPage() {
   const [region, setRegion] = useState('');
   const [address, setAddress] = useState('');
   const [note, setNote] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'MANUAL' | 'CARD'>('MANUAL');
+  const [stripeAvailable, setStripeAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const requiresDeliveryAddress = false; // Retrait en boutique prioritaire ; adresse facultative.
+
+  useEffect(() => {
+    void api.get<{ onlinePaymentEnabled: boolean }>('/payments/capabilities', { publicRoute: true })
+      .then((data) => setStripeAvailable(data.onlinePaymentEnabled))
+      .catch(() => setStripeAvailable(false));
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -52,6 +60,11 @@ export function CheckoutPage() {
         clientRequestId: idRef.current,
         items: cart.items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
       });
+      if (paymentMethod === 'CARD') {
+        const payment = await api.post<{ checkoutUrl: string }>('/payments/stripe/checkout', { orderId: res.orderId });
+        window.location.assign(payment.checkoutUrl);
+        return;
+      }
       cart.clear();
       navigate(`/orders/${res.orderId}`);
     } catch (err) {
@@ -85,7 +98,7 @@ export function CheckoutPage() {
       <div className="page-head">
         <div>
           <h1>Commander</h1>
-          <p>Retrait en boutique · paiement auprès du vendeur (aucun paiement en ligne).</p>
+          <p>Retrait en boutique · choisissez votre mode de règlement au moment de commander.</p>
         </div>
       </div>
 
@@ -146,6 +159,14 @@ export function CheckoutPage() {
           <div className="field">
             <label htmlFor="c-note">Note pour le vendeur (optionnel)</label>
             <textarea id="c-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="c-payment">Paiement</label>
+            <select id="c-payment" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as 'MANUAL' | 'CARD')}>
+              <option value="MANUAL">Payer auprès du vendeur</option>
+              {stripeAvailable && <option value="CARD">Carte bancaire · Stripe</option>}
+            </select>
+            {paymentMethod === 'CARD' && <p className="field-hint">Vous serez redirigé vers Stripe pour un paiement sécurisé. La commande sera confirmée après validation du paiement.</p>}
           </div>
           <p className="field-hint">
             Retrait en boutique. {requiresDeliveryAddress ? '' : 'La livraison n’est pas proposée ici : le vendeur vous contacte pour convenir des modalités.'}

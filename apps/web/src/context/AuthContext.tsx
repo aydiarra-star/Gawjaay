@@ -28,8 +28,9 @@ export interface RegisterInput {
   password: string;
   fullName: string;
   phone?: string;
-  organizationName: string;
-  storeName: string;
+  accountType: 'BUSINESS' | 'INDIVIDUAL';
+  organizationName?: string;
+  storeName?: string;
   region?: string;
   city?: string;
 }
@@ -95,12 +96,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken: string;
       refreshToken: string;
       user: SessionUser;
-      organization: { id: string };
-      store: { id: string };
+      organization: { id: string } | null;
+      store: { id: string } | null;
     }>('/auth/register', input, { publicRoute: true });
-    setSession({ accessToken: data.accessToken, user: data.user, organizationId: data.organization.id, storeId: data.store.id });
+    setSession({
+      accessToken: data.accessToken,
+      user: data.user,
+      ...(data.organization ? { organizationId: data.organization.id } : {}),
+      ...(data.store ? { storeId: data.store.id } : {}),
+    });
     setUser(data.user);
-    setOrgId(data.organization.id);
+    setOrgId(data.organization?.id ?? null);
     await refreshOrganizations();
   }, [refreshOrganizations]);
 

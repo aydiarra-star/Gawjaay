@@ -26,7 +26,7 @@ marketplace et tableau de bord.
 | Boutique publique & marketplace | ✅ Fonctionnel (testé) |
 | Abonnements (plans & limites côté serveur) | ✅ Fonctionnel — activation des plans **payants non connectée** |
 | Encaissement **espèces, Wave, Orange Money, Free Money, Wizall** et vente à crédit | ✅ Fonctionnel (interne, sans prestataire) |
-| **Paiement par carte bancaire en ligne** | ❌ **Non connecté** — l'API répond volontairement `503` |
+| **Paiement par carte bancaire en ligne** | 🟡 **Stripe intégré, activation production conditionnée aux clés Stripe** |
 
 **Aucune donnée fictive n'est présentée comme réelle.** Le tableau de bord affiche `0` tant
 qu'aucune vente réelle n'existe. Le jeu de démonstration (`prisma/seed.ts`) est explicitement
@@ -150,7 +150,10 @@ Résultats vérifiés localement :
 | `HOST` | Interface d'écoute (`0.0.0.0` par défaut, adapté aux proxys/hébergeurs) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secrets de signature (≥ 32 caractères en production) |
 | `FRONTEND_URL` | Origine(s) autorisée(s) par CORS (séparées par des virgules) |
-| `PAYMENTS_MODE` | `disabled` (défaut). `enabled` est **refusé** tant qu'aucun prestataire n'est connecté |
+| `PAYMENTS_MODE` | `disabled` (défaut) ou `stripe` lorsque les deux secrets Stripe sont configurés |
+| `STRIPE_SECRET_KEY` | Clé secrète Stripe — uniquement dans les secrets du backend |
+| `STRIPE_WEBHOOK_SECRET` | Secret de signature du webhook Stripe — uniquement dans les secrets du backend |
+| `APP_PUBLIC_URL` | URL publique complète de GawJaay utilisée par Stripe pour le retour client |
 
 **Web** (au build) :
 
@@ -271,6 +274,19 @@ connexion à un PSP n'est simulée.
 `GET /api/v1/payments/capabilities` renvoie, pour chaque moyen, `available` et `mode`
 (`manual` ou `online`). L'interface n'affiche jamais un bouton de paiement en ligne non connecté.
 
-## 12. Licence
+## 12. Activation Stripe en production
+
+Le code Stripe est prêt côté GawJaay : Checkout hébergé, paiement carte, signature du webhook et confirmation serveur de la commande. **Aucune clé n'est commitée.**
+
+Pour activer le paiement carte :
+1. disposer d'un compte Stripe éligible au pays de l'entreprise ;
+2. renseigner `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dans Render ;
+3. passer `PAYMENTS_MODE` à `stripe` ;
+4. configurer dans Stripe le webhook `/api/v1/payments/stripe/webhook` ;
+5. tester d'abord en mode Stripe test avant de passer aux clés live.
+
+Point important pour le Sénégal : la page officielle de disponibilité Stripe ne liste pas actuellement le Sénégal parmi les pays d'inscription directs. GawJaay ne contourne pas cette règle et n'affichera pas le paiement carte comme disponible tant qu'un compte Stripe réellement éligible n'est pas configuré.
+
+## 13. Licence
 
 Projet privé — tous droits réservés.

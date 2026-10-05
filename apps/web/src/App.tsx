@@ -25,6 +25,7 @@ import { PurchasesPage } from './pages/PurchasesPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SellerHubPage } from './pages/SellerHubPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -53,6 +54,7 @@ export function App() {
       <Route path="/orders/:id" element={<OrderDetailPage />} />
       <Route path="/shop/:slug" element={<ShopPage />} />
       <Route path="/seller/:id" element={<SellerPage />} />
+      <Route path="/seller" element={<RequireAuth><SellerHubPage /></RequireAuth>} />
 
       <Route
         path="/app"

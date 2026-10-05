@@ -24,8 +24,9 @@ const registerSchema = z.object({
   password,
   fullName: z.string().min(2).max(120),
   phone: z.string().max(30).optional(),
-  organizationName: z.string().min(2).max(120),
-  storeName: z.string().min(2).max(120),
+  accountType: z.enum(['BUSINESS', 'INDIVIDUAL']).default('BUSINESS'),
+  organizationName: z.string().min(2).max(120).optional(),
+  storeName: z.string().min(2).max(120).optional(),
   region: z.string().max(60).optional(),
   city: z.string().max(60).optional(),
 });
