@@ -1,7 +1,8 @@
 import { AppError } from '../lib/errors.js';
 import type { Tx } from '../lib/prisma.js';
-import { allowedTransitions, canTransition, isOrderStatus, resolveUnitPrice, statusConsumesStock, type OrderStatus } from '@gawjaay/shared';
+import { allowedTransitions, canTransition, isOrderStatus, statusConsumesStock, type OrderStatus } from '@gawjaay/shared';
 import { applyStockChange } from './inventory.service.js';
+import { effectiveUnitPrice, consumeFlashOffer } from './flash-offers.service.js';
 
 export interface CreateOrderInput {
   storeId: string;
@@ -74,7 +75,8 @@ export async function createOrder(tx: Tx, input: CreateOrderInput) {
   const stockById = new Map(inventories.map((i) => [i.variantId, i.quantity]));
 
   let subtotal = 0;
-  const lines = input.items.map((item) => {
+  const lines = [] as Array<{ variantId: string; name: string; quantity: number; unitPrice: number; lineTotal: number; flashOfferId: string | null }>;
+  for (const item of input.items) {
     const variant = byId.get(item.variantId);
     if (!variant) throw AppError.badRequest(`Article indisponible: ${item.variantId}`);
     const quantity = Math.round(item.quantity);
@@ -84,15 +86,12 @@ export async function createOrder(tx: Tx, input: CreateOrderInput) {
       throw AppError.conflict('Stock insuffisant', { variantId: variant.id, available, requested: quantity });
     }
     // Coffre-fort de Confiance : même résolution unique que le POS et la marketplace.
-    const unitPrice = resolveUnitPrice({
-      variantPrice: variant.price,
-      productPrice: variant.product.price,
-      productPromoPrice: variant.product.promoPrice,
-    }).effectivePrice;
+    const resolved = await effectiveUnitPrice(tx, input.storeId, variant);
+    const unitPrice = resolved.price;
     const lineTotal = unitPrice * quantity;
     subtotal += lineTotal;
-    return { variantId: variant.id, name: variant.name, quantity, unitPrice, lineTotal };
-  });
+    lines.push({ variantId: variant.id, name: variant.name, quantity, unitPrice, lineTotal, flashOfferId: resolved.flash?.id ?? null });
+  }
 
   const deliveryFee = Math.max(0, Math.round(input.deliveryFee ?? 0));
   const total = subtotal + deliveryFee;
@@ -164,6 +163,7 @@ export async function transitionOrder(
   const willConsume = statusConsumesStock(to);
 
   if (!consumed && willConsume) {
+    for (const item of order.items) if (item.flashOfferId) await consumeFlashOffer(tx, item.flashOfferId, item.quantity);
     // Confirmation : décrémente le stock pour chaque ligne.
     for (const item of order.items) {
       await applyStockChange(tx, {
