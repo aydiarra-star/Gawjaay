@@ -21,6 +21,7 @@ interface AuthState {
   logout: () => void;
   switchOrganization: (organizationId: string) => void;
   refreshOrganizations: () => Promise<void>;
+  updateUser: (user: SessionUser) => void;
 }
 
 export interface RegisterInput {
@@ -110,6 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshOrganizations();
   }, [refreshOrganizations]);
 
+  const updateUser = useCallback((nextUser: SessionUser) => {
+    const accessToken = localStorage.getItem('gawjaay.accessToken');
+    if (accessToken) setSession({ accessToken, user: nextUser, organizationId: getOrganizationId() ?? undefined });
+    setUser(nextUser);
+  }, []);
+
   const logout = useCallback(() => {
     clearSession();
     setUser(null);
@@ -124,8 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [organizations]);
 
   const value = useMemo<AuthState>(
-    () => ({ user, organizationId, organizations, loading, login, register, logout, switchOrganization, refreshOrganizations }),
-    [user, organizationId, organizations, loading, login, register, logout, switchOrganization, refreshOrganizations],
+    () => ({ user, organizationId, organizations, loading, login, register, logout, switchOrganization, refreshOrganizations, updateUser }),
+    [user, organizationId, organizations, loading, login, register, logout, switchOrganization, refreshOrganizations, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
