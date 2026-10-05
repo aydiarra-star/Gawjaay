@@ -15,7 +15,10 @@ const schema = z.object({
   JWT_ACCESS_EXPIRES: z.string().default('15m'),
   JWT_REFRESH_EXPIRES: z.string().default('7d'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
-  PAYMENTS_MODE: z.enum(['disabled', 'enabled']).default('disabled'),
+  PAYMENTS_MODE: z.enum(['disabled', 'stripe']).default('disabled'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  APP_PUBLIC_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -37,9 +40,8 @@ function load(): Env {
     if (env.JWT_ACCESS_SECRET.length < 32 || env.JWT_REFRESH_SECRET.length < 32) {
       throw new Error('Les secrets JWT doivent faire au moins 32 caractères en production.');
     }
-    // Aucun prestataire de paiement réel n'est connecté : le mode doit rester « disabled ».
-    if (env.PAYMENTS_MODE === 'enabled') {
-      throw new Error("PAYMENTS_MODE=enabled est refusé : aucun prestataire de paiement réel n'est configuré.");
+    if (env.PAYMENTS_MODE === 'stripe' && (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET)) {
+      throw new Error('PAYMENTS_MODE=stripe exige STRIPE_SECRET_KEY et STRIPE_WEBHOOK_SECRET.');
     }
   }
 
