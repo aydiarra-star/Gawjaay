@@ -6,7 +6,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine, formatDateTime } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
-import { Modal, PhotoPicker, ProductThumb, ImageLightbox, getCachedProductPhoto } from '../components/product';
+import { Modal, PhotoPicker, ProductThumb, ImageLightbox, getCachedProductPhoto, loadProductPhoto } from '../components/product';
 
 interface Product {
   id: string;
@@ -89,7 +89,9 @@ export function ProductsPage() {
   const [manageBusy, setManageBusy] = useState(false);
   const [manageError, setManageError] = useState<string | null>(null);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
-  const [lightbox, setLightbox] = useState<{ productId: string; name: string } | null>(null);
+  const [lightbox, setLightbox] = useState<{ productId: string; name: string; src: string } | null>(null);
+  const [lightboxLoadingId, setLightboxLoadingId] = useState<string | null>(null);
+  const [lightboxError, setLightboxError] = useState<string | null>(null);
 
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
     () =>
@@ -149,6 +151,20 @@ export function ProductsPage() {
       return null;
     } finally {
       setManageBusy(false);
+    }
+  }
+
+  async function openProductPhoto(p: Product) {
+    setLightboxError(null);
+    setLightboxLoadingId(p.id);
+    try {
+      const src = await loadProductPhoto(p.id, p.hasImage, p.imageUrl);
+      if (!src) throw new Error('Photo indisponible');
+      setLightbox({ productId: p.id, name: p.name, src });
+    } catch {
+      setLightboxError('La photo ne peut pas être chargée pour le moment.');
+    } finally {
+      setLightboxLoadingId(null);
     }
   }
 
@@ -286,7 +302,7 @@ export function ProductsPage() {
                       <button
                         type="button"
                         className="merchant-media-btn"
-                        onClick={() => setLightbox({ productId: p.id, name: p.name })}
+                        onClick={() => void openProductPhoto(p)}
                         aria-label={`Agrandir la photo de ${p.name}`}
                       >
                         <ProductThumb productId={p.id} name={p.name} hasImage={p.hasImage} imageUrl={p.imageUrl} />
@@ -623,9 +639,16 @@ export function ProductsPage() {
         </Modal>
       )}
 
-      {lightbox && getCachedProductPhoto(lightbox.productId) && (
+      {lightboxLoadingId && <div className="sr-only" role="status">Chargement de la photo…</div>}
+      {lightboxError && (
+        <div className="toast toast-error" role="status">
+          {lightboxError}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLightboxError(null)}>Fermer</button>
+        </div>
+      )}
+      {lightbox && (
         <ImageLightbox
-          images={[{ src: getCachedProductPhoto(lightbox.productId)!, alt: lightbox.name }]}
+          images={[{ src: lightbox.src, alt: lightbox.name }]}
           index={0}
           onIndexChange={() => undefined}
           onClose={() => setLightbox(null)}
