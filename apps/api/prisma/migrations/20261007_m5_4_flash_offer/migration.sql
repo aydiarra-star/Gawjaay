@@ -19,3 +19,7 @@ CREATE TABLE "FlashOffer" (
 CREATE INDEX "FlashOffer_organizationId_status_idx" ON "FlashOffer"("organizationId","status");
 CREATE INDEX "FlashOffer_storeId_variantId_status_idx" ON "FlashOffer"("storeId","variantId","status");
 CREATE INDEX "FlashOffer_variantId_status_idx" ON "FlashOffer"("variantId","status");
+
+ALTER TABLE "OrderItem" ADD COLUMN "flashOfferId" TEXT;
+CREATE INDEX "OrderItem_flashOfferId_idx" ON "OrderItem"("flashOfferId");
+ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_flashOfferId_fkey" FOREIGN KEY ("flashOfferId") REFERENCES "FlashOffer"("id") ON DELETE SET NULL ON UPDATE CASCADE;
