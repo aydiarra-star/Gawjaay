@@ -78,7 +78,7 @@ function PersonalAccountSection({ user, onSaved }: { user: { id: string; email: 
 }
 
 export function SettingsPage() {
-  const { user, organizations, organizationId, refreshOrganizations } = useAuth();
+  const { user, organizations, organizationId, refreshOrganizations, updateUser } = useAuth();
   const [profileUser, setProfileUser] = useState(user);
   const { stores, storeId, setStoreId, refreshStores } = useStore();
   const org = organizations.find((o) => o.id === organizationId);
@@ -93,7 +93,7 @@ export function SettingsPage() {
     <>
       <PageHead title="Paramètres" subtitle="Profil, boutiques, abonnement et moyens de paiement." />
 
-      <PersonalAccountSection user={profileUser} onSaved={(next) => setProfileUser(next)} />
+      <PersonalAccountSection user={profileUser} onSaved={(next) => { setProfileUser(next); updateUser(next); }} />
       {organizationId && <OrganizationProfile
         org={orgData}
         onSaved={() => {
