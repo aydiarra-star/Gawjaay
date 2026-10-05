@@ -19,11 +19,11 @@ async function publishStore(org: TestOrg, overrides: Record<string, unknown> = {
 }
 
 /** Crée un profil vendeur pour l'utilisateur d'une organisation (MERCHANT/BUSINESS). */
-async function createSeller(org: TestOrg, sellerType: 'INDIVIDUAL' | 'MERCHANT' | 'BUSINESS', body: Record<string, unknown> = {}) {
+async function createSeller(org: TestOrg, sellerType: 'INDIVIDUAL' | 'MERCHANT' | 'BUSINESS', body: Record<string, unknown> = {}, replaceAuto = true) {
   // L'inscription BUSINESS crée désormais automatiquement un profil MERCHANT.
   // Les tests Marketplace veulent piloter explicitement le type du profil : on remplace
   // le profil d'inscription avant d'exercer l'endpoint POST /sellers.
-  await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
+  if (replaceAuto) await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
   const res = await request(app)
     .post('/api/v1/sellers')
     .set({ Authorization: `Bearer ${org.token}` })
@@ -162,6 +162,7 @@ describe('M2 — cohérence du prix (resolveUnitPrice)', () => {
 describe('M2 — profil vendeur', () => {
   it('crée un vendeur INDIVIDUAL sans organisation', async () => {
     const org = await createOrg();
+    await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
     const res = await request(app)
       .post('/api/v1/sellers')
       .set({ Authorization: `Bearer ${org.token}` })
@@ -174,6 +175,7 @@ describe('M2 — profil vendeur', () => {
 
   it('exige une organisation pour MERCHANT et la vérifie (membre actif)', async () => {
     const org = await createOrg();
+    await prisma.sellerProfile.deleteMany({ where: { userId: org.userId } });
     // Sans organisation : refus.
     const bad = await request(app)
       .post('/api/v1/sellers')
@@ -205,7 +207,6 @@ describe('M2 — profil vendeur', () => {
 
   it('refuse un second profil vendeur pour le même compte', async () => {
     const org = await createOrg();
-    await createSeller(org, 'INDIVIDUAL');
     const dup = await request(app)
       .post('/api/v1/sellers')
       .set({ Authorization: `Bearer ${org.token}` })
