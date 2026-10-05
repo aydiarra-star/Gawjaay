@@ -318,6 +318,7 @@ model ProductVariant {
   purchaseItems      PurchaseItem[]
   orderItems         OrderItem[]
   listings           Listing[]
+  flashOffers        FlashOffer[]
 
   @@index([productId])
 }
