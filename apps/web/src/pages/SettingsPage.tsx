@@ -115,6 +115,7 @@ export function SettingsPage() {
           />
         </>
       )}
+      <SellerProfileSection />
       <PhoneSection phone={phone} />
       {organizationId && <MembersSection />}
       {organizationId && <ExportsSection />}
@@ -124,6 +125,52 @@ export function SettingsPage() {
 
       {organizations.length === 0 && <EmptyState title="Aucune organisation" hint="Votre compte n'est rattaché à aucune organisation." />}
     </>
+  );
+}
+
+function SellerProfileSection() {
+  const { data, loading, error, reload } = useApi<{ sellers: Array<{ id: string; displayName: string; bio: string | null; phone: string | null; city: string | null; region: string | null }> }>(() => api.get('/sellers'), []);
+  const [form, setForm] = useState<{ id: string; displayName: string; bio: string; phone: string; city: string; region: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const current = form ?? (() => {
+    const s = data?.sellers?.[0];
+    return s ? { id: s.id, displayName: s.displayName, bio: s.bio ?? '', phone: s.phone ?? '', city: s.city ?? '', region: s.region ?? '' } : null;
+  })();
+  if (loading) return <Card title="Profil vendeur"><Spinner /></Card>;
+  if (error || !current) return null;
+  function set<K extends keyof typeof current>(key: K, value: string) {
+    setForm({ ...current!, [key]: value });
+    setOk(false); setMessage(null);
+  }
+  async function save() {
+    setBusy(true); setMessage(null); setOk(false);
+    try {
+      await api.patch(`/sellers/${current!.id}`, {
+        displayName: current!.displayName.trim(),
+        bio: current!.bio.trim() || null,
+        phone: current!.phone.trim() || null,
+        city: current!.city.trim() || null,
+        region: current!.region.trim() || null,
+      });
+      await reload(); setForm(null); setOk(true); setMessage('Profil vendeur mis à jour.');
+    } catch (err) { setMessage(err instanceof ApiError ? err.message : 'Modification impossible'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <Card title="Profil vendeur" actions={ok ? <span className="badge badge-success">Enregistré</span> : undefined}>
+      <p className="small muted" style={{ marginTop: 0 }}>Ce profil est présenté avec les informations que vous fournissez. GawJaay n'ajoute aucune certification automatique.</p>
+      {message && <Alert kind={ok ? 'success' : 'error'}>{message}</Alert>}
+      <div className="field"><label>Nom public</label><input value={current.displayName} onChange={e => set('displayName', e.target.value)} /></div>
+      <div className="field"><label>Présentation</label><textarea rows={3} value={current.bio} onChange={e => set('bio', e.target.value)} placeholder="Présentez votre activité…" /></div>
+      <div className="form-row">
+        <div className="field"><label>Téléphone public</label><input value={current.phone} onChange={e => set('phone', e.target.value)} /></div>
+        <div className="field"><label>Ville</label><input value={current.city} onChange={e => set('city', e.target.value)} /></div>
+      </div>
+      <div className="field"><label>Région</label><select value={current.region} onChange={e => set('region', e.target.value)}><option value="">—</option>{SENEGAL_REGIONS.map(r => <option key={r.code} value={r.name}>{r.name}</option>)}</select></div>
+      <button className="btn" onClick={() => void save()} disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le profil vendeur'}</button>
+    </Card>
   );
 }
 
