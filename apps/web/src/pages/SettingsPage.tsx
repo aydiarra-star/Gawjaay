@@ -93,7 +93,7 @@ export function SettingsPage() {
     <>
       <PageHead title="Paramètres" subtitle="Profil, boutiques, abonnement et moyens de paiement." />
 
-      <PersonalAccountSection user={profileUser} onSaved={(next) => { setProfileUser(next); updateUser(next); }} />
+      <PersonalAccountSection user={profileUser} onSaved={(next) => { if (!profileUser) return; const merged = { ...profileUser, ...next }; setProfileUser(merged); updateUser(merged); }} />
       {organizationId && (
         <>
           <OrganizationProfile
@@ -128,9 +128,11 @@ export function SettingsPage() {
   );
 }
 
+interface SellerProfileForm { id: string; displayName: string; bio: string; phone: string; city: string; region: string; }
+
 function SellerProfileSection() {
   const { data, loading, error, reload } = useApi<{ sellers: Array<{ id: string; displayName: string; bio: string | null; phone: string | null; city: string | null; region: string | null }> }>(() => api.get('/sellers'), []);
-  const [form, setForm] = useState<{ id: string; displayName: string; bio: string; phone: string; city: string; region: string } | null>(null);
+  const [form, setForm] = useState<SellerProfileForm | null>(null);
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -140,7 +142,7 @@ function SellerProfileSection() {
   })();
   if (loading) return <Card title="Profil vendeur"><Spinner /></Card>;
   if (error || !current) return null;
-  function set<K extends keyof typeof current>(key: K, value: string) {
+  function set(key: keyof SellerProfileForm, value: string) {
     setForm({ ...current!, [key]: value });
     setOk(false); setMessage(null);
   }
