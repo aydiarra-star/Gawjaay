@@ -81,6 +81,13 @@ export function ProductThumb({
   );
 }
 
+/** Invalide la photo en cache après un remplacement/suppression. */
+export function invalidateProductPhotoCache(productId: string): void {
+  const url = objectUrlCache.get(productId);
+  if (url) URL.revokeObjectURL(url);
+  objectUrlCache.delete(productId);
+}
+
 /** URL (blob) de la photo marchande déjà chargée et mise en cache, sinon null. */
 export function getCachedProductPhoto(productId: string): string | null {
   return objectUrlCache.get(productId) ?? null;
