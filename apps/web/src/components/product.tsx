@@ -95,7 +95,9 @@ export function PublicProductImage({
   className?: string;
 }) {
   const src = publicProductImageSrc({ productId, hasImage, imageUrl });
-  if (src) return <img className={className} src={src} alt={name} loading="lazy" />;
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  if (src && !failed) return <img className={className} src={src} alt={name} loading="lazy" onError={() => setFailed(true)} />;
   return (
     <div className={className} aria-hidden="true">
       {name.charAt(0).toUpperCase()}
