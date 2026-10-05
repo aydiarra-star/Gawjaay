@@ -111,7 +111,7 @@ export function CheckoutPage() {
           </Link>
         </Alert>
       )}
-      {paymentCancelled && <Alert kind="warning">Paiement annulé. Votre commande n’a pas été créée pour ce paiement ; votre panier est conservé.</Alert>}
+      {paymentCancelled && <Alert kind="warning">Paiement annulé. La commande reste en attente de règlement ; votre panier est conservé.</Alert>}
       {error && <Alert kind="error">{error}</Alert>}
 
       <div className="card">
