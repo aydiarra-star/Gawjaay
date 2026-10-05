@@ -1,7 +1,7 @@
 import { AppError } from '../lib/errors.js';
 import type { Tx } from '../lib/prisma.js';
-import { resolveUnitPrice } from '@gawjaay/shared';
 import { applyStockChange } from './inventory.service.js';
+import { effectiveUnitPrice, consumeFlashOffer } from './flash-offers.service.js';
 
 export interface SaleLineInput {
   variantId: string;
@@ -17,15 +17,10 @@ export interface CreateSaleInput {
   discount?: number;
   /** Paiements encaissés (méthode + montant). Un crédit laisse un reste dû. */
   payments: Array<{ method: string; amount: number }>;
-  /**
-   * Clé d'idempotence générée par le client (POS). Si une vente existe déjà
-   * pour (storeId, clientRequestId), on la renvoie au lieu d'en créer une
-   * seconde : un double clic ou un retry réseau ne double jamais la vente.
-   */
+  /** Clé d'idempotence générée par le client (POS). */
   clientRequestId?: string | null;
 }
 
-/** Résumé renvoyé par la création d'une vente (identique en rejeu idempotent). */
 interface SaleSummary {
   saleId: string;
   subtotal: number;
@@ -58,19 +53,9 @@ function summarizeSale(sale: {
   };
 }
 
-/**
- * Crée une vente POS de façon transactionnelle (cahier §16, §36) :
- * 1. vérifie l'appartenance des variantes à l'organisation ;
- * 2. calcule les totaux À PARTIR DES PRIX SERVEUR (jamais du client) ;
- * 3. décrémente le stock (refus si insuffisant) ;
- * 4. enregistre les lignes et les paiements.
- *
- * Le prix d'une ligne provient de la variante ou du produit ; le client ne fournit que des quantités.
- */
 export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) {
   if (input.items.length === 0) throw AppError.badRequest('La vente doit contenir au moins un article');
 
-  // Idempotence : un rejeu avec la même clé renvoie la vente déjà créée.
   const clientRequestId = input.clientRequestId?.trim() || null;
   if (clientRequestId) {
     const existing = await tx.sale.findFirst({
@@ -88,31 +73,41 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   const byId = new Map(variants.map((v) => [v.id, v]));
 
   let subtotal = 0;
-  const lines = input.items.map((item) => {
+  const lines = [] as Array<{
+    variantId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    unitCost: number;
+    packaging: string;
+    format: string | null;
+    flashOfferId: string | null;
+  }>;
+
+  for (const item of input.items) {
     const variant = byId.get(item.variantId);
     if (!variant) throw AppError.badRequest(`Variante inconnue: ${item.variantId}`);
     const quantity = Math.round(item.quantity);
     if (quantity <= 0) throw AppError.badRequest('Quantité invalide');
-    // Coffre-fort de Confiance : résolution unique du prix (variante > promo > prix).
-    const unitPrice = resolveUnitPrice({
-      variantPrice: variant.price,
-      productPrice: variant.product.price,
-      productPromoPrice: variant.product.promoPrice,
-    }).effectivePrice;
+
+    const resolved = await effectiveUnitPrice(tx, input.storeId, variant);
+    const unitPrice = resolved.price;
     const lineTotal = unitPrice * quantity;
     subtotal += lineTotal;
-    return {
+
+    lines.push({
       variantId: variant.id,
       name: variant.name,
       quantity,
       unitPrice,
       lineTotal,
-      // Marge historique figée : on conserve le coût d'achat du moment.
       unitCost: variant.product.purchasePrice ?? 0,
       packaging: variant.product.packaging,
       format: variant.product.format,
-    };
-  });
+      flashOfferId: resolved.flash?.id ?? null,
+    });
+  }
 
   const discount = Math.max(0, Math.round(input.discount ?? 0));
   if (discount > subtotal) throw AppError.badRequest('La remise dépasse le sous-total');
@@ -121,7 +116,12 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   const paid = input.payments.reduce((sum, p) => sum + Math.max(0, Math.round(p.amount)), 0);
   if (paid > total) throw AppError.badRequest('Le montant payé dépasse le total');
 
-  // Référence de vente pour l'historique de stock.
+  // Flash Offer et stock sont consommés dans la même transaction : toute erreur
+  // ultérieure annule les deux, sans vente partiellement enregistrée.
+  for (const line of lines) {
+    if (line.flashOfferId) await consumeFlashOffer(tx, line.flashOfferId, line.quantity);
+  }
+
   const sale = await tx.sale.create({
     data: {
       storeId: input.storeId,
@@ -136,9 +136,10 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   });
 
   for (const line of lines) {
-    const { packaging, format, ...saleItem } = line;
+    const { packaging, format, flashOfferId, ...saleItem } = line;
     void packaging;
     void format;
+    void flashOfferId;
     await tx.saleItem.create({ data: { saleId: sale.id, ...saleItem } });
     await applyStockChange(tx, {
       storeId: input.storeId,
@@ -158,7 +159,6 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
     });
   }
 
-  // Crédit client : reste dû enregistré comme paiement CREDIT en attente.
   const remaining = total - paid;
   if (remaining > 0) {
     if (!input.customerId) {
@@ -172,7 +172,6 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   return { saleId: sale.id, subtotal, discount, total, paid, remaining, lines, replayed: false };
 }
 
-/** Reste dû d'une vente (total - paiements réussis). */
 export async function saleOutstanding(tx: Tx, saleId: string): Promise<number> {
   const sale = await tx.sale.findUnique({ where: { id: saleId }, include: { payments: true } });
   if (!sale) throw AppError.notFound('Vente introuvable');
@@ -182,7 +181,6 @@ export async function saleOutstanding(tx: Tx, saleId: string): Promise<number> {
   return Math.max(0, sale.total - paid);
 }
 
-/** Encaisse un règlement de crédit client sur une vente. */
 export async function collectSalePayment(
   tx: Tx,
   orgId: string,
@@ -206,13 +204,6 @@ export async function collectSalePayment(
   return { outstanding: outstanding - amount };
 }
 
-/**
- * Annule / rembourse une vente (cahier §16). La vente n'est JAMAIS supprimée :
- * - son statut passe à REFUNDED et `refundedAt` est posé ;
- * - le stock vendu est restitué par un mouvement RETURN tracé ;
- * - le double remboursement est refusé.
- * L'historique (lignes, paiements, instantanés de prix) reste intact.
- */
 export async function refundSale(
   tx: Tx,
   orgId: string,
