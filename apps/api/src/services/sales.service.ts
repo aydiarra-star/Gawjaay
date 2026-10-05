@@ -1,7 +1,8 @@
 import { AppError } from '../lib/errors.js';
 import type { Tx } from '../lib/prisma.js';
-import { resolveUnitPrice } from '@gawjaay/shared';
 import { applyStockChange } from './inventory.service.js';
+import { effectiveUnitPrice, consumeFlashOffer } from './flash-offers.service.js';
+import { effectiveUnitPrice, consumeFlashOffer } from './flash-offers.service.js';
 
 export interface SaleLineInput {
   variantId: string;
@@ -88,31 +89,30 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   const byId = new Map(variants.map((v) => [v.id, v]));
 
   let subtotal = 0;
-  const lines = input.items.map((item) => {
+  const lines = [] as Array<{ variantId: string; name: string; quantity: number; unitPrice: number; lineTotal: number; flashOfferId: string | null }>;
+  for (const item of input.items) {
     const variant = byId.get(item.variantId);
     if (!variant) throw AppError.badRequest(`Variante inconnue: ${item.variantId}`);
     const quantity = Math.round(item.quantity);
     if (quantity <= 0) throw AppError.badRequest('Quantité invalide');
     // Coffre-fort de Confiance : résolution unique du prix (variante > promo > prix).
-    const unitPrice = resolveUnitPrice({
-      variantPrice: variant.price,
-      productPrice: variant.product.price,
-      productPromoPrice: variant.product.promoPrice,
-    }).effectivePrice;
+    const resolved = await effectiveUnitPrice(tx, input.storeId, variant);
+    const unitPrice = resolved.price;
     const lineTotal = unitPrice * quantity;
     subtotal += lineTotal;
-    return {
+    lines.push({
       variantId: variant.id,
       name: variant.name,
       quantity,
       unitPrice,
       lineTotal,
+      flashOfferId: resolved.flash?.id ?? null,
       // Marge historique figée : on conserve le coût d'achat du moment.
       unitCost: variant.product.purchasePrice ?? 0,
       packaging: variant.product.packaging,
       format: variant.product.format,
-    };
-  });
+    });
+  }
 
   const discount = Math.max(0, Math.round(input.discount ?? 0));
   if (discount > subtotal) throw AppError.badRequest('La remise dépasse le sous-total');
@@ -120,6 +120,8 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
 
   const paid = input.payments.reduce((sum, p) => sum + Math.max(0, Math.round(p.amount)), 0);
   if (paid > total) throw AppError.badRequest('Le montant payé dépasse le total');
+
+  for (const line of lines) if (line.flashOfferId) await consumeFlashOffer(tx, line.flashOfferId, line.quantity);
 
   // Référence de vente pour l'historique de stock.
   const sale = await tx.sale.create({
