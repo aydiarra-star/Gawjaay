@@ -6,7 +6,7 @@ import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine, formatDateTime } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
-import { Modal, PhotoPicker, ProductThumb, ImageLightbox, getCachedProductPhoto, loadProductPhoto } from '../components/product';
+import { Modal, PhotoPicker, ProductThumb, ImageLightbox, loadProductPhoto } from '../components/product';
 
 interface Product {
   id: string;
