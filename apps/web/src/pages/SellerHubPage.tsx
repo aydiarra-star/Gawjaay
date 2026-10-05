@@ -142,7 +142,7 @@ export function SellerHubPage() {
               </div>
             </Card>
 
-            <Card title="Mes annonces" style={{ marginTop: 16 } as never}>
+            <div style={{ marginTop: 16 }}><Card title="Mes annonces">
               {listings.length === 0 ? <p className="muted">Aucune annonce pour le moment.</p> : <div className="stack">
                 {listings.map(l => <div className="card" key={l.id} style={{ padding: 16 }}>
                   <div className="row between" style={{ gap: 12 }}><div><strong>{l.title}</strong><div className="small muted">{l.city || l.region || 'Localisation non renseignée'} · {l.status === 'ACTIVE' ? 'Publiée' : 'En pause'}</div></div><strong>{l.price?.toLocaleString('fr-FR')} FCFA</strong></div>
@@ -153,7 +153,7 @@ export function SellerHubPage() {
                   </div>
                 </div>)}
               </div>}
-            </Card>
+            </Card></div>
           </>
         )}
       </main>
