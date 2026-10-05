@@ -2390,3 +2390,18 @@ tbody tr:last-child td {
     min-width: 520px;
   }
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Bandeau d'annonces GawJaay — mouvement gauche → droite             */
+/* ------------------------------------------------------------------ */
+.announcement-ticker{width:100%;display:flex;align-items:stretch;min-height:44px;overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
+.announcement-label{position:relative;z-index:2;display:inline-flex;align-items:center;flex:0 0 auto;padding:0 16px;font-size:.72rem;font-weight:760;letter-spacing:.08em;text-transform:uppercase;color:var(--on-primary,#fff);background:var(--primary);box-shadow:8px 0 18px rgb(var(--shadow-ink)/.08)}
+.announcement-viewport{min-width:0;flex:1;overflow:hidden;position:relative}
+.announcement-track{width:max-content;min-height:44px;display:flex;align-items:center;animation:gawjaay-announcement-ltr 28s linear infinite;will-change:transform}
+.announcement-item{display:inline-flex;align-items:center;gap:9px;flex:0 0 auto;padding:0 34px;white-space:nowrap;color:var(--ink-2);font-size:.84rem;font-weight:560}
+.announcement-item svg{color:var(--primary);flex:0 0 auto}
+@keyframes gawjaay-announcement-ltr{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.announcement-ticker:hover .announcement-track,.announcement-ticker:focus-within .announcement-track{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.announcement-track{animation:none;transform:none}.announcement-item:not(:first-child){display:none}}
+@media (max-width:640px){.announcement-label{padding:0 11px;font-size:.66rem}.announcement-item{padding:0 22px;font-size:.78rem}}
