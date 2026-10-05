@@ -4,7 +4,7 @@ import { SENEGAL_REGIONS } from '@gawjaay/shared';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
 import { Alert } from '../components/ui';
-import { IconBuilding, IconStore, IconUsers } from '../components/icons';
+import { IconStore, IconUsers } from '../components/icons';
 
 export function RegisterPage() {
   const { register } = useAuth();
