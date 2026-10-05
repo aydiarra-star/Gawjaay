@@ -274,6 +274,19 @@ connexion à un PSP n'est simulée.
 `GET /api/v1/payments/capabilities` renvoie, pour chaque moyen, `available` et `mode`
 (`manual` ou `online`). L'interface n'affiche jamais un bouton de paiement en ligne non connecté.
 
-## 12. Licence
+## 12. Activation Stripe en production
+
+Le code Stripe est prêt côté GawJaay : Checkout hébergé, paiement carte, signature du webhook et confirmation serveur de la commande. **Aucune clé n'est commitée.**
+
+Pour activer le paiement carte :
+1. disposer d'un compte Stripe éligible au pays de l'entreprise ;
+2. renseigner `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dans Render ;
+3. passer `PAYMENTS_MODE` à `stripe` ;
+4. configurer dans Stripe le webhook `/api/v1/payments/stripe/webhook` ;
+5. tester d'abord en mode Stripe test avant de passer aux clés live.
+
+Point important pour le Sénégal : la page officielle de disponibilité Stripe ne liste pas actuellement le Sénégal parmi les pays d'inscription directs. GawJaay ne contourne pas cette règle et n'affichera pas le paiement carte comme disponible tant qu'un compte Stripe réellement éligible n'est pas configuré.
+
+## 13. Licence
 
 Projet privé — tous droits réservés.
