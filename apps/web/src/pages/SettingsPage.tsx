@@ -46,8 +46,40 @@ interface Store {
   isActive: boolean;
 }
 
+function PersonalAccountSection({ user, onSaved }: { user: { id: string; email: string; fullName: string; phone: string | null } | null; onSaved: (user: { id: string; email: string; fullName: string; phone: string | null }) => void }) {
+  const [form, setForm] = useState({ fullName: user?.fullName ?? '', phone: user?.phone ?? '' });
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!user) return null;
+  async function save() {
+    setBusy(true); setError(null); setOk(false);
+    try {
+      const data = await api.patch<{ user: { id: string; email: string; fullName: string; phone: string | null } }>('/me/profile', {
+        fullName: form.fullName.trim(), phone: form.phone.trim() || null,
+      });
+      onSaved(data.user); setOk(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Modification impossible');
+    } finally { setBusy(false); }
+  }
+  return (
+    <Card title="Mon compte" actions={ok ? <span className="badge badge-success">Enregistré</span> : undefined}>
+      <p className="small muted" style={{ marginTop: 0 }}>Vos informations personnelles restent sous votre contrôle. L’adresse email sert à la connexion et ne peut pas être modifiée ici.</p>
+      {error && <Alert kind="error">{error}</Alert>}
+      <div className="field"><label>Email</label><input value={user.email} disabled /></div>
+      <div className="form-row">
+        <div className="field"><label htmlFor="profile-name">Nom complet</label><input id="profile-name" value={form.fullName} onChange={e => { setForm({ ...form, fullName: e.target.value }); setOk(false); }} /></div>
+        <div className="field"><label htmlFor="profile-phone">Téléphone</label><input id="profile-phone" value={form.phone} onChange={e => { setForm({ ...form, phone: e.target.value }); setOk(false); }} placeholder="+221…" /></div>
+      </div>
+      <button className="btn" onClick={() => void save()} disabled={busy || form.fullName.trim().length < 2}>{busy ? 'Enregistrement…' : 'Enregistrer mes informations'}</button>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const { user, organizations, organizationId, refreshOrganizations } = useAuth();
+  const [profileUser, setProfileUser] = useState(user);
   const { stores, storeId, setStoreId, refreshStores } = useStore();
   const org = organizations.find((o) => o.id === organizationId);
 
@@ -61,14 +93,15 @@ export function SettingsPage() {
     <>
       <PageHead title="Paramètres" subtitle="Profil, boutiques, abonnement et moyens de paiement." />
 
-      <OrganizationProfile
+      <PersonalAccountSection user={profileUser} onSaved={(next) => setProfileUser(next)} />
+      {organizationId && <OrganizationProfile
         org={orgData}
         onSaved={() => {
           orgData.reload();
           refreshOrganizations();
         }}
       />
-      <StoresSection
+      {organizationId && <StoresSection
         stores={storeData}
         storesCtx={stores}
         activeId={storeId}
@@ -79,10 +112,10 @@ export function SettingsPage() {
         }}
       />
       <PhoneSection phone={phone} />
-      <MembersSection />
-      <ExportsSection />
-      <ProfileReadOnly user={user} org={org} />
-      <SubscriptionSection subscription={subscription} />
+      {organizationId && <MembersSection />}
+      {organizationId && <ExportsSection />}
+      <ProfileReadOnly user={profileUser} org={org} />
+      {organizationId && <SubscriptionSection subscription={subscription} />}
       <PaymentsSection caps={caps} />
 
       {organizations.length === 0 && <EmptyState title="Aucune organisation" hint="Votre compte n'est rattaché à aucune organisation." />}
