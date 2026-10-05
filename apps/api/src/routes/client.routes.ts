@@ -10,6 +10,31 @@ import { createOrder, transitionOrder } from '../services/orders.service.js';
 const router = Router();
 router.use(authenticate);
 
+/** Profil personnel : données fournies par l'utilisateur, modifiables à tout moment. */
+router.get('/profile', asyncHandler(async (req, res) => {
+  if (!req.user) throw AppError.unauthorized();
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+  });
+  if (!user) throw AppError.notFound('Compte introuvable');
+  res.json({ user });
+}));
+
+router.patch('/profile', asyncHandler(async (req, res) => {
+  if (!req.user) throw AppError.unauthorized();
+  const input = z.object({
+    fullName: z.string().min(2).max(120),
+    phone: z.string().max(30).optional().nullable(),
+  }).parse(req.body);
+  const user = await prisma.user.update({
+    where: { id: req.user.id },
+    data: { fullName: input.fullName.trim(), phone: input.phone?.trim() || null },
+    select: { id: true, email: true, fullName: true, phone: true, createdAt: true },
+  });
+  res.json({ user });
+}));
+
 /** Ajoute l'identifiant lisible (factuel, dérivé de l'id et de la date) à une commande. */
 function decorate<T extends { id: string; createdAt: Date }>(order: T) {
   return { ...order, label: orderLabel(order.id, order.createdAt) };
