@@ -26,7 +26,7 @@ marketplace et tableau de bord.
 | Boutique publique & marketplace | ✅ Fonctionnel (testé) |
 | Abonnements (plans & limites côté serveur) | ✅ Fonctionnel — activation des plans **payants non connectée** |
 | Encaissement **espèces, Wave, Orange Money, Free Money, Wizall** et vente à crédit | ✅ Fonctionnel (interne, sans prestataire) |
-| **Paiement par carte bancaire en ligne** | ❌ **Non connecté** — l'API répond volontairement `503` |
+| **Paiement par carte bancaire en ligne** | 🟡 **Stripe intégré, activation production conditionnée aux clés Stripe** |
 
 **Aucune donnée fictive n'est présentée comme réelle.** Le tableau de bord affiche `0` tant
 qu'aucune vente réelle n'existe. Le jeu de démonstration (`prisma/seed.ts`) est explicitement
@@ -150,7 +150,10 @@ Résultats vérifiés localement :
 | `HOST` | Interface d'écoute (`0.0.0.0` par défaut, adapté aux proxys/hébergeurs) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secrets de signature (≥ 32 caractères en production) |
 | `FRONTEND_URL` | Origine(s) autorisée(s) par CORS (séparées par des virgules) |
-| `PAYMENTS_MODE` | `disabled` (défaut). `enabled` est **refusé** tant qu'aucun prestataire n'est connecté |
+| `PAYMENTS_MODE` | `disabled` (défaut) ou `stripe` lorsque les deux secrets Stripe sont configurés |
+| `STRIPE_SECRET_KEY` | Clé secrète Stripe — uniquement dans les secrets du backend |
+| `STRIPE_WEBHOOK_SECRET` | Secret de signature du webhook Stripe — uniquement dans les secrets du backend |
+| `APP_PUBLIC_URL` | URL publique complète de GawJaay utilisée par Stripe pour le retour client |
 
 **Web** (au build) :
 
