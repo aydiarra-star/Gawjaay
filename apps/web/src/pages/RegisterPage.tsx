@@ -69,7 +69,7 @@ export function RegisterPage() {
         <div className="card" style={{ padding: 28 }}>
           <h1>{form.accountType === 'BUSINESS' ? 'Créer ma boutique' : 'Créer mon compte particulier'}</h1>
           <p className="muted small" style={{ marginBottom: 20 }}>
-            Votre compte, votre entreprise et votre première boutique sont créés en une seule étape.
+            Choisissez votre profil. Un compte boutique ouvre votre espace de gestion ; un compte particulier ouvre directement votre espace vendeur.
           </p>
           {error && <Alert kind="error">{error}</Alert>}
 
@@ -109,19 +109,21 @@ export function RegisterPage() {
               />
             </div>
 
-{form.accountType === 'BUSINESS' && (
-            <hr className="divider" />
-
-            <div className="form-row">
-              <div className="field">
-                <label htmlFor="organizationName">Nom de l'entreprise</label>
-                <input id="organizationName" required value={form.organizationName} onChange={(e) => update('organizationName', e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="storeName">Nom de la boutique</label>
-                <input id="storeName" required value={form.storeName} onChange={(e) => update('storeName', e.target.value)} />
-              </div>
-            </div>
+            {form.accountType === 'BUSINESS' && (
+              <>
+                <hr className="divider" />
+                <div className="form-row">
+                  <div className="field">
+                    <label htmlFor="organizationName">Nom de l'entreprise</label>
+                    <input id="organizationName" required value={form.organizationName} onChange={(e) => update('organizationName', e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="storeName">Nom de la boutique</label>
+                    <input id="storeName" required value={form.storeName} onChange={(e) => update('storeName', e.target.value)} />
+                  </div>
+                </div>
+              </>
+            )}
             <div className="form-row">
               <div className="field">
                 <label htmlFor="region">Région</label>
@@ -137,9 +139,6 @@ export function RegisterPage() {
                 <label htmlFor="city">Ville (optionnel)</label>
                 <input id="city" value={form.city} onChange={(e) => update('city', e.target.value)} />
               </div>
-
-            )}
-
             </div>
 
             <button className="btn btn-block btn-lg" type="submit" disabled={busy}>
