@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { TerangaBanner } from '../components/premium';
+import { AnnouncementTicker, TerangaBanner } from '../components/premium';
 import {
   IconCart,
   IconChart,
@@ -75,6 +75,11 @@ export function LandingPage() {
       </header>
 
       <main>
+        <AnnouncementTicker messages={[
+          'GawJaay — Vendre vite. Gérer mieux.',
+          'Une marketplace locale pensée pour les commerces du Sénégal.',
+          'Vos chiffres viennent de vos vraies ventes et de votre vrai stock.',
+        ]} />
         <section className="hero">
           <span className="eyebrow">
             <span className="dot" />
