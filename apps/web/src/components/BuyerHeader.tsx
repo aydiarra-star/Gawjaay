@@ -19,9 +19,8 @@ export function BuyerHeader({ showCart = true }: { showCart?: boolean }) {
       </Link>
       <div className="topbar-spacer" />
       <div className="row" style={{ gap: 8 }}>
-        <Link to="/marketplace" className="btn btn-secondary btn-sm">
-          Marketplace
-        </Link>
+        <Link to="/marketplace" className="btn btn-secondary btn-sm">Marketplace</Link>
+        <Link to="/register" className="btn btn-secondary btn-sm">Vendre</Link>
         {showCart && (
           <Link to="/cart" className="btn btn-secondary btn-sm" aria-label="Panier">
             <IconCart size={16} /> Panier{count > 0 ? ` (${count})` : ''}
