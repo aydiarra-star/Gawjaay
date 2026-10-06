@@ -795,6 +795,59 @@ export function ProductsPage() {
             </div>
 
             <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Offre Flash</div>
+              <p className="small muted" style={{ margin: '6px 0 10px' }}>
+                Offre limitée : le serveur vérifie le prix, le stock et la disponibilité réelle.
+              </p>
+              {(() => {
+                const variant = manage.variants[0];
+                const offer = variant ? flashReload.data?.offers.find((o) => o.variantId === variant.id && o.status === 'ACTIVE') : undefined;
+                if (offer) {
+                  const exhausted = offer.available <= 0;
+                  return (
+                    <div className="stack">
+                      <div className="row" style={{ gap: 8 }}>
+                        <span className="badge badge-primary">Flash · {formatXOF(offer.flashPrice)}</span>
+                        <span className={exhausted ? 'badge badge-warning' : 'badge badge-success'}>
+                          {exhausted ? 'Épuisée' : `${offer.available} disponible${offer.available > 1 ? 's' : ''}`}
+                        </span>
+                      </div>
+                      <p className="small muted" style={{ margin: 0 }}>
+                        {offer.quantityLimit != null ? `${offer.quantitySold} vendu${offer.quantitySold > 1 ? 's' : ''} sur ${offer.quantityLimit}` : 'Sans limite de quantité'}
+                        {offer.endsAt ? ` · jusqu’au ${formatDateTime(offer.endsAt)}` : ''}
+                      </p>
+                      <button type="button" className="btn btn-secondary btn-sm" disabled={flashBusy} onClick={() => void disableFlashOffer(offer.id)}>
+                        Désactiver l’offre
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="stack">
+                    <div className="form-row">
+                      <div className="field">
+                        <label htmlFor="flash-price">Prix Flash (FCFA)</label>
+                        <input id="flash-price" type="number" inputMode="numeric" min="1" value={flashPriceInput} onChange={(e) => setFlashPriceInput(e.target.value)} placeholder={`Inférieur à ${manage.price}`} />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="flash-qty">Quantité limite (optionnel)</label>
+                        <input id="flash-qty" type="number" inputMode="numeric" min="1" value={flashQuantityInput} onChange={(e) => setFlashQuantityInput(e.target.value)} placeholder="Ex. 10" />
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="flash-end">Fin de l’offre (optionnel)</label>
+                      <input id="flash-end" type="datetime-local" value={flashEndsInput} onChange={(e) => setFlashEndsInput(e.target.value)} />
+                      <p className="field-hint">Une quantité limite ou une date de fin est obligatoire.</p>
+                    </div>
+                    <button type="button" className="btn btn-sm" disabled={flashBusy || !flashPriceInput || (!flashQuantityInput && !flashEndsInput)} onClick={() => void createFlashOfferForManage()}>
+                      {flashBusy ? 'Enregistrement…' : 'Créer l’Offre Flash'}
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
               <div className="stat-label">Partager</div>
               <div className="row" style={{ gap: 8, marginTop: 8 }}>
                 <button className="btn btn-secondary btn-sm" onClick={() => shareProduct(manage)}>
