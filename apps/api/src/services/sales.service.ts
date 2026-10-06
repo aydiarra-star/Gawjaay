@@ -66,6 +66,15 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   }
 
   const variantIds = input.items.map((i) => i.variantId);
+  if (input.customerId) {
+    const customer = await tx.customer.findFirst({ where: { id: input.customerId, organizationId: orgId } });
+    if (!customer) throw AppError.badRequest('Client introuvable dans cette organisation');
+  }
+
+  if (input.payments.some((p) => p.method === 'CREDIT')) {
+    throw AppError.badRequest('Le crédit est créé automatiquement pour le reste dû ; utilisez un règlement réel pour les paiements encaissés.');
+  }
+
   const variants = await tx.productVariant.findMany({
     where: { id: { in: variantIds }, product: { organizationId: orgId } },
     include: { product: true },
@@ -136,10 +145,9 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   });
 
   for (const line of lines) {
-    const { packaging, format, flashOfferId, ...saleItem } = line;
+    const { packaging, format, ...saleItem } = line;
     void packaging;
     void format;
-    void flashOfferId;
     await tx.saleItem.create({ data: { saleId: sale.id, ...saleItem } });
     await applyStockChange(tx, {
       storeId: input.storeId,
@@ -194,6 +202,7 @@ export async function collectSalePayment(
   if (!sale) throw AppError.notFound('Vente introuvable');
 
   const outstanding = await saleOutstanding(tx, saleId);
+  if (payment.method === 'CREDIT') throw AppError.badRequest('Un règlement de crédit ne peut pas être enregistré comme encaissement.');
   const amount = Math.round(payment.amount);
   if (amount <= 0) throw AppError.badRequest('Montant invalide');
   if (amount > outstanding) throw AppError.badRequest('Le montant dépasse le reste dû');

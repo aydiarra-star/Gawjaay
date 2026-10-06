@@ -1,0 +1,1 @@
+ALTER TABLE "SaleItem" ADD COLUMN "flashOfferId" TEXT; CREATE INDEX "SaleItem_flashOfferId_idx" ON "SaleItem"("flashOfferId"); ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_flashOfferId_fkey" FOREIGN KEY ("flashOfferId") REFERENCES "FlashOffer"("id") ON DELETE SET NULL ON UPDATE CASCADE;
