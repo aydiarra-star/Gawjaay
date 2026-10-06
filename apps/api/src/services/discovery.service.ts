@@ -193,6 +193,8 @@ export interface MarketplaceOffer {
   available: number;
   price: number;
   distanceKm: number | null;
+  isFlash: boolean;
+  flashEndsAt: Date | null;
 }
 
 export interface MarketplaceItem {
@@ -281,6 +283,14 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
     take: CANDIDATE_CAP,
   });
 
+  const storeIds = [...new Set(products.flatMap((p) => p.variants.flatMap((v) => v.inventories.map((i) => i.store.id))))];
+  const variantIds = [...new Set(products.flatMap((p) => p.variants.map((v) => v.id)))];
+  const now = new Date();
+  const flashOffers = storeIds.length && variantIds.length
+    ? await prisma.flashOffer.findMany({ where: { status: 'ACTIVE', storeId: { in: storeIds }, variantId: { in: variantIds }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] }, select: { id: true, storeId: true, variantId: true, flashPrice: true, quantityLimit: true, quantitySold: true, endsAt: true } })
+    : [];
+  const flashByStoreVariant = new Map(flashOffers.filter((o) => o.quantityLimit == null || o.quantitySold < o.quantityLimit).map((o) => [o.storeId + ':' + o.variantId, o]));
+
   const items: MarketplaceItem[] = [];
   for (const p of products) {
     const view = productPriceView(p);
@@ -294,6 +304,8 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
       for (const inv of v.inventories) {
         const distanceKm = distanceFor(f.geo, { lat: inv.store.latitude, lng: inv.store.longitude });
         if (f.geo && (distanceKm == null || distanceKm > f.geo.radiusKm)) continue;
+        const flash = flashByStoreVariant.get(inv.store.id + ':' + v.id);
+        const flashIsValid = Boolean(flash && flash.flashPrice < variantPrice);
         offers.push({
           storeId: inv.store.id,
           storeName: inv.store.name,
@@ -306,15 +318,20 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
           variantName: v.name,
           variantPrice: v.price,
           available: inv.quantity,
-          price: variantPrice,
+          price: flashIsValid ? flash.flashPrice : variantPrice,
           distanceKm,
+          isFlash: flashIsValid,
+          flashEndsAt: flashIsValid ? flash.endsAt : null,
         });
       }
     }
     if (offers.length === 0) continue;
 
-    if (f.priceMin != null && view.effectivePrice < f.priceMin) continue;
-    if (f.priceMax != null && view.effectivePrice > f.priceMax) continue;
+    const publicPrice = offers.length ? Math.min(...offers.map((o) => o.price)) : view.effectivePrice;
+    const publicFlash = offers.find((o) => o.price === publicPrice && o.isFlash);
+    const publicOriginal = publicFlash ? Math.max(view.effectivePrice, publicFlash.variantPrice ?? view.effectivePrice) : view.originalPrice;
+    if (f.priceMin != null && publicPrice < f.priceMin) continue;
+    if (f.priceMax != null && publicPrice > f.priceMax) continue;
 
     const available = offers.reduce((s, o) => s + o.available, 0);
     const distances = offers.map((o) => o.distanceKm).filter((d): d is number => d != null);
@@ -327,8 +344,8 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
       packaging: p.packaging,
       format: p.format,
       category: p.category,
-      price: view.effectivePrice,
-      originalPrice: view.originalPrice,
+      price: publicPrice,
+      originalPrice: publicOriginal,
       available,
       offers,
       minDistanceKm: distances.length ? Math.min(...distances) : null,
