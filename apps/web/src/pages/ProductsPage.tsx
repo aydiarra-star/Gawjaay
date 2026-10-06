@@ -27,6 +27,12 @@ interface Product {
   variants: Array<{ id: string; name: string; sku: string; lowStockThreshold: number }>;
 }
 
+interface FlashOffer {
+  id: string; storeId: string; variantId: string; flashPrice: number; quantityLimit: number | null; quantitySold: number; endsAt: string | null; status: 'ACTIVE' | 'EXHAUSTED' | 'EXPIRED' | 'DISABLED'; available: number;
+  variant: { id: string; name: string; price: number | null; product: { id: string; name: string; price: number; promoPrice: number | null } };
+  store: { id: string; name: string };
+}
+
 interface PriceHistoryEntry {
   id: string;
   field: 'purchasePrice' | 'price' | 'promoPrice' | string;
@@ -99,6 +105,11 @@ export function ProductsPage() {
   const [lightbox, setLightbox] = useState<{ productId: string; name: string; src: string } | null>(null);
   const [lightboxLoadingId, setLightboxLoadingId] = useState<string | null>(null);
   const [lightboxError, setLightboxError] = useState<string | null>(null);
+  const [flashOffers, setFlashOffers] = useState<FlashOffer[]>([]);
+  const [flashPriceInput, setFlashPriceInput] = useState('');
+  const [flashQuantityInput, setFlashQuantityInput] = useState('');
+  const [flashEndsInput, setFlashEndsInput] = useState('');
+  const [flashBusy, setFlashBusy] = useState(false);
 
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
     () =>
@@ -113,6 +124,11 @@ export function ProductsPage() {
     [storeId],
   );
   const quantityByVariant = new Map((stock.data?.items ?? []).map((i) => [i.variantId, i.quantity]));
+  const flashReload = useApi<{ offers: FlashOffer[] }>(
+    () => api.get(`/flash-offers${storeId ? `?storeId=${storeId}` : ''}`),
+    [storeId],
+  );
+  if (flashReload.data && flashOffers.length === 0) setFlashOffers(flashReload.data.offers);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
