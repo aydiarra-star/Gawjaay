@@ -105,11 +105,6 @@ export function ProductsPage() {
   const [lightbox, setLightbox] = useState<{ productId: string; name: string; src: string } | null>(null);
   const [lightboxLoadingId, setLightboxLoadingId] = useState<string | null>(null);
   const [lightboxError, setLightboxError] = useState<string | null>(null);
-  const [flashPriceInput, setFlashPriceInput] = useState('');
-  const [flashQuantityInput, setFlashQuantityInput] = useState('');
-  const [flashEndsInput, setFlashEndsInput] = useState('');
-  const [flashBusy, setFlashBusy] = useState(false);
-
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
     () =>
       api.get<ProductsResponse>(
@@ -156,34 +151,6 @@ export function ProductsPage() {
     }
   }
 
-  async function createFlashOfferForManage() {
-    if (!manage || !storeId) return;
-    const variant = manage.variants[0];
-    if (!variant) return;
-    setManageError(null); setFlashBusy(true);
-    try {
-      await api.post('/flash-offers', {
-        storeId, variantId: variant.id, flashPrice: Number(flashPriceInput),
-        quantityLimit: flashQuantityInput.trim() ? Number(flashQuantityInput) : null,
-        endsAt: flashEndsInput ? new Date(flashEndsInput).toISOString() : null,
-      });
-      await flashReload.reload();
-      setFlashPriceInput(''); setFlashQuantityInput(''); setFlashEndsInput('');
-    } catch (err) {
-      setManageError(err instanceof ApiError ? err.message : 'Offre Flash impossible à créer');
-    } finally { setFlashBusy(false); }
-  }
-
-  async function disableFlashOffer(offerId: string) {
-    setManageError(null); setFlashBusy(true);
-    try {
-      await api.patch(`/flash-offers/${offerId}/disable`, {});
-      await flashReload.reload();
-    } catch (err) {
-      setManageError(err instanceof ApiError ? err.message : 'Impossible de désactiver l’Offre Flash');
-    } finally { setFlashBusy(false); }
-  }
-
   async function openManage(p: Product) {
     setManage(p);
     setPromoInput(p.promoPrice != null ? String(p.promoPrice) : '');
@@ -194,10 +161,7 @@ export function ProductsPage() {
     const activeFlash = p.variants[0] ? flashReload.data?.offers.find((o) => o.variantId === p.variants[0].id && o.status === 'ACTIVE') : undefined;
     setFlashPriceInput(activeFlash ? String(activeFlash.flashPrice) : '');
     setFlashQuantityInput(activeFlash?.quantityLimit != null ? String(Math.max(0, activeFlash.quantityLimit - activeFlash.quantitySold)) : '');
-    setFlashEndsInput(activeFlash?.endsAt ? new Date(activeFlash.endsAt).toISOString().slice(0, 16) : '');
-    setFlashPriceInput('');
-    setFlashQuantityInput('');
-    setFlashEndsAtInput('');
+    setFlashEndsAtInput(activeFlash?.endsAt ? new Date(activeFlash.endsAt).toISOString().slice(0, 16) : '');
     await loadFlashOffers(p.id);
     try {
       const res = await api.get<{ priceHistory: PriceHistoryEntry[] }>(`/products/${p.id}`);
