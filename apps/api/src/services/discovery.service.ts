@@ -578,7 +578,7 @@ export async function getPublicProduct(id: string, geo?: CommonFilters['geo']): 
     return {
       id: v.id,
       name: v.name,
-      price: res.effectivePrice,
+      price: item.offers.filter((o) => o.variantId === v.id).reduce((min, o) => Math.min(min, o.price), res.effectivePrice),
       basePrice: res.basePrice,
       promoPrice: res.promoPrice,
       available,
