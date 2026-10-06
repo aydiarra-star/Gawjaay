@@ -239,6 +239,18 @@ export async function refundSale(
     });
   }
 
+  // Reverse the financial state as well as the stock state. A refunded sale
+  // must never keep successful payments looking collectible, and an outstanding
+  // CREDIT must not survive after the underlying sale has been reversed.
+  await tx.salePayment.updateMany({
+    where: { saleId: sale.id, status: 'SUCCESSFUL' },
+    data: { status: 'REFUNDED' },
+  });
+  await tx.salePayment.updateMany({
+    where: { saleId: sale.id, method: 'CREDIT', status: 'PENDING' },
+    data: { status: 'CANCELLED' },
+  });
+
   await tx.sale.update({
     where: { id: sale.id },
     data: { status: 'REFUNDED', refundedAt: new Date() },
