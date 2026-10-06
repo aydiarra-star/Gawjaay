@@ -82,12 +82,19 @@ export function HistoryPage() {
     [movements.data, since],
   );
 
-  const revenue = filteredSales.reduce((s, x) => s + x.total, 0);
-  const encaisse = filteredSales.reduce(
+  // Les ventes remboursées restent dans l'historique, mais ne gonflent plus
+  // les KPI financiers. Les paiements REFUNDED/CANCELLED ne sont pas encaissés.
+  const activeSales = filteredSales.filter((sale) => sale.status !== 'REFUNDED');
+  const refundedSales = filteredSales.filter((sale) => sale.status === 'REFUNDED');
+  const revenue = activeSales.reduce((s, x) => s + x.total, 0);
+  const encaisse = activeSales.reduce(
     (sum, sale) => sum + sale.payments.filter((p) => p.status === 'SUCCESSFUL').reduce((s, p) => s + p.amount, 0),
     0,
   );
-  const credit = Math.max(0, revenue - encaisse);
+  const credit = activeSales.reduce(
+    (sum, sale) => sum + sale.payments.filter((p) => p.method === 'CREDIT' && p.status === 'PENDING').reduce((s, p) => s + p.amount, 0),
+    0,
+  );
 
   async function refund(saleId: string) {
     setRefundError(null);
@@ -114,7 +121,8 @@ export function HistoryPage() {
       <div className="kpi-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <Stat label="Chiffre d'affaires" value={formatXOF(revenue)} hint={`${filteredSales.length} vente(s)`} />
         <Stat label="Encaissé" value={formatXOF(encaisse)} tone="positive" />
-        <Stat label="Crédit accordé" value={formatXOF(credit)} tone={credit > 0 ? 'negative' : 'muted'} />
+        <Stat label="Crédit restant" value={formatXOF(credit)} tone={credit > 0 ? 'negative' : 'muted'} />
+        <Stat label="Remboursements" value={String(refundedSales.length)} hint={refundedSales.length ? formatXOF(refundedSales.reduce((s, x) => s + x.total, 0)) : 'Aucun'} tone={refundedSales.length ? 'negative' : 'muted'} />
       </div>
 
       <Card title="Ventes">
@@ -144,7 +152,7 @@ export function HistoryPage() {
                     <td>{sale.items.map((i) => `${i.quantity} × ${i.name}`).join(', ')}</td>
                     <td className="muted">{sale.customer?.name ?? '—'}</td>
                     <td className="muted small">
-                      {sale.payments.map((p) => p.method).join(', ') || '—'}
+                      {sale.status === 'REFUNDED' ? 'Paiements annulés' : sale.payments.map((p) => p.method).join(', ') || '—'}
                     </td>
                     <td className="num" style={{ fontWeight: 620 }}>
                       {formatXOF(sale.total)}
