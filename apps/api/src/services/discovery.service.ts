@@ -305,7 +305,7 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
         const distanceKm = distanceFor(f.geo, { lat: inv.store.latitude, lng: inv.store.longitude });
         if (f.geo && (distanceKm == null || distanceKm > f.geo.radiusKm)) continue;
         const flash = flashByStoreVariant.get(inv.store.id + ':' + v.id);
-        const flashIsValid = Boolean(flash && flash.flashPrice < variantPrice);
+        const flashIsValid = flash !== undefined && flash.flashPrice < variantPrice;
         offers.push({
           storeId: inv.store.id,
           storeName: inv.store.name,
@@ -318,10 +318,10 @@ export async function discoverProducts(f: CommonFilters): Promise<Page<Marketpla
           variantName: v.name,
           variantPrice: v.price,
           available: inv.quantity,
-          price: flashIsValid ? flash.flashPrice : variantPrice,
+          price: flashIsValid && flash ? flash.flashPrice : variantPrice,
           distanceKm,
           isFlash: flashIsValid,
-          flashEndsAt: flashIsValid ? flash.endsAt : null,
+          flashEndsAt: flashIsValid && flash ? flash.endsAt : null,
         });
       }
     }
