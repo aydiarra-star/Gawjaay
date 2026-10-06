@@ -26,6 +26,8 @@ interface Offer {
   available: number;
   distanceKm: number | null;
   price?: number;
+  isFlash?: boolean;
+  flashEndsAt?: string | null;
 }
 interface MarketplaceItem {
   id: string;
@@ -440,7 +442,7 @@ export function MarketplacePage() {
                           <Link to={`/product/${item.id}`} aria-label={`Voir ${item.name}`}>
                             <PublicProductImage productId={item.id} name={item.name} hasImage={item.hasImage} imageUrl={item.imageUrl} />
                           </Link>
-                          {item.originalPrice && <span className="product-promo">Promo</span>}
+                          {item.offers.some((o) => o.isFlash) ? <span className="product-promo">Offre Flash</span> : item.originalPrice ? <span className="product-promo">Promo</span> : null}
                           <button
                             type="button"
                             className={`product-fav${isFav ? ' on' : ''}`}
@@ -459,6 +461,7 @@ export function MarketplacePage() {
                           <div className="product-price">
                             {formatXOF(item.price)}
                             {item.originalPrice && <span className="was">{formatXOF(item.originalPrice)}</span>}
+                            {offer?.isFlash && <span className="badge badge-success">Flash</span>}
                           </div>
                           {offer && (
                             <div className="product-meta">
