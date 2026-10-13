@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { MAX_JSON_BODY } from '@gawjaay/shared';
 import { env, isTest } from './config/env.js';
+import { dbConnected, dbPrepStatus, dbSchemaState } from './lib/db-status.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { requestLogger } from './middleware/logging.js';
 
@@ -33,6 +34,21 @@ import sellerRoutes from './routes/sellers.routes.js';
 import listingRoutes from './routes/listings.routes.js';
 import flashOfferRoutes from './routes/flash-offers.routes.js';
 import { stripeWebhookHandler } from './routes/payments.routes.js';
+
+/** Corps de la sonde de disponibilité : statut du service + état de la base. */
+async function healthPayload() {
+  const prep = dbPrepStatus();
+  return {
+    status: 'ok',
+    time: new Date().toISOString(),
+    database: {
+      connected: await dbConnected(),
+      schema: dbSchemaState(),
+      mode: prep.mode ?? 'unknown',
+      ...(prep.detail ? { detail: prep.detail } : {}),
+    },
+  };
+}
 
 export function createApp() {
   const app = express();
@@ -73,7 +89,14 @@ export function createApp() {
     }),
   );
 
-  app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+  // Sonde de disponibilité (hébergeur). Elle répond TOUJOURS 200 — un conteneur
+  // qui démarre en mode dégradé ne doit pas être tué ni faire échouer le
+  // déploiement (incident Render du 2026-10-06) — mais elle expose l'état réel
+  // de la base pour que ce mode dégradé soit visible et alertable :
+  //   database.schema = 'ok' | 'degraded' (migration refusée) | 'unknown'
+  app.get('/api/v1/health', (_req, res) => {
+    void healthPayload().then((payload) => res.json(payload));
+  });
 
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/organizations', organizationRoutes);

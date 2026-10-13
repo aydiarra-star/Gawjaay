@@ -218,6 +218,25 @@ managée, avec injection automatique de `DATABASE_URL` et génération des secre
 > L'offre *free* de Render met le service en veille après inactivité et la base gratuite expire
 > après 90 jours. Pour une production durable, utiliser une offre payante.
 
+**Migrations au démarrage (important).** Le conteneur applique ses migrations Prisma avant de
+servir le trafic, dans un ordre non destructif et auto-réparateur
+(`apps/api/scripts/db-migrate.mjs`) :
+
+1. la base répond-elle ? (tentatives espacées — un PostgreSQL managé peut tarder quelques secondes) ;
+2. migration(s) enregistrée(s) **en échec** (erreur Prisma `P3009`, ex. SQL refusé par
+   PostgreSQL) → elles sont marquées « annulées » puis rejouées : c'est ce qui débloque une base
+   restée coincée et empêchait auparavant **tout** déploiement ;
+3. `prisma migrate deploy` (migrations versionnées, additives) ;
+4. en dernier recours, `prisma db push --accept-data-loss` aligne le schéma sur `schema.prisma`
+   et complète l'historique de migrations (`DB_PUSH_FALLBACK=false` pour le désactiver).
+
+Un **échec de migration ne tue plus le conteneur** : il démarre en mode dégradé, visible dans
+les logs et dans la sonde `GET /api/v1/health` → `database.schema` (`ok` | `degraded`). Pour
+rétablir l'arrêt en cas de migration refusée, définir `MIGRATIONS_STRICT=true` dans
+l'hébergeur. Le client Prisma est généré **au build** pour le provider de production puis
+vérifié (`apps/api/scripts/verify-prisma-client.mjs`) : une génération ratée échoue au build,
+jamais silencieusement en production.
+
 **B. Docker Compose (n'importe quel hôte : VPS, Hetzner, etc.)**
 
 ```bash

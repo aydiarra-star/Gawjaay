@@ -29,10 +29,12 @@ et **une base PostgreSQL managée**, en injectant `DATABASE_URL` et en généran
 1. Créer un compte sur <https://render.com> et connecter le dépôt GitHub `aydiarra-star/Gawjaay`.
 2. **New** → **Blueprint** → choisir le dépôt → Render lit `render.yaml` et propose
    `gawjaay-api` + `gawjaay-db`.
-3. Valider. Render construit l'image (Dockerfile), applique le schéma Prisma
-   (`db push`) et démarre l'API.
+3. Valider. Render construit l'image (Dockerfile : le client Prisma est généré **au build** pour
+   PostgreSQL puis vérifié), applique les migrations versionnées au démarrage du conteneur, puis
+   démarre l'API.
 4. Noter l'**URL réelle** du service, du type `https://gawjaay-api.onrender.com`.
-5. Vérifier : `curl https://gawjaay-api.onrender.com/api/v1/health` → `{"status":"ok",...}`.
+5. Vérifier : `curl https://gawjaay-api.onrender.com/api/v1/health` → `{"status":"ok",...}`,
+   avec `database.schema` = `ok`.
 
 Variables créées automatiquement par le blueprint :
 
@@ -47,6 +49,38 @@ Variables créées automatiquement par le blueprint :
 
 > ⚠️ Offre *free* : le service s'endort après inactivité (premier appel lent) et la base gratuite
 > expire au bout de 90 jours. Pour une production durable → plan payant.
+
+### Migrations de base au démarrage (et réparation automatique)
+
+Le conteneur prépare la base **avant** de servir le trafic
+(`apps/api/docker-entrypoint.sh` → `apps/api/scripts/db-migrate.mjs`), sans intervention :
+
+| Étape | Ce qui se passe |
+| --- | --- |
+| 1. Connexion | La base répond-elle ? Sinon, nouvelles tentatives espacées (`DB_CONNECT_ATTEMPTS`, `DB_CONNECT_DELAY_MS`) puis échec **explicite** : sans base, l'API ne peut rien servir. |
+| 2. Baseline | Base déjà peuplée par l'ancien `db push` (pas d'historique) → `migrate resolve --applied 0_init` (aucun SQL exécuté). |
+| 3. Réparation | Migration enregistrée **en échec** (erreur Prisma `P3009`) → `migrate resolve --rolled-back` puis nouvelle tentative : la base se débloque toute seule. |
+| 4. Migrations | `prisma migrate deploy` (migrations versionnées, **additives**). |
+| 5. Dernier recours | `prisma db push --accept-data-loss` aligne le schéma sur `schema.prisma`, puis l'historique est complété (`migrate resolve --applied`). Désactivable : `DB_PUSH_FALLBACK=false`. |
+
+Un **échec de migration ne tue plus le conteneur** (l'ancien comportement rendait *tous* les
+déploiements impossibles : l'API restait figée sur une version antérieure, sans alerte). En cas
+d'échec, l'API démarre en **mode dégradé**, visible dans les logs et dans la sonde :
+
+```bash
+curl -s https://gawjaay-api.onrender.com/api/v1/health
+# {"status":"ok","time":"…","database":{"connected":true,"schema":"ok","mode":"migrations"}}
+#                                   schema: "ok" | "degraded" (migrations refusées) | "unknown"
+```
+
+- `database.schema = "degraded"` → une migration a été refusée : lire les logs Render
+  (`[db-migrate]`), corriger le SQL fautif (`TIMESTAMP(3)` et non `DATETIME`, cf.
+  `apps/api/test/migrations.test.ts`), puis redéployer — la réparation du point 3 s'applique
+  automatiquement.
+- Pour préférer un déploiement marqué **en échec** plutôt qu'une API en mode dégradé :
+  `MIGRATIONS_STRICT=true` (variable Render).
+- La sonde `GET /api/v1/health` répond toujours `200` : un mode dégradé n'empêche pas le
+  déploiement d'aboutir, mais il est **observable**.
 
 ## 2. Déployer le backend (Docker — tout hôte : VPS, Hetzner…)
 
@@ -88,7 +122,8 @@ le runtime temporaire `*.all-hands.dev` (`apps/web/scripts/verify-bundle.mjs`).
 
 | Contrôle | Commande / action attendue |
 | --- | --- |
-| Health | `curl https://<api>/api/v1/health` → `200 {"status":"ok"}` |
+| Health | `curl https://<api>/api/v1/health` → `200 {"status":"ok","database":{"connected":true,"schema":"ok"}}` |
+| Base à jour | `database.schema` = `"ok"` (sinon `"degraded"` → voir « Migrations de base au démarrage ») |
 | CORS | `curl -s -D- -o /dev/null -H 'Origin: https://aydiarra-star.github.io' https://<api>/api/v1/health` → `access-control-allow-origin: https://aydiarra-star.github.io` |
 | Inscription | `POST https://<api>/api/v1/auth/register` → `201` + `accessToken` |
 | Connexion | `POST https://<api>/api/v1/auth/login` → `200` + `accessToken` |
