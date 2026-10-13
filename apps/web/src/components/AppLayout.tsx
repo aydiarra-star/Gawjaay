@@ -108,7 +108,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </Link>
         <div className="topbar-spacer" />
 
-        <div className="row" style={{ gap: 10 }}>
+        <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           {organizations.length > 1 && (
             <select
               aria-label="Organisation active"

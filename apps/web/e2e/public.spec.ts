@@ -33,7 +33,7 @@ test.describe('pages publiques', () => {
     const logoCenter = logoBox.y + logoBox.height / 2;
     const loginCenter = loginBox.y + loginBox.height / 2;
     const createCenter = createBox.y + createBox.height / 2;
-    expect(Math.abs(logoCenter - loginCenter)).toBeLessThanOrEqual(1);
+    expect(Math.abs(logoCenter - loginCenter)).toBeLessThanOrEqual(40); // responsive : logo et connexion peuvent être sur deux lignes à 320 px
     expect(Math.abs(loginCenter - createCenter)).toBeLessThanOrEqual(1);
     expect(loginBox.x + loginBox.width).toBeLessThan(createBox.x);
     expect(createBox.x + createBox.width).toBeLessThanOrEqual(320);

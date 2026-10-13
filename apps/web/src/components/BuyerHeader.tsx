@@ -18,7 +18,7 @@ export function BuyerHeader({ showCart = true }: { showCart?: boolean }) {
         Gaw<span>Jaay</span>
       </Link>
       <div className="topbar-spacer" />
-      <div className="row" style={{ gap: 8 }}>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
         <Link to="/marketplace" className="btn btn-secondary btn-sm">Marketplace</Link>
         <Link to="/register" className="btn btn-secondary btn-sm">Vendre</Link>
         {showCart && (

@@ -200,6 +200,7 @@ p {
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--s3);
   padding: 0 var(--s4);
   position: sticky;
