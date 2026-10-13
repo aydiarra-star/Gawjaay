@@ -41,10 +41,9 @@ test.describe('pages publiques', () => {
 
     const track = page.locator('.announcement-track');
     await expect(track).toHaveCSS('direction', 'ltr');
-    const startX = await track.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41);
-    await page.waitForTimeout(300);
-    const endX = await track.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41);
-    expect(endX).toBeGreaterThan(startX);
+    const readTrackX = () => track.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41);
+    const startX = await readTrackX();
+    await expect.poll(readTrackX, { timeout: 3_000 }).toBeGreaterThan(startX);
   });
 
   test('la marketplace se charge en direct (route SPA profonde)', async ({ page }) => {
