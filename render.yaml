@@ -29,6 +29,19 @@ services:
       # Indique au conteneur d'utiliser PostgreSQL (réécrit le provider Prisma).
       - key: DATABASE_PROVIDER
         value: postgresql
+      # Préparation de la base au démarrage (apps/api/scripts/db-migrate.mjs) :
+      #   - migrations versionnées `prisma migrate deploy` ;
+      #   - réparation automatique des migrations restées « en échec » (P3009,
+      #     cause de l'incident du 2026-10-06 : plus aucun déploiement ne
+      #     passait) ;
+      #   - repli `prisma db push --accept-data-loss` si les migrations sont
+      #     refusées par PostgreSQL (DB_PUSH_FALLBACK=false pour le désactiver) ;
+      #   - un échec de migration ne tue plus le conteneur : il démarre en mode
+      #     dégradé, exposé par GET /api/v1/health → database.schema.
+      # Mettre MIGRATIONS_STRICT=true pour rétablir l'arrêt en cas d'échec de
+      # migration (déploiement marqué en échec plutôt qu'API en mode dégradé).
+      - key: DB_PUSH_FALLBACK
+        value: "true"
       - key: DATABASE_URL
         fromDatabase:
           name: gawjaay-db
