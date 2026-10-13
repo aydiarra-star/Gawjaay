@@ -9,6 +9,53 @@ test.describe('pages publiques', () => {
     await expect(page.getByRole('main').getByRole('link', { name: 'Explorer la marketplace' })).toBeVisible();
   });
 
+  test('la navbar reste alignée sur mobile et le bandeau défile vers la droite', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+
+    const header = page.locator('.landing-topbar');
+    await expect(header.getByRole('link', { name: 'Connexion' })).toBeVisible();
+    await expect(header.getByRole('link', { name: 'Créer ma boutique' })).toBeVisible();
+    await expect(header.getByRole('link', { name: 'Marketplace' })).toBeHidden();
+
+    const [headerBox, logoBox, loginBox, createBox, tickerBox] = await Promise.all([
+      header.boundingBox(),
+      header.locator('.brand').boundingBox(),
+      header.getByRole('link', { name: 'Connexion' }).boundingBox(),
+      header.getByRole('link', { name: 'Créer ma boutique' }).boundingBox(),
+      page.locator('.announcement-ticker').boundingBox(),
+    ]);
+    if (!headerBox || !logoBox || !loginBox || !createBox || !tickerBox) {
+      throw new Error('Éléments de navigation ou bandeau introuvables.');
+    }
+
+    const logoCenter = logoBox.y + logoBox.height / 2;
+    const loginCenter = loginBox.y + loginBox.height / 2;
+    const createCenter = createBox.y + createBox.height / 2;
+    expect(Math.abs(logoCenter - loginCenter)).toBeLessThanOrEqual(1);
+    expect(Math.abs(loginCenter - createCenter)).toBeLessThanOrEqual(1);
+    expect(loginBox.x + loginBox.width).toBeLessThan(createBox.x);
+    expect(createBox.x + createBox.width).toBeLessThanOrEqual(320);
+    expect(tickerBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1);
+
+    const track = page.locator('.announcement-track');
+    await expect(track).toHaveCSS('direction', 'ltr');
+    const offsets = await track.evaluate(async (element) => {
+      const animation = element.getAnimations()[0];
+      if (!animation) return null;
+      animation.pause();
+      await animation.ready;
+      animation.currentTime = 0;
+      const startX = new DOMMatrixReadOnly(getComputedStyle(element).transform).m41;
+      animation.currentTime = 1_000;
+      const endX = new DOMMatrixReadOnly(getComputedStyle(element).transform).m41;
+      return { startX, endX };
+    });
+    if (!offsets) throw new Error('Le bandeau devrait avoir une animation active.');
+    expect(offsets.endX).toBeGreaterThan(offsets.startX);
+  });
+
   test('la marketplace se charge en direct (route SPA profonde)', async ({ page }) => {
     await page.goto('/marketplace');
     await expect(page.getByRole('heading', { name: 'Marketplace' })).toBeVisible();

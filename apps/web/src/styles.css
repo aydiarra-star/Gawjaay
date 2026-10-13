@@ -2393,15 +2393,157 @@ tbody tr:last-child td {
 
 
 /* ------------------------------------------------------------------ */
-/* Bandeau d'annonces GawJaay — mouvement gauche → droite             */
+/* En-tête de la page d'accueil : commandes sur une seule ligne         */
 /* ------------------------------------------------------------------ */
-.announcement-ticker{width:100%;display:flex;align-items:stretch;min-height:44px;overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
-.announcement-label{position:relative;z-index:2;display:inline-flex;align-items:center;flex:0 0 auto;padding:0 16px;font-size:.72rem;font-weight:760;letter-spacing:.08em;text-transform:uppercase;color:var(--on-primary,#fff);background:var(--primary);box-shadow:8px 0 18px rgb(var(--shadow-ink)/.08)}
-.announcement-viewport{min-width:0;flex:1;overflow:hidden;position:relative}
-.announcement-track{width:max-content;min-height:44px;display:flex;align-items:center;animation:gawjaay-announcement-ltr 28s linear infinite;will-change:transform}
-.announcement-item{display:inline-flex;align-items:center;gap:9px;flex:0 0 auto;padding:0 34px;white-space:nowrap;color:var(--ink-2);font-size:.84rem;font-weight:560}
-.announcement-item svg{color:var(--primary);flex:0 0 auto}
-@keyframes gawjaay-announcement-ltr{from{transform:translateX(-50%)}to{transform:translateX(0)}}
-.announcement-ticker:hover .announcement-track,.announcement-ticker:focus-within .announcement-track{animation-play-state:paused}
-@media (prefers-reduced-motion:reduce){.announcement-track{animation:none;transform:none}.announcement-item:not(:first-child){display:none}}
-@media (max-width:640px){.announcement-label{padding:0 11px;font-size:.66rem}.announcement-item{padding:0 22px;font-size:.78rem}}
+.landing-topbar {
+  /* La navbar de l'accueil suit le flux : elle ne recouvre pas le bandeau. */
+  position: relative;
+  top: auto;
+  z-index: 1;
+  height: auto;
+  min-height: var(--header-h);
+  flex: 0 0 auto;
+}
+.landing-topbar .brand,
+.landing-nav-actions,
+.landing-nav-actions .btn {
+  flex: 0 0 auto;
+}
+.landing-nav-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bandeau d'annonces GawJaay — défilement physique gauche → droite    */
+/* ------------------------------------------------------------------ */
+.announcement-ticker {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  min-height: 44px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.announcement-label {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 16px;
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-primary, #fff);
+  background: var(--primary);
+  box-shadow: 8px 0 18px rgb(var(--shadow-ink) / 0.08);
+}
+.announcement-viewport {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.announcement-track {
+  width: max-content;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  direction: ltr;
+  /* -50% → 0 fait progresser la piste vers la droite, sans saut grâce au doublon. */
+  animation: gawjaay-announcement-scroll-right 28s linear infinite;
+  will-change: transform;
+}
+.announcement-item {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 9px;
+  padding: 0 34px;
+  white-space: nowrap;
+  direction: ltr;
+  color: var(--ink-2);
+  font-size: 0.84rem;
+  font-weight: 560;
+}
+.announcement-item svg {
+  flex: 0 0 auto;
+  color: var(--primary);
+}
+@keyframes gawjaay-announcement-scroll-right {
+  from { transform: translate3d(-50%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+.announcement-ticker:hover .announcement-track,
+.announcement-ticker:focus-within .announcement-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .announcement-track { animation: none; transform: none; }
+  .announcement-item:not(:first-child) { display: none; }
+}
+@media (max-width: 640px) {
+  .landing-topbar {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  .landing-topbar .brand {
+    font-size: 1rem;
+  }
+  .landing-topbar .brand-mark {
+    width: 27px;
+    height: 27px;
+    margin-right: 6px;
+  }
+  .landing-nav-actions {
+    gap: 6px;
+  }
+  .landing-nav-actions .btn-sm {
+    min-height: 32px;
+    padding-inline: 8px;
+    font-size: 0.74rem;
+  }
+  .landing-marketplace-link {
+    display: none;
+  }
+  .announcement-label {
+    padding: 0 11px;
+    font-size: 0.66rem;
+  }
+  .announcement-item {
+    padding: 0 22px;
+    font-size: 0.78rem;
+  }
+}
+@media (max-width: 380px) {
+  .landing-topbar {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .landing-topbar .brand {
+    font-size: 0.9rem;
+  }
+  .landing-topbar .brand-mark {
+    width: 24px;
+    height: 24px;
+    margin-right: 5px;
+  }
+  .landing-nav-actions {
+    gap: 4px;
+  }
+  .landing-nav-actions .btn-sm {
+    min-height: 31px;
+    padding-inline: 6px;
+    font-size: 0.68rem;
+  }
+}

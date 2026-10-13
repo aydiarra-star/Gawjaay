@@ -55,14 +55,14 @@ const PILLARS = [
 export function LandingPage() {
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <header className="topbar landing-topbar">
         <Link to="/" className="brand" style={{ textDecoration: 'none' }}>
           <span className="brand-mark">G</span>
           Gaw<span>Jaay</span>
         </Link>
         <div className="topbar-spacer" />
-        <div className="row" style={{ gap: 8 }}>
-          <Link to="/marketplace" className="btn btn-ghost btn-sm">
+        <nav className="landing-nav-actions" aria-label="Navigation principale">
+          <Link to="/marketplace" className="btn btn-ghost btn-sm landing-marketplace-link">
             Marketplace
           </Link>
           <Link to="/login" className="btn btn-secondary btn-sm">
@@ -71,7 +71,7 @@ export function LandingPage() {
           <Link to="/register" className="btn btn-sm">
             Créer ma boutique
           </Link>
-        </div>
+        </nav>
       </header>
 
       <main>
