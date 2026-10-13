@@ -41,9 +41,19 @@ test.describe('pages publiques', () => {
 
     const track = page.locator('.announcement-track');
     await expect(track).toHaveCSS('direction', 'ltr');
-    const readTrackX = () => track.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).m41);
-    const startX = await readTrackX();
-    await expect.poll(readTrackX, { timeout: 3_000 }).toBeGreaterThan(startX);
+    const offsets = await track.evaluate(async (element) => {
+      const animation = element.getAnimations()[0];
+      if (!animation) return null;
+      animation.pause();
+      await animation.ready;
+      animation.currentTime = 0;
+      const startX = new DOMMatrixReadOnly(getComputedStyle(element).transform).m41;
+      animation.currentTime = 1_000;
+      const endX = new DOMMatrixReadOnly(getComputedStyle(element).transform).m41;
+      return { startX, endX };
+    });
+    if (!offsets) throw new Error('Le bandeau devrait avoir une animation active.');
+    expect(offsets.endX).toBeGreaterThan(offsets.startX);
   });
 
   test('la marketplace se charge en direct (route SPA profonde)', async ({ page }) => {
