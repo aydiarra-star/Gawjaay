@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
-import { clearSession, getOrganizationId, getUser, isAuthenticated, setOrganization, setSession, type SessionUser } from '../lib/session';
+import { clearSession, getOrganizationId, getStoreId, getUser, isAuthenticated, setOrganization, setSession, type SessionUser } from '../lib/session';
 
 export interface OrganizationSummary {
   id: string;
@@ -108,12 +108,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setUser(data.user);
     setOrgId(data.organization?.id ?? null);
-    await refreshOrganizations();
+    // Le compte est créé à ce stade : un échec de l'enrichissement (liste des
+    // organisations, réseau instable) ne doit jamais être présenté à l'utilisateur
+    // comme un échec d'inscription. Il est rechargé à la prochaine navigation.
+    try {
+      await refreshOrganizations();
+    } catch {
+      // ignoré volontairement
+    }
   }, [refreshOrganizations]);
 
   const updateUser = useCallback((nextUser: SessionUser) => {
     const accessToken = localStorage.getItem('gawjaay.accessToken');
-    if (accessToken) setSession({ accessToken, user: nextUser, organizationId: getOrganizationId() ?? undefined });
+    if (accessToken) {
+      setSession({
+        accessToken,
+        user: nextUser,
+        organizationId: getOrganizationId() ?? undefined,
+        storeId: getStoreId() ?? undefined,
+      });
+    }
     setUser(nextUser);
   }, []);
 

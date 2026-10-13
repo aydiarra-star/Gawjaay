@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStore } from '../context/StoreContext';
+import { SignupSuccess } from './SignupSuccess';
 import {
   IconBike,
   IconBuilding,
@@ -185,7 +186,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <main className="main" id="main-content">
-          <div className="main-inner">{children}</div>
+          <div className="main-inner">
+            <SignupSuccess />
+            {children}
+          </div>
         </main>
       </div>
 

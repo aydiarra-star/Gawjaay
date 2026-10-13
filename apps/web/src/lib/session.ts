@@ -41,8 +41,14 @@ export function getUser(): SessionUser | null {
 export function setSession(session: { accessToken: string; user: SessionUser; organizationId?: string; storeId?: string }): void {
   localStorage.setItem(ACCESS_KEY, session.accessToken);
   localStorage.setItem(USER_KEY, JSON.stringify(session.user));
+  // Une nouvelle session ne doit JAMAIS hériter de l'organisation ou de la boutique
+  // d'un compte précédent : un compte « particulier » n'a pas d'organisation, et
+  // conserver un identifiant périmé ferait envoyer un `x-organization-id` auquel
+  // l'utilisateur n'appartient pas → 403 sur toutes les requêtes suivantes.
   if (session.organizationId) localStorage.setItem(ORG_KEY, session.organizationId);
+  else localStorage.removeItem(ORG_KEY);
   if (session.storeId) localStorage.setItem(STORE_KEY, session.storeId);
+  else localStorage.removeItem(STORE_KEY);
 }
 
 export function setOrganization(organizationId: string, storeId?: string): void {

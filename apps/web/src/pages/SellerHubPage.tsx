@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { SENEGAL_REGIONS } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
 import { Alert, Card, PageHead, Spinner } from '../components/ui';
+import { SignupSuccess } from '../components/SignupSuccess';
 
 interface Seller {
   id: string;
@@ -119,6 +120,7 @@ export function SellerHubPage() {
       </header>
       <main className="main">
         <PageHead title="Mon espace vendeur" subtitle="Publiez, modifiez, mettez en pause ou retirez vos annonces. Vous gardez le contrôle." />
+        <SignupSuccess />
         {error && <Alert kind="error">{error}</Alert>}
         {!seller ? <Card title="Profil vendeur manquant"><p>Votre profil vendeur doit être créé avant de publier.</p></Card> : (
           <>
