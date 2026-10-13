@@ -81,6 +81,21 @@ function normalizeDataSchema(schemaText) {
     .trim();
 }
 
+/** Affiche un extrait borné pour expliquer une divergence de schéma sans
+ *  désactiver le contrôle ni exposer l'intégralité du schéma dans les logs. */
+function logSchemaDifference(sourceText, generatedText) {
+  const source = normalizeDataSchema(sourceText);
+  const generated = normalizeDataSchema(generatedText);
+  if (!source || !generated || source === generated) return;
+  let offset = 0;
+  const max = Math.min(source.length, generated.length);
+  while (offset < max && source[offset] === generated[offset]) offset += 1;
+  const start = Math.max(0, offset - 80);
+  const sourceExcerpt = source.slice(start, Math.min(source.length, offset + 120));
+  const generatedExcerpt = generated.slice(start, Math.min(generated.length, offset + 120));
+  warn(`diagnostic schéma : première différence à l'offset ${offset}; dépôt=${JSON.stringify(sourceExcerpt)}; client généré=${JSON.stringify(generatedExcerpt)}`);
+}
+
 /** Recherche un chemin sous `node_modules` en remontant depuis le dossier de l'API. */
 function findInNodeModules(relative) {
   let dir = apiRoot;
@@ -129,6 +144,7 @@ function inspect() {
     );
   }
   if (stale) {
+    logSchemaDifference(schemaText, generatedSchemaText);
     problems.push('client Prisma périmé : le schéma du dépôt a changé depuis la dernière génération → régénérer');
   }
   if (!cliVersion) {
