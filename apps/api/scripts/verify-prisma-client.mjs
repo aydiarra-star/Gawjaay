@@ -131,13 +131,19 @@ function inspect() {
   const clientVersion = readVersion(findInNodeModules(join('@prisma', 'client', 'package.json')));
   const cliVersion = readVersion(findInNodeModules(join('prisma', 'package.json')));
 
-  const missing = !hasEntry;
+  // Un default.js peut exister même quand npm n'a créé que le client placeholder.
+  // Le schéma généré est indispensable pour prouver que Prisma Client a été initialisé.
+  const missing = !hasEntry || !generatedSchemaText;
   const providerMismatch = Boolean(hasEntry && schemaProvider && generatedProvider && schemaProvider !== generatedProvider);
 
   const problems = [];
-  if (missing) {
+  if (!hasEntry) {
     problems.push(
       'client Prisma absent (node_modules/.prisma/client) → exécuter `npx prisma generate --schema prisma/schema.prisma`',
+    );
+  } else if (!generatedSchemaText) {
+    problems.push(
+      'client Prisma non initialisé (schéma généré absent) → exécuter `prisma generate --schema prisma/schema.prisma`',
     );
   }
   if (providerMismatch) {

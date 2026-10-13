@@ -53,6 +53,9 @@ COPY apps/api/package.json apps/api/
 # est exactement celui du lockfile, comme `@prisma/client` — plus de pinnage
 # manuel, donc plus de décalage de version au démarrage.
 RUN npm ci --omit=dev
+# npm ci s'exécute avant la copie du schéma et laisse donc un client placeholder.
+# Transférer le client généré pour PostgreSQL depuis l'étape build évite ce faux démarrage.
+COPY --from=build /app/node_modules/.prisma/client node_modules/.prisma/client
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY apps/api/prisma apps/api/prisma
