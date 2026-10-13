@@ -65,6 +65,7 @@ function readVersion(packageJsonPath) {
 function normalizeSchema(schemaText) {
   if (!schemaText) return null;
   return schemaText
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/\/\/[^\n]*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -76,6 +77,7 @@ function normalizeDataSchema(schemaText) {
   if (!schemaText) return null;
   const stripped = schemaText.replace(/\s*generator\s+\w+\s*\{[^}]*\}\s*/g, ' ');
   return stripped
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/\/\/[^\n]*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
