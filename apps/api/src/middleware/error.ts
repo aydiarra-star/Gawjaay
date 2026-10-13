@@ -1,7 +1,35 @@
-import { ZodError } from 'zod';
+import { ZodError, type ZodIssue } from 'zod';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { AppError } from '../lib/errors.js';
 import { isProd } from '../config/env.js';
+
+/**
+ * Messages de repli par code d'erreur de validation. Les schémas portent leurs
+ * propres messages métier (en français) ; ce repli évite qu'un message anglais
+ * par défaut (ex. « Required ») parvienne à l'utilisateur.
+ */
+const FALLBACK_MESSAGES: Partial<Record<ZodIssue['code'], string>> = {
+  invalid_type: 'Champ obligatoire manquant',
+  too_small: 'Valeur trop courte',
+  too_big: 'Valeur trop longue',
+  invalid_string: 'Format invalide',
+  invalid_enum_value: 'Valeur non autorisée',
+  unrecognized_keys: 'Champ non reconnu',
+  invalid_union: 'Valeur invalide',
+  custom: 'Valeur invalide',
+};
+
+/** Messages génériques (anglais) produits par zod lorsqu'aucun message n'est fourni. */
+const GENERIC_MESSAGE = /^(Required|Invalid|Expected|String must|Number must|Array must|Unrecognized key)/i;
+
+function validationMessage(issue: ZodIssue): string {
+  if (typeof issue.message === 'string' && issue.message && !GENERIC_MESSAGE.test(issue.message)) {
+    return issue.message;
+  }
+  const label = issue.path.join('.');
+  const fallback = FALLBACK_MESSAGES[issue.code] ?? 'Valeur invalide';
+  return label ? `${fallback} (${label})` : fallback;
+}
 
 /** 404 par défaut pour toute route non trouvée. */
 export const notFoundHandler: RequestHandler = (_req, res) => {
@@ -21,11 +49,15 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   }
 
   if (err instanceof ZodError) {
+    const details = err.issues.map((i) => ({ path: i.path.join('.'), message: validationMessage(i) }));
     res.status(400).json({
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Données invalides',
-        details: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        // Message exploitable tel quel par l'utilisateur (« Le mot de passe doit
+        // contenir au moins 8 caractères ») plutôt qu'un « Données invalides »
+        // qui ne lui dit pas quoi corriger.
+        message: details.length > 0 ? details.map((d) => d.message).join(' ') : 'Données invalides',
+        details,
       },
     });
     return;
