@@ -27,6 +27,12 @@ interface Product {
   variants: Array<{ id: string; name: string; sku: string; lowStockThreshold: number }>;
 }
 
+interface FlashOffer {
+  id: string; storeId: string; variantId: string; flashPrice: number; quantityLimit: number | null; quantitySold: number; endsAt: string | null; status: 'ACTIVE' | 'EXHAUSTED' | 'EXPIRED' | 'DISABLED'; available: number;
+  variant: { id: string; name: string; price: number | null; product: { id: string; name: string; price: number; promoPrice: number | null } };
+  store: { id: string; name: string };
+}
+
 interface PriceHistoryEntry {
   id: string;
   field: 'purchasePrice' | 'price' | 'promoPrice' | string;
@@ -88,13 +94,17 @@ export function ProductsPage() {
   const [promoInput, setPromoInput] = useState('');
   const [manageBusy, setManageBusy] = useState(false);
   const [manageError, setManageError] = useState<string | null>(null);
+  const [flashOffers, setFlashOffers] = useState<any[]>([]);
+  const [flashPriceInput, setFlashPriceInput] = useState('');
+  const [flashQuantityInput, setFlashQuantityInput] = useState('');
+  const [flashEndsAtInput, setFlashEndsAtInput] = useState('');
+  const [flashBusy, setFlashBusy] = useState(false);
   const [managePhoto, setManagePhoto] = useState<string | null>(null);
   const [managePhotoDirty, setManagePhotoDirty] = useState(false);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [lightbox, setLightbox] = useState<{ productId: string; name: string; src: string } | null>(null);
   const [lightboxLoadingId, setLightboxLoadingId] = useState<string | null>(null);
   const [lightboxError, setLightboxError] = useState<string | null>(null);
-
   const { data, loading, error: loadError, reload } = useApi<ProductsResponse>(
     () =>
       api.get<ProductsResponse>(
@@ -108,6 +118,10 @@ export function ProductsPage() {
     [storeId],
   );
   const quantityByVariant = new Map((stock.data?.items ?? []).map((i) => [i.variantId, i.quantity]));
+  const flashReload = useApi<{ offers: FlashOffer[] }>(
+    () => api.get(`/flash-offers${storeId ? `?storeId=${storeId}` : ''}`),
+    [storeId],
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -127,6 +141,16 @@ export function ProductsPage() {
     setError(null);
   }
 
+  async function loadFlashOffers(productId?: string) {
+    try {
+      const suffix = storeId ? '?storeId=' + encodeURIComponent(storeId) : '';
+      const res = await api.get<{ offers: any[] }>('/flash-offers' + suffix);
+      setFlashOffers((res.offers ?? []).filter((o) => !productId || o.variant?.product?.id === productId));
+    } catch {
+      setFlashOffers([]);
+    }
+  }
+
   async function openManage(p: Product) {
     setManage(p);
     setPromoInput(p.promoPrice != null ? String(p.promoPrice) : '');
@@ -134,6 +158,11 @@ export function ProductsPage() {
     setManagePhoto(null);
     setManagePhotoDirty(false);
     setHistory([]);
+    const activeFlash = p.variants[0] ? flashReload.data?.offers.find((o) => o.variantId === p.variants[0].id && o.status === 'ACTIVE') : undefined;
+    setFlashPriceInput(activeFlash ? String(activeFlash.flashPrice) : '');
+    setFlashQuantityInput(activeFlash?.quantityLimit != null ? String(Math.max(0, activeFlash.quantityLimit - activeFlash.quantitySold)) : '');
+    setFlashEndsAtInput(activeFlash?.endsAt ? new Date(activeFlash.endsAt).toISOString().slice(0, 16) : '');
+    await loadFlashOffers(p.id);
     try {
       const res = await api.get<{ priceHistory: PriceHistoryEntry[] }>(`/products/${p.id}`);
       setHistory(res.priceHistory ?? []);
@@ -158,6 +187,58 @@ export function ProductsPage() {
       setManageError(err instanceof ApiError ? err.message : 'Photo impossible à enregistrer');
     } finally {
       setManageBusy(false);
+    }
+  }
+
+  async function createFlashOffer() {
+    if (!manage) return;
+    const variant = manage.variants[0];
+    if (!variant || !storeId) {
+      setManageError('Une boutique et une variante sont nécessaires pour créer une offre Flash.');
+      return;
+    }
+    const flashPrice = Number(flashPriceInput);
+    const quantityLimit = flashQuantityInput.trim() ? Number(flashQuantityInput) : null;
+    if (!Number.isInteger(flashPrice) || flashPrice <= 0 || flashPrice >= manage.price) {
+      setManageError('Le prix Flash doit être positif et inférieur au prix de vente.');
+      return;
+    }
+    if (quantityLimit != null && (!Number.isInteger(quantityLimit) || quantityLimit <= 0)) {
+      setManageError('La quantité limitée doit être un nombre entier positif.');
+      return;
+    }
+    if (!quantityLimit && !flashEndsAtInput) {
+      setManageError('Indiquez une limite de quantité ou une date de fin.');
+      return;
+    }
+    setManageError(null);
+    setFlashBusy(true);
+    try {
+      const endsAt = flashEndsAtInput ? new Date(flashEndsAtInput).toISOString() : null;
+      const res = await api.post<{ offer: any }>('/flash-offers', {
+        storeId, variantId: variant.id, flashPrice, quantityLimit, endsAt,
+      });
+      setFlashOffers((current) => [res.offer, ...current]);
+      setFlashPriceInput('');
+      setFlashQuantityInput('');
+      setFlashEndsAtInput('');
+    } catch (err) {
+      setManageError(err instanceof ApiError ? err.message : 'Création de l’offre Flash impossible');
+    } finally {
+      setFlashBusy(false);
+    }
+  }
+
+  async function disableFlashOffer(id: string) {
+    setFlashBusy(true);
+    setManageError(null);
+    try {
+      const res = await api.patch<{ offer: any }>('/flash-offers/' + id + '/disable', {});
+      setFlashOffers((current) => current.map((o) => o.id === id ? { ...o, ...res.offer, available: 0 } : o));
+    } catch (err) {
+      setManageError(err instanceof ApiError ? err.message : 'Impossible de désactiver l’offre Flash');
+    } finally {
+      setFlashBusy(false);
     }
   }
 
@@ -591,6 +672,57 @@ export function ProductsPage() {
             </div>
 
             <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Offre Flash</div>
+              <p className="small muted" style={{ margin: '6px 0 10px' }}>
+                Prix temporaire sous le prix de vente, avec limite de quantité ou date de fin.
+              </p>
+              {flashOffers.length > 0 && (
+                <div className="stack" style={{ gap: 8, marginBottom: 12 }}>
+                  {flashOffers.map((offer) => {
+                    const active = offer.status === 'ACTIVE' && offer.available > 0;
+                    const endLabel = offer.endsAt ? formatDateTime(offer.endsAt) : 'Sans date de fin';
+                    const state = active ? 'Active' : offer.status === 'EXHAUSTED' ? 'Épuisée' : offer.status === 'EXPIRED' ? 'Expirée' : 'Désactivée';
+                    return (
+                      <div key={offer.id} className="card" style={{ padding: 12 }}>
+                        <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+                          <strong>{formatXOF(offer.flashPrice)}</strong>
+                          <span className={'badge ' + (active ? 'badge-success' : 'badge-warning')}>{state}</span>
+                        </div>
+                        <div className="small muted" style={{ marginTop: 4 }}>
+                          Disponible : {offer.available} · Vendues : {offer.quantitySold}
+                          {offer.quantityLimit != null ? ' / ' + offer.quantityLimit : ''} · Fin : {endLabel}
+                        </div>
+                        {active && (
+                          <button className="btn btn-secondary btn-sm" disabled={flashBusy} style={{ marginTop: 8 }} onClick={() => void disableFlashOffer(offer.id)}>
+                            Désactiver
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="form-row">
+                <div className="field">
+                  <label htmlFor="flash-price">Prix Flash (FCFA)</label>
+                  <input id="flash-price" type="number" inputMode="numeric" min="1" value={flashPriceInput} onChange={(e) => setFlashPriceInput(e.target.value)} placeholder="Inférieur au prix de vente" />
+                </div>
+                <div className="field">
+                  <label htmlFor="flash-quantity">Quantité limitée (optionnel)</label>
+                  <input id="flash-quantity" type="number" inputMode="numeric" min="1" value={flashQuantityInput} onChange={(e) => setFlashQuantityInput(e.target.value)} placeholder="Ex. 10" />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="flash-end">Date de fin (optionnelle)</label>
+                <input id="flash-end" type="datetime-local" value={flashEndsAtInput} onChange={(e) => setFlashEndsAtInput(e.target.value)} />
+                <p className="field-hint">Une limite de quantité ou une date de fin est obligatoire.</p>
+              </div>
+              <button className="btn btn-sm" disabled={flashBusy} onClick={() => void createFlashOffer()}>
+                {flashBusy ? 'Enregistrement…' : 'Créer l’offre Flash'}
+              </button>
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
               <div className="stat-label">Prix promotionnel</div>
               <p className="small muted" style={{ margin: '6px 0 10px' }}>
                 Un prix promo doit être inférieur au prix de vente. Le serveur refuse toute valeur incohérente.
@@ -624,6 +756,59 @@ export function ProductsPage() {
                   </button>
                 )}
               </div>
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
+              <div className="stat-label">Offre Flash</div>
+              <p className="small muted" style={{ margin: '6px 0 10px' }}>
+                Offre limitée : le serveur vérifie le prix, le stock et la disponibilité réelle.
+              </p>
+              {(() => {
+                const variant = manage.variants[0];
+                const offer = variant ? flashReload.data?.offers.find((o) => o.variantId === variant.id && o.status === 'ACTIVE') : undefined;
+                if (offer) {
+                  const exhausted = offer.available <= 0;
+                  return (
+                    <div className="stack">
+                      <div className="row" style={{ gap: 8 }}>
+                        <span className="badge badge-primary">Flash · {formatXOF(offer.flashPrice)}</span>
+                        <span className={exhausted ? 'badge badge-warning' : 'badge badge-success'}>
+                          {exhausted ? 'Épuisée' : `${offer.available} disponible${offer.available > 1 ? 's' : ''}`}
+                        </span>
+                      </div>
+                      <p className="small muted" style={{ margin: 0 }}>
+                        {offer.quantityLimit != null ? `${offer.quantitySold} vendu${offer.quantitySold > 1 ? 's' : ''} sur ${offer.quantityLimit}` : 'Sans limite de quantité'}
+                        {offer.endsAt ? ` · jusqu’au ${formatDateTime(offer.endsAt)}` : ''}
+                      </p>
+                      <button type="button" className="btn btn-secondary btn-sm" disabled={flashBusy} onClick={() => void disableFlashOffer(offer.id)}>
+                        Désactiver l’offre
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="stack">
+                    <div className="form-row">
+                      <div className="field">
+                        <label htmlFor="flash-price">Prix Flash (FCFA)</label>
+                        <input id="flash-price" type="number" inputMode="numeric" min="1" value={flashPriceInput} onChange={(e) => setFlashPriceInput(e.target.value)} placeholder={`Inférieur à ${manage.price}`} />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="flash-qty">Quantité limite (optionnel)</label>
+                        <input id="flash-qty" type="number" inputMode="numeric" min="1" value={flashQuantityInput} onChange={(e) => setFlashQuantityInput(e.target.value)} placeholder="Ex. 10" />
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="flash-end">Fin de l’offre (optionnel)</label>
+                      <input id="flash-end" type="datetime-local" value={flashEndsInput} onChange={(e) => setFlashEndsInput(e.target.value)} />
+                      <p className="field-hint">Une quantité limite ou une date de fin est obligatoire.</p>
+                    </div>
+                    <button type="button" className="btn btn-sm" disabled={flashBusy || !flashPriceInput || (!flashQuantityInput && !flashEndsInput)} onClick={() => void createFlashOfferForManage()}>
+                      {flashBusy ? 'Enregistrement…' : 'Créer l’Offre Flash'}
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="card" style={{ padding: 16 }}>
