@@ -70,6 +70,17 @@ function normalizeSchema(schemaText) {
     .trim();
 }
 
+/** Même chose mais en ignorant le bloc generator (Prisma 6.19 réécrit
+ *  provider = "prisma-client-js" → "prisma-client" et ajoute engineType). */
+function normalizeDataSchema(schemaText) {
+  if (!schemaText) return null;
+  const stripped = schemaText.replace(/\s*generator\s+\w+\s*\{[^}]*\}\s*/g, ' ');
+  return stripped
+    .replace(/\/\/[^\n]*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Recherche un chemin sous `node_modules` en remontant depuis le dossier de l'API. */
 function findInNodeModules(relative) {
   let dir = apiRoot;
@@ -96,9 +107,9 @@ function inspect() {
   const generatedProvider = readProvider(generatedSchemaText);
   const stale =
     hasEntry &&
-    Boolean(normalizeSchema(schemaText)) &&
-    Boolean(normalizeSchema(generatedSchemaText)) &&
-    normalizeSchema(schemaText) !== normalizeSchema(generatedSchemaText);
+    Boolean(normalizeDataSchema(schemaText)) &&
+    Boolean(normalizeDataSchema(generatedSchemaText)) &&
+    normalizeDataSchema(schemaText) !== normalizeDataSchema(generatedSchemaText);
 
   const clientVersion = readVersion(findInNodeModules(join('@prisma', 'client', 'package.json')));
   const cliVersion = readVersion(findInNodeModules(join('prisma', 'package.json')));
