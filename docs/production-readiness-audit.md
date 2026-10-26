@@ -1,6 +1,6 @@
 # Audit de préparation à la mise en service — GawJaay
 
-Dernière vérification : 2026-10-26 21:15 (Europe/Paris)  
+Date de l'audit : 2026-10-26 (Europe/Paris)  
 Dépôt : [aydiarra-star/Gawjaay](https://github.com/aydiarra-star/Gawjaay)  
 Branche de référence examinée : `main` — `01815adefb7730518f10fd428e411d742c36d4e9`  
 Périmètre de travail : PR #44 et PR #45, code versionné et journaux GitHub Actions.  
