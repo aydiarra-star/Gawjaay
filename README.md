@@ -128,7 +128,7 @@ npm run build        # shared + api + web
 npm run test:e2e     # E2E Playwright (desktop + mobile) — démarre API + preview web
 ```
 
-Résultats vérifiés localement :
+Résultats historiques consignés localement (ils ne remplacent pas les checks GitHub Actions du commit candidat) :
 
 | Vérification | Commande | Résultat |
 | --- | --- | --- |
