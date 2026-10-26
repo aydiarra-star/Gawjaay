@@ -132,4 +132,12 @@ describe('sonde de disponibilité', () => {
     expect(renderYaml).toMatch(/healthCheckPath: \/api\/v1\/health/);
     expect(renderYaml).toMatch(/value: postgresql/);
   });
+
+  it('désactive le repli de schéma potentiellement destructif dans Render', () => {
+    expect(renderYaml).toMatch(/- key: DB_PUSH_FALLBACK\\s+value: "false"/);
+  });
+
+  it('fait échouer le déploiement Render si les migrations ne sont pas prêtes', () => {
+    expect(renderYaml).toMatch(/- key: MIGRATIONS_STRICT\\s+value: "true"/);
+  });
 });
