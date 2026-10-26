@@ -59,13 +59,13 @@ jobs:
           if (url.protocol !== 'https:' || !url.hostname || ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
             throw new Error('VITE_API_URL must use HTTPS and a public hostname.');
           }
-          if (!url.pathname.replace(/\\/$/, '').endsWith('/api/v1') || url.search || url.hash) {
+          if (!url.pathname.replace(/\/$/, '').endsWith('/api/v1') || url.search || url.hash) {
             throw new Error('VITE_API_URL must end in /api/v1 and must not include a query string or fragment.');
           }
 
           writeFileSync(
             'apps/web/dist/config.js',
-            `window.__GAWJAAY_CONFIG__ = { apiUrl: ${JSON.stringify(url.toString().replace(/\\/$/, ''))} };\\n`,
+            `window.__GAWJAAY_CONFIG__ = { apiUrl: ${JSON.stringify(url.toString().replace(/\/$/, ''))} };\n`,
             'utf8',
           );
           console.log(`Runtime API configured for ${url.host}.`);
