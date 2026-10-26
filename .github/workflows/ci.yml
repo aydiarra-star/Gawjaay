@@ -32,6 +32,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --include=dev --no-audit --no-fund
 
+      - name: Generate Prisma client for CI
+        run: npm run db:generate -w @gawjaay/api
+
       - name: Typecheck all workspaces
         run: npm run typecheck
 
