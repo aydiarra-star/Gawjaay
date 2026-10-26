@@ -136,3 +136,30 @@ Lecture directe de `.github/workflows/deploy-pages.yml` :
 - La validation de l'URL reste syntaxique et ne prouve ni résolution DNS publique ni disponibilité du service. La valeur réelle de la variable Actions n'a pas été lue.
 
 Action à proposer : ajouter une garde de branche avant les étapes de build/publication et tester le refus d'une référence non-`main` avec un workflow de validation sans effet de publication. Le dépôt indique dans `AGENTS.md` que le jeton courant n'a pas le scope `workflow` nécessaire pour pousser des changements dans `.github/workflows/`; le correctif du workflow est donc bloqué par les permissions actuelles et n'a pas été appliqué.
+
+
+### Inspection réelle du workspace Render — 2026-10-27
+
+Le propriétaire a confirmé que le workspace Render accessible est celui à examiner. Une inspection en lecture seule a été effectuée. Aucun déploiement, redémarrage, changement de variable, changement de plan ou changement de base n'a été demandé ni effectué.
+
+**API `gawjaay-api`**
+- Service présent dans le workspace, dépôt `aydiarra-star/Gawjaay`, branche `main`, région Oregon, plan effectif affiché `free`, auto-déploiement sur commit activé, sonde configurée sur `/api/v1/health`.
+- Dernier déploiement listé : statut `live`, commit `01815adefb7730518f10fd428e411d742c36d4e9`, démarré le 13 octobre 2026 et terminé avec succès. Le déploiement n'a pas été relancé par cet audit.
+- L'historique contient plusieurs événements `server_failed` (processus sortant avec code non nul) et plusieurs déploiements échoués le 13 octobre avant le déploiement actuellement `live`. Les logs consultables pour ces périodes n'ont pas retourné de lignes, donc la cause détaillée n'est pas établie. À traiter comme risque opérationnel, pas comme un problème dont la résolution est prouvée.
+- Les requêtes de métriques API (requêtes HTTP, latence, CPU, mémoire et instances) ont renvoyé des séries vides sur la fenêtre disponible. Les recherches de logs d'erreur, applicatifs et de réponses HTTP 500/502/503/504 n'ont retourné aucune ligne. Ces résultats vides ne prouvent ni absence de trafic ni santé de l'API.
+- La sonde publique `https://gawjaay-api.onrender.com/api/v1/health` n'a pas pu être ouverte depuis l'outil réseau utilisé. Cela ne prouve pas que l'API est hors service : l'accessibilité publique et les parcours inscription/connexion restent à tester depuis un client réseau adapté.
+
+**PostgreSQL `gawjaay-db`**
+- Base présente, statut Render `available`, PostgreSQL 18.6, région Oregon (même région que l'API), plan effectif `free`, taille mesurée d'environ 11 MB.
+- La ressource Render indique une expiration au **2 novembre 2026 à 11:56 UTC**. C'est une échéance urgente à traiter avant toute continuité d'activité. Aucun changement de plan payant n'a été effectué ; le propriétaire doit décider de la solution de continuité. Ne pas supposer que les données seront conservées après l'échéance.
+- Les requêtes SQL strictement en lecture seule ont confirmé 33 tables applicatives/publiques et la présence de données : 66 lignes dans `User`, 21 dans `Product`, 66 dans `Store` et 10 dans `Order`. Ces nombres sont des comptages seulement ; ils ne permettent pas de distinguer données de test et données réelles.
+- Dans `_prisma_migrations`, 7 migrations sont terminées, 1 tentative antérieure est marquée comme annulée/rolled back et aucune migration ne reste à la fois non terminée et non annulée. La migration `20261007_m5_4_flash_offer` apparaît une fois annulée puis une fois terminée. Cet état est meilleur que la présence d'une migration en échec non résolue, mais il ne remplace pas un test de démarrage et de migration sur une copie isolée.
+- Le paramètre d'accès réseau de la base est configuré avec une allowlist externe `0.0.0.0/0`. Cela ouvre l'accès réseau externe à toutes les adresses IP sous réserve des autres contrôles d'authentification. Recommandation : vérifier si l'accès externe est nécessaire, le restreindre au minimum requis, et utiliser la connexion interne Render entre services de la même région lorsque possible. Aucune modification n'a été effectuée.
+- Les métriques disponibles sur la base montraient une instance active et zéro connexion active au cours de la fenêtre consultée le 26 octobre ; une requête SQL de diagnostic a ensuite observé une connexion active, celle-ci pouvant être la connexion d'inspection elle-même.
+- Le connecteur Render disponible ne fournit pas ici de liste vérifiable des snapshots/sauvegardes. L'existence d'une sauvegarde exploitable, sa date/rétention et une restauration réussie restent donc **non vérifiées**. Aucune sauvegarde ni restauration n'a été créée.
+
+**Conséquence pour la décision de lancement**
+- Verdict inchangé : **pas prêt pour un lancement commercial**.
+- Blocages immédiats : traiter l'expiration imminente de la base, obtenir une sauvegarde/export durable vérifié et tester la restauration sur une base distincte ; examiner la cause des échecs de démarrage historiques ; vérifier l'API depuis un client réseau externe ; réduire l'exposition réseau PostgreSQL si elle n'est pas nécessaire.
+- Aucun achat de nom de domaine ou de ressource payante n'est requis pour réaliser les vérifications de code encore possibles. En revanche, la continuité de cette base Render après le 2 novembre exige une décision du propriétaire ; l'audit ne peut pas prolonger son échéance par lui-même.
+- La PR de workflow Pages reste bloquée par le scope GitHub `workflow` manquant déjà documenté. Aucun workflow n'a été modifié ou publié.
