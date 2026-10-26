@@ -92,3 +92,36 @@ L'ouverture générale exige en plus un hébergement durable, une surveillance a
 - Les vérifications réseau directes des URLs publiques n'ont pas abouti depuis cet environnement (échec de résolution DNS/sortie réseau). Cela **ne prouve pas** que le site ou l'API est hors service ; leur disponibilité reste non vérifiée.
 - Aucun accès aux ressources Render, aucune modification Render, aucun changement de plan payant et aucune vérification de sauvegarde n'ont été effectués. L'inspection des ressources Render reste bloquée jusqu'à confirmation par le propriétaire du workspace à examiner.
 - Les PR #44 et #45 restent des brouillons ouverts et non fusionnés. Aucun déploiement de production n'a été déclenché.
+
+
+---
+
+## Addendum de suivi — 2026-10-27 (Europe/Paris)
+
+Ce complément remplace les références de tête et de CI plus anciennes ci-dessus lorsque les informations divergent. Il s'appuie sur l'état du fichier récupéré sur la branche d'audit, sur les exécutions GitHub Actions associées au commit `9edfe6e753c87a53e484cc49a94e15655d050cbe`, et sur les jobs de ces exécutions.
+
+### État le plus récent vérifié
+
+- Branche d'audit dédiée créée : `audit/production-readiness-followup-2026-10-27`, à partir du commit `9edfe6e753c87a53e484cc49a94e15655d050cbe`. Ce complément documentaire est isolé des branches de production.
+- Les PR #44 et #45 sont toujours documentées ici comme ouvertes, brouillons et non fusionnées ; aucune action de fusion n'a été effectuée par ce suivi.
+- Les trois exécutions associées au commit de tête examiné pour la PR #45 sont terminées avec la conclusion `success` :
+  - [Commerce validation — run 71](https://github.com/aydiarra-star/Gawjaay/actions/runs/40395544624) : job `validate`, toutes les étapes visibles réussies (installation verrouillée, génération Prisma, typechecks API/web, tests).
+  - [GawJaay CI — run 52](https://github.com/aydiarra-star/Gawjaay/actions/runs/40395544629) : toutes les étapes visibles réussies, y compris tests API, build de production et vérification du bundle frontend.
+  - [M5 validation — run 108](https://github.com/aydiarra-star/Gawjaay/actions/runs/40395544643) : toutes les étapes visibles réussies, y compris préparation de la base CI, tests API, build/vérification du bundle et E2E desktop/mobile.
+- Les trois jobs examinés ne montrent aucun échec de step. Cela confirme uniquement ces exécutions CI, pas le fonctionnement de l'environnement hébergé.
+- La lecture des avis de revue GitHub des PR #44 et #45 a renvoyé des listes vides lors de ce contrôle ; aucune revue n'est donc attestée par ce contrôle.
+
+### Vérifications supplémentaires du Blueprint versionné
+
+Le fichier `render.yaml` sur `main` a été relu. Il contient toujours `plan: free` pour le service API et la base PostgreSQL, `autoDeploy: true`, et `DB_PUSH_FALLBACK: "true"`. Ce sont des faits du dépôt ; ils ne prouvent pas les réglages effectifs ni l'état du workspace Render. La configuration de migration reste un blocage avant lancement, car le repli `prisma db push --accept-data-loss` est explicitement décrit dans les commentaires du Blueprint.
+
+### Changements de cette passe
+
+- Création de la branche documentaire dédiée `audit/production-readiness-followup-2026-10-27`.
+- Ajout du présent complément à ce document, avec liens directs vers les trois exécutions, état des steps et relecture du Blueprint versionné.
+- Aucun code applicatif, workflow de déploiement ou fichier de configuration Render n'a été modifié.
+- Aucun workflow n'a été relancé, aucun déploiement déclenché, aucune PR fusionnée et aucun changement payant effectué.
+
+### Blocages inchangés
+
+L'URL réelle et la disponibilité publique de l'API, la configuration Actions `VITE_API_URL`, les tests frontend/API sur l'environnement candidat, les logs de déploiement Render, l'état réel de PostgreSQL, les sauvegardes et une restauration testée restent non vérifiés. Aucun accès Render n'a été entrepris : demander au propriétaire de confirmer explicitement le workspace avant toute inspection. La mise en service reste **non autorisée par cet audit** tant que les critères P0 de la section précédente ne sont pas documentés comme satisfaits.
