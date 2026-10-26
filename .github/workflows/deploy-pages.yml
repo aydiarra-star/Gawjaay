@@ -58,7 +58,7 @@ jobs:
           }
           const host = url.hostname.toLowerCase();
           const localHost = host === 'localhost' || host.endsWith('.localhost') || ['127.0.0.1', '::1', '[::1]'].includes(host);
-          const privateIpv4 = /^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|169\\.254\\.)/.test(host);
+          const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.)/.test(host);
           if (url.protocol !== 'https:' || !host || localHost || privateIpv4 || url.username || url.password) {
             throw new Error('VITE_API_URL must use HTTPS, a public host, and no embedded credentials.');
           }
