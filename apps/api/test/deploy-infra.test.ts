@@ -134,10 +134,10 @@ describe('sonde de disponibilité', () => {
   });
 
   it('désactive le repli de schéma potentiellement destructif dans Render', () => {
-    expect(renderYaml).toMatch(/- key: DB_PUSH_FALLBACK\\s+value: "false"/);
+    expect(renderYaml).toMatch(/- key: DB_PUSH_FALLBACK\s+value: "false"/);
   });
 
   it('fait échouer le déploiement Render si les migrations ne sont pas prêtes', () => {
-    expect(renderYaml).toMatch(/- key: MIGRATIONS_STRICT\\s+value: "true"/);
+    expect(renderYaml).toMatch(/- key: MIGRATIONS_STRICT\s+value: "true"/);
   });
 });
