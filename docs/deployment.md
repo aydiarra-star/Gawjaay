@@ -16,8 +16,9 @@ Base de données    ── PostgreSQL managé (ou SQLite sur volume persistant)
 ```
 
 GitHub Pages **ne peut héberger que le frontend statique**. L'API, l'authentification et la
-base de données vivent sur un hébergeur applicatif séparé. Aucune URL de production n'est codée
-en dur : le frontend lit `VITE_API_URL`, injecté au build.
+base de données vivent sur un hébergeur applicatif séparé. Le workflow de publication lit la variable
+Actions `VITE_API_URL`, valide qu'elle est une URL HTTPS publique se terminant par `/api/v1`, puis
+l'écrit dans `config.js`. Le déploiement échoue si cette variable manque ou est invalide.
 
 ---
 
