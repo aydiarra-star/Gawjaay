@@ -39,11 +39,37 @@ jobs:
       - name: Build production web
         run: npm run build:web
 
-      - name: Add runtime API configuration
+      - name: Add and validate runtime API configuration
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: |
-          cat > apps/web/dist/config.js <<'EOF'
-          window.__GAWJAAY_CONFIG__ = { apiUrl: 'https://gawjaay-api.onrender.com/api/v1' };
-          EOF
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+
+          const raw = process.env.VITE_API_URL?.trim();
+          if (!raw) {
+            throw new Error('GitHub Actions repository variable VITE_API_URL is required. Set it to the real HTTPS API URL ending in /api/v1.');
+          }
+          let url;
+          try {
+            url = new URL(raw);
+          } catch {
+            throw new Error('VITE_API_URL is not a valid URL.');
+          }
+          if (url.protocol !== 'https:' || !url.hostname || ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
+            throw new Error('VITE_API_URL must use HTTPS and a public hostname.');
+          }
+          if (!url.pathname.replace(/\\/$/, '').endsWith('/api/v1') || url.search || url.hash) {
+            throw new Error('VITE_API_URL must end in /api/v1 and must not include a query string or fragment.');
+          }
+
+          writeFileSync(
+            'apps/web/dist/config.js',
+            `window.__GAWJAAY_CONFIG__ = { apiUrl: ${JSON.stringify(url.toString().replace(/\\/$/, ''))} };\\n`,
+            'utf8',
+          );
+          console.log(`Runtime API configured for ${url.host}.`);
+          NODE
 
       - name: Publish to gh-pages
         run: |
