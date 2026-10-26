@@ -175,10 +175,10 @@ direct des routes profondes (`/app`, `/marketplace`, `/shop/...`) via `public/40
 restauration de route dans `index.html`.
 
 - **URL publique** : `https://aydiarra-star.github.io/Gawjaay/`
-- **URL de l'API** : résolue **à l'exécution** dans [`apps/web/public/config.js`](apps/web/public/config.js)
-  (`window.__GAWJAAY_CONFIG__.apiUrl`). Il suffit de renseigner `apiUrl` puis de republier :
-  **aucun rebuild, aucune variable GitHub Actions requise**. Priorité de résolution
-  (voir `apps/web/src/lib/api.ts`) : `config.js` → `VITE_API_URL` (injecté au build) → repli local (dev).
+- **URL de l'API** : écrite dans `config.js` par le workflow GitHub Actions à partir de la variable de dépôt
+  `VITE_API_URL` (Settings → Secrets and variables → Actions → Variables). Le workflow valide
+  l'URL HTTPS publique se terminant par `/api/v1` et échoue si elle est absente ou invalide.
+  Priorité de résolution (voir `apps/web/src/lib/api.ts`) : `config.js` → `VITE_API_URL` injecté au build → repli local (dev).
 
 **Connecter l'API en une commande** (écrit `config.js`, construit avec le bon `base`, publie sur `gh-pages`) :
 
@@ -190,11 +190,10 @@ Le script `scripts/connect-api.mjs` refuse une URL non `https`, un hôte de bac 
 ou une adresse locale. Le build de production échoue de la même façon via
 `apps/web/scripts/verify-bundle.mjs`.
 
-> ⚠️ **Aucune API de production n'est actuellement branchée** : `config.js` est publié avec
-> `apiUrl` vide. Le site s'affiche honnêtement (« Le service GawJaay n'est pas encore connecté à
-> cette adresse… ») au lieu de tenter un serveur mort. Tant qu'aucune API n'est déployée (voir
-> ci-dessous) et reportée dans `config.js`, le site est une vitrine et l'inscription reste
-> indisponible. Aucune URL de production n'est codée en dur dans le dépôt : c'est volontaire.
+> ⚠️ Le dépôt ne permet pas, à lui seul, de confirmer que l'API configurée est actuellement en ligne.
+> Vérifier `GET /api/v1/health`, puis tester inscription et connexion sur le site publié. Si
+> `VITE_API_URL` est absente ou invalide, le workflow refuse de publier plutôt que de pointer vers
+> une adresse supposée. Ne considérer l'inscription comme opérationnelle qu'après ces vérifications.
 
 > GitHub Pages n'héberge **que le frontend statique**. Il ne peut pas héberger l'API, la base de
 > données ni l'authentification serveur.
