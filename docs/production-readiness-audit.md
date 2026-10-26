@@ -125,3 +125,14 @@ Le fichier `render.yaml` sur `main` a été relu. Il contient toujours `plan: fr
 ### Blocages inchangés
 
 L'URL réelle et la disponibilité publique de l'API, la configuration Actions `VITE_API_URL`, les tests frontend/API sur l'environnement candidat, les logs de déploiement Render, l'état réel de PostgreSQL, les sauvegardes et une restauration testée restent non vérifiés. Aucun accès Render n'a été entrepris : demander au propriétaire de confirmer explicitement le workspace avant toute inspection. La mise en service reste **non autorisée par cet audit** tant que les critères P0 de la section précédente ne sont pas documentés comme satisfaits.
+
+
+### Contrôle supplémentaire du workflow Pages — 2026-10-27
+
+Lecture directe de `.github/workflows/deploy-pages.yml` :
+- Sur `main` (blob `81c09601f130d85fec3c44e6b5ddb29a4c8cb53e`), le workflow accepte `workflow_dispatch`, installe avec `npm install` et écrit l'URL API `https://gawjaay-api.onrender.com/api/v1` en dur dans `dist/config.js`.
+- Sur `ci/workflow-config-guard` (blob `ceb0509920a39dd81ede90f403d85f420f2d37a5`), il utilise `npm ci` et valide `vars.VITE_API_URL` (HTTPS, hôtes locaux/privés ciblés, chemin `/api/v1`, sans query/fragment/identifiants).
+- Dans les deux versions, le job ne contrôle pas explicitement que `github.ref == 'refs/heads/main'`. Comme `workflow_dispatch` est autorisé, une exécution manuelle depuis une autre branche pourrait publier sur `gh-pages`. Aucune publication n'a été lancée pendant l'audit.
+- La validation de l'URL reste syntaxique et ne prouve ni résolution DNS publique ni disponibilité du service. La valeur réelle de la variable Actions n'a pas été lue.
+
+Action à proposer : ajouter une garde de branche avant les étapes de build/publication et tester le refus d'une référence non-`main` avec un workflow de validation sans effet de publication. Le dépôt indique dans `AGENTS.md` que le jeton courant n'a pas le scope `workflow` nécessaire pour pousser des changements dans `.github/workflows/`; le correctif du workflow est donc bloqué par les permissions actuelles et n'a pas été appliqué.
