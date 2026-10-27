@@ -140,10 +140,18 @@ export function DashboardPage() {
           </div>
 
           {isQuiet && (
-            <Alert kind="info">
-              Aucune vente sur cette période. Les indicateurs affichent 0 — aucune donnée n'est simulée. Enregistrez une
-              vente depuis la caisse pour voir vos chiffres se remplir.
-            </Alert>
+            <div className="dashboard-first-steps">
+              <div>
+                <strong>Votre boutique démarre ici.</strong>
+                <p>Aucune vente sur cette période : les chiffres restent à zéro tant qu'aucune activité réelle n'est enregistrée.</p>
+              </div>
+              <div className="dashboard-first-steps-actions">
+                {data.productsCount === 0 && (
+                  <Link to="/app/products" className="btn">+ Ajouter mon premier produit</Link>
+                )}
+                <Link to="/app/pos" className="btn btn-secondary">Ouvrir la caisse</Link>
+              </div>
+            </div>
           )}
 
           {/* À faire */}
