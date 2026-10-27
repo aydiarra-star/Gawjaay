@@ -1,3 +1,5 @@
+import type { PackagingType } from '@gawjaay/shared';
+
 /**
  * Durable storage for POS cart drafts only.
  *
@@ -10,7 +12,7 @@ export interface PosDraftLine {
   name: string;
   price: number;
   quantity: number;
-  packaging: string;
+  packaging: PackagingType;
   hasImage: boolean;
   imageUrl: string | null;
 }
