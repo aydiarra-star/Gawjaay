@@ -496,6 +496,30 @@ describe('tableau de bord (données réelles)', () => {
     expect((await prisma.inventory.findFirst({ where: { storeId: org.storeId, variantId } }))?.quantity).toBe(6);
   });
 
+  it('ne crée qu’une vente lorsque deux requêtes identiques arrivent simultanément', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 1200 });
+    await setStock(org, variantId, 10);
+    const payload = {
+      storeId: org.storeId,
+      clientRequestId: 'pos-concurrent-retry-001',
+      items: [{ variantId, quantity: 3 }],
+      payments: [{ method: 'CASH', amount: 3600 }],
+    };
+
+    const [first, second] = await Promise.all([
+      request(app).post('/api/v1/sales').set(auth(org)).send(payload),
+      request(app).post('/api/v1/sales').set(auth(org)).send(payload),
+    ]);
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.saleId).toBe(second.body.saleId);
+    expect(await prisma.sale.count({ where: { storeId: org.storeId } })).toBe(1);
+    expect(await prisma.inventoryMovement.count({ where: { storeId: org.storeId, type: 'SALE' } })).toBe(1);
+    expect((await prisma.inventory.findFirst({ where: { storeId: org.storeId, variantId }))?.quantity).toBe(7);
+  });
+
   it('refuse une clé d’idempotence réutilisée avec un panier différent', async () => {
     const org = await createOrg();
     const { variantId } = await createProduct(org, { price: 1000 });
