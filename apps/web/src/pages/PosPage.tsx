@@ -53,7 +53,7 @@ export function PosPage() {
   const draftScopeKey = draftUserId && organizationId && storeId
     ? [draftUserId, organizationId, storeId].join(':')
     : null;
-  const hydratedDraftScopeRef = useRef<string | null>(null);
+  const [hydratedDraftScope, setHydratedDraftScope] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const products = useApi<{ items: Product[] }>(() => api.get('/products?pageSize=100'), []);
@@ -83,7 +83,7 @@ export function PosPage() {
   // Restaure uniquement le brouillon du compte, de l'organisation et de la boutique actifs.
   useEffect(() => {
     let active = true;
-    hydratedDraftScopeRef.current = null;
+    setHydratedDraftScope(null);
     if (!draftScopeKey || !draftUserId || !organizationId || !storeId) {
       setCart({});
       setCustomerId('');
@@ -99,7 +99,7 @@ export function PosPage() {
       setCustomerId(draft?.customerId ?? '');
       setPayMethod((draft?.payMethod as PaymentMethod | undefined) ?? 'CASH');
       setPaidAmount(draft?.paidAmount ?? '');
-      hydratedDraftScopeRef.current = draftScopeKey;
+      setHydratedDraftScope(draftScopeKey);
     }).catch((err: unknown) => {
       if (active) setError(err instanceof Error ? err.message : 'Impossible de restaurer le brouillon de caisse.');
     });
@@ -109,7 +109,7 @@ export function PosPage() {
 
   // La sauvegarde commence seulement après l'hydratation du bon périmètre.
   useEffect(() => {
-    if (!draftScopeKey || hydratedDraftScopeRef.current !== draftScopeKey || !draftUserId || !organizationId || !storeId) return;
+    if (!draftScopeKey || hydratedDraftScope !== draftScopeKey || !draftUserId || !organizationId || !storeId) return;
     void savePosCartDraft({
       userId: draftUserId,
       organizationId,
@@ -121,7 +121,7 @@ export function PosPage() {
     }).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : 'Impossible de sauvegarder le brouillon de caisse.');
     });
-  }, [draftScopeKey, draftUserId, organizationId, storeId, cart, customerId, payMethod, paidAmount]);
+  }, [draftScopeKey, hydratedDraftScope, draftUserId, organizationId, storeId, cart, customerId, payMethod, paidAmount]);
 
   const customers = useApi<{ customers: Array<{ id: string; name: string }> }>(() => api.get('/customers'), []);
 
@@ -247,6 +247,11 @@ export function PosPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // Ne jamais afficher le panier de l'ancienne session pendant le chargement du nouveau périmètre.
+  if (draftScopeKey && hydratedDraftScope !== draftScopeKey) {
+    return <Spinner label="Restauration du panier de caisse…" />;
   }
 
   return (
