@@ -16,8 +16,9 @@ Base de données    ── PostgreSQL managé (ou SQLite sur volume persistant)
 ```
 
 GitHub Pages **ne peut héberger que le frontend statique**. L'API, l'authentification et la
-base de données vivent sur un hébergeur applicatif séparé. Aucune URL de production n'est codée
-en dur : le frontend lit `VITE_API_URL`, injecté au build.
+base de données vivent sur un hébergeur applicatif séparé. Le workflow de publication lit la variable
+Actions `VITE_API_URL`, valide qu'elle est une URL HTTPS publique se terminant par `/api/v1`, puis
+l'écrit dans `config.js`. Le déploiement échoue si cette variable manque ou est invalide.
 
 ---
 
@@ -115,8 +116,9 @@ Le conteneur écoute sur `0.0.0.0:$PORT` (via `HOST`/`PORT`) et expose
 3. Relancer le workflow **Deploy frontend to GitHub Pages** (onglet Actions → *Run workflow*).
 4. Ouvrir <https://aydiarra-star.github.io/Gawjaay/> et vérifier inscription/connexion.
 
-Le workflow **échoue** si `VITE_API_URL` est vide, pointe vers `localhost`/`127.0.0.1`, ou vers
-le runtime temporaire `*.all-hands.dev` (`apps/web/scripts/verify-bundle.mjs`).
+Le workflow **échoue** si `VITE_API_URL` est vide ou invalide, n'utilise pas HTTPS, pointe vers
+un hôte local/privé, contient des identifiants, ou ne se termine pas par `/api/v1`. Le bundle
+est également vérifié contre les références localhost et les runtimes temporaires.
 
 ## 4. Vérifications
 
