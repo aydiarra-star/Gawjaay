@@ -36,6 +36,21 @@ const DATABASE_NAME = 'gawjaay-pos-drafts';
 const DATABASE_VERSION = 1;
 const STORE_NAME = 'cartDrafts';
 
+// Serialize writes for each scope. In particular, a successful checkout's delete
+// must run after any draft save already in flight, otherwise that save could
+// recreate the cart after the sale was confirmed.
+const writeQueues = new Map<string, Promise<void>>();
+
+function enqueueWrite(id: string, operation: () => Promise<void>): Promise<void> {
+  const previous = writeQueues.get(id) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(operation);
+  writeQueues.set(id, current);
+  void current.finally(() => {
+    if (writeQueues.get(id) === current) writeQueues.delete(id);
+  }).catch(() => undefined);
+  return current;
+}
+
 function requireScope(value: string, name: string): string {
   const normalized = value.trim();
   if (!normalized) throw new Error(`Impossible de stocker le brouillon POS : ${name} manquant.`);
@@ -111,7 +126,9 @@ export async function savePosCartDraft(
 ): Promise<void> {
   const id = draftId(draft.userId, draft.organizationId, draft.storeId);
   const stored: StoredDraft = { ...draft, id, updatedAt: draft.updatedAt ?? Date.now() };
-  await runRequest<IDBValidKey>('readwrite', (store) => store.put(stored));
+  await enqueueWrite(id, async () => {
+    await runRequest<IDBValidKey>('readwrite', (store) => store.put(stored));
+  });
 }
 
 /** Load only the draft belonging to the exact active user/org/store scope. */
@@ -138,5 +155,7 @@ export async function deletePosCartDraft(
   scope: Pick<PosCartDraft, 'userId' | 'organizationId' | 'storeId'>,
 ): Promise<void> {
   const id = draftId(scope.userId, scope.organizationId, scope.storeId);
-  await runRequest<undefined>('readwrite', (store) => store.delete(id));
+  await enqueueWrite(id, async () => {
+    await runRequest<undefined>('readwrite', (store) => store.delete(id));
+  });
 }
