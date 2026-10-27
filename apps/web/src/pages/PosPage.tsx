@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, formatPackaging, type PackagingType, type PaymentMethod } from '@gawjaay/shared';
+import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, formatPackaging, isPaymentMethod, type PackagingType, type PaymentMethod } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine } from '../lib/format';
@@ -51,7 +51,7 @@ export function PosPage() {
   const { user, organizationId } = useAuth();
   const draftUserId = user?.id ?? getUser()?.id ?? null;
   const draftScopeKey = draftUserId && organizationId && storeId
-    ? [draftUserId, organizationId, storeId].join(':')
+    ? JSON.stringify([draftUserId, organizationId, storeId])
     : null;
   const [hydratedDraftScope, setHydratedDraftScope] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -98,7 +98,7 @@ export function PosPage() {
       if (!active) return;
       setCart(draft?.cart ?? {});
       setCustomerId(draft?.customerId ?? '');
-      setPayMethod((draft?.payMethod as PaymentMethod | undefined) ?? 'CASH');
+      setPayMethod(isPaymentMethod(draft?.payMethod) ? draft.payMethod : 'CASH');
       setPaidAmount(draft?.paidAmount ?? '');
       setHydratedDraftScope(draftScopeKey);
     }).catch((err: unknown) => {
