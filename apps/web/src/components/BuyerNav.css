@@ -1,19 +1,22 @@
 /* Navigation acheteur : orange plein cohérent avec les CTA de marque. */
-.buyer-nav .marketplace-nav-primary {
+.buyer-nav .marketplace-nav-primary,
+.login-primary {
   background: var(--orange);
   border: 1px solid var(--orange);
   color: #fff;
   -webkit-text-fill-color: #fff;
   box-shadow: var(--e1);
 }
-.buyer-nav .marketplace-nav-primary:hover {
+.buyer-nav .marketplace-nav-primary:hover,
+.login-primary:hover:not(:disabled) {
   background: var(--orange-strong);
   border-color: var(--orange-strong);
   color: #fff;
   -webkit-text-fill-color: #fff;
   text-decoration: none;
 }
-.buyer-nav .marketplace-nav-primary:focus-visible {
+.buyer-nav .marketplace-nav-primary:focus-visible,
+.login-primary:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 3px;
   box-shadow: 0 0 0 4px var(--orange-ring);
@@ -46,7 +49,8 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .buyer-nav .marketplace-nav-primary,
-  .marketplace-filter-chips .chip {
+  .marketplace-filter-chips .chip,
+  .login-primary {
     transition: background-color var(--dur-fast) var(--ease),
       border-color var(--dur-fast) var(--ease),
       box-shadow var(--dur-fast) var(--ease);
