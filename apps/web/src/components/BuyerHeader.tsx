@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { IconCart } from './icons';
+import './BuyerNav.css';
 
 /**
  * En-tête commun des pages acheteur (Marketplace, produit, panier, commandes).
@@ -19,10 +20,10 @@ export function BuyerHeader({ showCart = true }: { showCart?: boolean }) {
       </Link>
       <div className="topbar-spacer" />
       <nav className="buyer-nav" aria-label="Navigation principale">
-        <Link to="/marketplace" className="btn btn-secondary btn-sm">Marketplace</Link>
-        <Link to="/register" className="btn btn-secondary btn-sm">Vendre</Link>
+        <Link to="/marketplace" className="btn btn-sm marketplace-nav-primary">Marketplace</Link>
+        <Link to="/register" className="btn btn-sm marketplace-nav-primary">Vendre</Link>
         {showCart && (
-          <Link to="/cart" className="btn btn-secondary btn-sm" aria-label="Panier">
+          <Link to="/cart" className="btn btn-sm marketplace-nav-primary" aria-label="Panier">
             <IconCart size={16} /> Panier{count > 0 ? ` (${count})` : ''}
           </Link>
         )}
