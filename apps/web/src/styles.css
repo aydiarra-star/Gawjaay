@@ -2658,3 +2658,27 @@ tbody tr:last-child td {
   .buyer-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .buyer-nav .btn { font-size: 0.82rem; padding-inline: 6px; }
 }
+
+/* Correctif tiroir latéral mobile — hauteur viewport dynamique et zone sûre.
+   Le menu reste défilable jusqu'aux derniers liens, y compris sur iOS Safari. */
+@media (max-width: 900px) {
+  .sidebar {
+    box-sizing: border-box;
+    height: calc(100vh - var(--header-h));
+    height: calc(100dvh - var(--header-h));
+    max-height: calc(100dvh - var(--header-h));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--s6) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sidebar.open {
+    min-height: 0;
+  }
+
+  .sidebar > .nav-link:last-child {
+    margin-bottom: 0;
+  }
+}
