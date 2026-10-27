@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, formatPackaging, type PackagingType, type PaymentMethod } from '@gawjaay/shared';
+import { MANUAL_SETTLEMENT_METHODS, PAYMENT_METHOD_LABELS, formatPackaging, isPaymentMethod, type PackagingType, type PaymentMethod } from '@gawjaay/shared';
 import { api, ApiError } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine } from '../lib/format';
 import { useStore } from '../context/StoreContext';
+import { useAuth } from '../context/AuthContext';
+import { getUser } from '../lib/session';
+import { deletePosCartDraft, loadPosCartDraft, savePosCartDraft } from '../lib/posDraftStorage';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
 import { ProductThumb } from '../components/product';
 
@@ -45,6 +48,12 @@ function newCheckoutId(): string {
 
 export function PosPage() {
   const { storeId } = useStore();
+  const { user, organizationId } = useAuth();
+  const draftUserId = user?.id ?? getUser()?.id ?? null;
+  const draftScopeKey = draftUserId && organizationId && storeId
+    ? JSON.stringify([draftUserId, organizationId, storeId])
+    : null;
+  const [hydratedDraftScope, setHydratedDraftScope] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const products = useApi<{ items: Product[] }>(() => api.get('/products?pageSize=100'), []);
@@ -66,9 +75,66 @@ export function PosPage() {
   // Elle n'est renouvelée qu'APRÈS un succès confirmé : un retry suite à un
   // timeout réseau rejoue donc la même clé (pas de double vente).
   const checkoutIdRef = useRef<string | null>(null);
+  const skipNextDraftSaveRef = useRef(false);
   if (checkoutIdRef.current === null) {
     checkoutIdRef.current = newCheckoutId();
   }
+
+
+  // Restaure uniquement le brouillon du compte, de l'organisation et de la boutique actifs.
+  useEffect(() => {
+    let active = true;
+    setHydratedDraftScope(null);
+    if (!draftScopeKey || !draftUserId || !organizationId || !storeId) {
+      setCart({});
+      setCustomerId('');
+      setPaidAmount('');
+      setPayMethod('CASH');
+      return () => { active = false; };
+    }
+
+    const scope = { userId: draftUserId, organizationId, storeId };
+    void loadPosCartDraft(scope).then((draft) => {
+      if (!active) return;
+      setCart(draft?.cart ?? {});
+      setCustomerId(draft?.customerId ?? '');
+      setPayMethod(isPaymentMethod(draft?.payMethod) ? draft.payMethod : 'CASH');
+      setPaidAmount(draft?.paidAmount ?? '');
+      setHydratedDraftScope(draftScopeKey);
+    }).catch((err: unknown) => {
+      if (!active) return;
+      setError(err instanceof Error ? err.message : 'Impossible de restaurer le brouillon de caisse.');
+      // Ne pas bloquer toute la caisse si IndexedDB est indisponible : démarrer
+      // avec un panier vide et laisser l'utilisateur continuer sans persistance.
+      setCart({});
+      setCustomerId('');
+      setPayMethod('CASH');
+      setPaidAmount('');
+      setHydratedDraftScope(draftScopeKey);
+    });
+
+    return () => { active = false; };
+  }, [draftScopeKey, draftUserId, organizationId, storeId]);
+
+  // La sauvegarde commence seulement après l'hydratation du bon périmètre.
+  useEffect(() => {
+    if (skipNextDraftSaveRef.current) {
+      skipNextDraftSaveRef.current = false;
+      return;
+    }
+    if (!draftScopeKey || hydratedDraftScope !== draftScopeKey || !draftUserId || !organizationId || !storeId) return;
+    void savePosCartDraft({
+      userId: draftUserId,
+      organizationId,
+      storeId,
+      cart,
+      customerId,
+      payMethod,
+      paidAmount,
+    }).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : 'Impossible de sauvegarder le brouillon de caisse.');
+    });
+  }, [draftScopeKey, hydratedDraftScope, draftUserId, organizationId, storeId, cart, customerId, payMethod, paidAmount]);
 
   const customers = useApi<{ customers: Array<{ id: string; name: string }> }>(() => api.get('/customers'), []);
 
@@ -179,9 +245,15 @@ export function PosPage() {
         clientRequestId: checkoutIdRef.current,
       });
       setSuccess(`Vente enregistrée : ${formatXOF(res.total)}${res.remaining > 0 ? ` (reste dû ${formatXOF(res.remaining)})` : ''}.`);
+      skipNextDraftSaveRef.current = true;
       setCart({});
       setPaidAmount('');
       setCustomerId('');
+      if (draftUserId && organizationId && storeId) {
+        void deletePosCartDraft({ userId: draftUserId, organizationId, storeId }).catch(() => {
+          // La vente est déjà confirmée côté serveur : ne pas la présenter comme échouée si le nettoyage local échoue.
+        });
+      }
       checkoutIdRef.current = newCheckoutId(); // nouvelle clé pour la vente suivante
       stock.reload();
     } catch (err) {
@@ -189,6 +261,11 @@ export function PosPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // Ne jamais afficher le panier de l'ancienne session pendant le chargement du nouveau périmètre.
+  if (draftScopeKey && hydratedDraftScope !== draftScopeKey) {
+    return <Spinner label="Restauration du panier de caisse…" />;
   }
 
   return (

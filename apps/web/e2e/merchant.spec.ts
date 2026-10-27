@@ -73,6 +73,27 @@ test.describe('parcours marchand — produit, stock, vente', () => {
     await page.getByRole('button', { name: 'Encaisser' }).click();
     await expect(page.locator('.alert-success')).toContainText('14 000 FCFA');
 
+    // Une vente confirmée ne doit pas restaurer les articles déjà encaissés.
+    await page.waitForFunction(() => new Promise<boolean>((resolve) => {
+      const request = indexedDB.open('gawjaay-pos-drafts', 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('cartDrafts', 'readonly');
+        const read = tx.objectStore('cartDrafts').getAll();
+        read.onsuccess = () => {
+          const cleared = read.result.every((draft: { cart?: Record<string, unknown> }) =>
+            Object.keys(draft.cart ?? {}).length === 0,
+          );
+          db.close();
+          resolve(cleared);
+        };
+        read.onerror = () => { db.close(); resolve(false); };
+      };
+      request.onerror = () => resolve(false);
+    }));
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Panier (0)' })).toBeVisible();
+
     /* ── Stock décrémenté ── */
     await page.goto('/app/stock');
     await expect(page.locator('.stock-card', { hasText: 'Riz' }).first()).toContainText('14 sacs');
@@ -103,4 +124,114 @@ test.describe('parcours marchand — produit, stock, vente', () => {
     // Le stock est désormais à 0 : le bouton de vente passe en rupture.
     await expect(page.locator('.merchant-card', { hasText: 'Sucre' }).first()).toContainText('rupture');
   });
+
+  test('restaure le panier et les choix de paiement après rechargement', async ({ page }) => {
+    const unique = Date.now();
+    await register(page, unique);
+
+    await page.goto('/app/products');
+    await page.getByRole('button', { name: '+ Ajouter un produit' }).first().click();
+    await page.getByLabel('Nom du produit').fill('Panier persistant');
+    await page.getByLabel('Prix de vente (FCFA)').fill('750');
+    await page.getByLabel('Stock initial').fill('3');
+    await page.getByRole('button', { name: 'Enregistrer le produit' }).click();
+    await page.getByRole('button', { name: 'Terminé' }).click();
+
+    await page.goto('/app/pos');
+    const product = page.locator('.merchant-card', { hasText: 'Panier persistant' }).first();
+    await product.getByRole('button', { name: /Standard/ }).click();
+    await page.getByLabel('Moyen de paiement').selectOption('CREDIT');
+    await page.getByLabel('Montant encaissé maintenant').fill('200');
+    await expect(page.getByRole('heading', { name: 'Panier (1)' })).toBeVisible();
+
+    // Attendre la transaction IndexedDB du brouillon, pas seulement le rendu React.
+    await page.waitForFunction(() => new Promise<boolean>((resolve) => {
+      const request = indexedDB.open('gawjaay-pos-drafts', 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('cartDrafts', 'readonly');
+        const read = tx.objectStore('cartDrafts').getAll();
+        read.onsuccess = () => {
+          const saved = read.result.some((draft: { cart?: Record<string, { quantity?: number }> }) =>
+            Object.values(draft.cart ?? {}).some((line) => line.quantity === 1),
+          );
+          db.close();
+          resolve(saved);
+        };
+        read.onerror = () => { db.close(); resolve(false); };
+      };
+      request.onerror = () => resolve(false);
+    }));
+
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Panier (1)' })).toBeVisible();
+    await expect(page.getByText('Panier persistant — Standard')).toBeVisible();
+    await expect(page.getByLabel('Moyen de paiement')).toHaveValue('CREDIT');
+    await expect(page.getByLabel('Montant encaissé maintenant')).toHaveValue('200');
+  });
+
+
+  test('ignore les brouillons appartenant à un autre compte ou une autre boutique', async ({ page }) => {
+    const unique = Date.now();
+    await register(page, unique);
+
+    await page.evaluate(() => new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('gawjaay-pos-drafts', 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('cartDrafts')) {
+          db.createObjectStore('cartDrafts', { keyPath: 'id' });
+        }
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('cartDrafts', 'readwrite');
+        tx.objectStore('cartDrafts').put({
+          id: 'other-user:other-organization:other-store',
+          userId: 'other-user',
+          organizationId: 'other-organization',
+          storeId: 'other-store',
+          cart: {
+            foreign: {
+              productId: 'foreign-product',
+              variantId: 'foreign-variant',
+              name: 'Brouillon étranger — Standard',
+              price: 999999,
+              quantity: 1,
+              packaging: 'UNIT',
+              hasImage: false,
+              imageUrl: null,
+            },
+          },
+          customerId: '',
+          payMethod: 'CASH',
+          paidAmount: '',
+          updatedAt: Date.now(),
+        });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
+      };
+    }));
+
+    await page.goto('/app/pos');
+    await expect(page.getByRole('heading', { name: 'Panier (0)' })).toBeVisible();
+    await expect(page.getByText('Brouillon étranger — Standard')).toHaveCount(0);
+  });
+
+
+  test('la caisse reste accessible si IndexedDB est indisponible', async ({ page }) => {
+    await register(page, Date.now());
+
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', { configurable: true, value: undefined });
+    });
+    await page.goto('/app/pos');
+
+    await expect(page.getByRole('heading', { name: 'Vente (POS)' })).toBeVisible();
+    await expect(page.getByText(/stockage local durable n’est pas disponible/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Panier (0)' })).toBeVisible();
+  });
+
 });
