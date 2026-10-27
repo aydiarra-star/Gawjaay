@@ -229,6 +229,20 @@ test.describe('M4.1 — aperçu image haute résolution borné (desktop + mobile
     await ctx.close();
   });
 
+  test('tap sur la photo ferme la lightbox sans actualiser la page', async ({ browser, baseURL }) => {
+    const ctx = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const unique = uniq();
+    const fixture = await setupProduct(ctx.request, unique, pngDataUrl(1200, 1600), 5);
+    const page = await ctx.newPage();
+    await page.goto(`/product/${fixture.productId}`);
+    await openLightbox(page, fixture.productName);
+
+    await page.locator('.lightbox-stage img').tap();
+    await expect(page.getByRole('dialog', { name: fixture.productName })).toBeHidden();
+    await expect(page.getByRole('button', { name: `Agrandir la photo de ${fixture.productName}` })).toBeVisible();
+    await ctx.close();
+  });
+
   test('portrait haute résolution : contain, borné, fermable au fond', async ({ browser, baseURL }) => {
     const ctx = await browser.newContext({ baseURL });
     const unique = uniq();
