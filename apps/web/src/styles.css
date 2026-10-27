@@ -2542,9 +2542,14 @@ tbody tr:last-child td {
   .landing-topbar {
     gap: 6px;
     padding-inline: 8px;
+    flex-wrap: wrap;
+  }
+  .landing-topbar .topbar-spacer {
+    display: none;
   }
   .landing-topbar .brand {
     font-size: 0.9rem;
+    margin-right: auto;
   }
   .landing-topbar .brand-mark {
     width: 24px;
@@ -2553,6 +2558,7 @@ tbody tr:last-child td {
   }
   .landing-nav-actions {
     gap: 4px;
+    margin-left: auto;
   }
   .landing-nav-actions .btn-sm {
     min-height: 31px;
