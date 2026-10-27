@@ -55,7 +55,7 @@ export function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <button className="btn btn-block btn-lg" type="submit" disabled={busy}>
+            <button className="btn btn-block btn-lg login-primary" type="submit" disabled={busy}>
               {busy ? 'Connexion…' : 'Se connecter'}
             </button>
           </form>
