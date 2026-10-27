@@ -75,6 +75,7 @@ export function PosPage() {
   // Elle n'est renouvelée qu'APRÈS un succès confirmé : un retry suite à un
   // timeout réseau rejoue donc la même clé (pas de double vente).
   const checkoutIdRef = useRef<string | null>(null);
+  const skipNextDraftSaveRef = useRef(false);
   if (checkoutIdRef.current === null) {
     checkoutIdRef.current = newCheckoutId();
   }
@@ -117,6 +118,10 @@ export function PosPage() {
 
   // La sauvegarde commence seulement après l'hydratation du bon périmètre.
   useEffect(() => {
+    if (skipNextDraftSaveRef.current) {
+      skipNextDraftSaveRef.current = false;
+      return;
+    }
     if (!draftScopeKey || hydratedDraftScope !== draftScopeKey || !draftUserId || !organizationId || !storeId) return;
     void savePosCartDraft({
       userId: draftUserId,
@@ -240,6 +245,7 @@ export function PosPage() {
         clientRequestId: checkoutIdRef.current,
       });
       setSuccess(`Vente enregistrée : ${formatXOF(res.total)}${res.remaining > 0 ? ` (reste dû ${formatXOF(res.remaining)})` : ''}.`);
+      skipNextDraftSaveRef.current = true;
       setCart({});
       setPaidAmount('');
       setCustomerId('');
