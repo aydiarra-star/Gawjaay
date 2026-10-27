@@ -168,13 +168,13 @@ export function ProductDetailPage() {
                   onClick={() => setLightboxOpen(true)}
                   aria-label={`Agrandir la photo de ${product.name}`}
                 >
-                  <PublicProductImage productId={product.id} name={product.name} hasImage={product.hasImage} imageUrl={product.imageUrl} />
+                  <PublicProductImage productId={product.id} name={product.name} hasImage={product.hasImage} imageUrl={product.imageUrl} className="product-detail-image" />
                   <span className="product-detail-zoomhint" aria-hidden="true">
                     Voir en grand
                   </span>
                 </button>
               ) : (
-                <PublicProductImage productId={product.id} name={product.name} hasImage={product.hasImage} imageUrl={product.imageUrl} />
+                <PublicProductImage productId={product.id} name={product.name} hasImage={product.hasImage} imageUrl={product.imageUrl} className="product-detail-image" />
               )}
               {product.originalPrice && <span className="product-promo">Promo</span>}
             </div>
