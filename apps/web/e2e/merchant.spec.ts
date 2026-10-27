@@ -103,4 +103,50 @@ test.describe('parcours marchand — produit, stock, vente', () => {
     // Le stock est désormais à 0 : le bouton de vente passe en rupture.
     await expect(page.locator('.merchant-card', { hasText: 'Sucre' }).first()).toContainText('rupture');
   });
+
+  test('restaure le panier et les choix de paiement après rechargement', async ({ page }) => {
+    const unique = Date.now();
+    await register(page, unique);
+
+    await page.goto('/app/products');
+    await page.getByRole('button', { name: '+ Ajouter un produit' }).first().click();
+    await page.getByLabel('Nom du produit').fill('Panier persistant');
+    await page.getByLabel('Prix de vente (FCFA)').fill('750');
+    await page.getByLabel('Stock initial').fill('3');
+    await page.getByRole('button', { name: 'Enregistrer le produit' }).click();
+    await page.getByRole('button', { name: 'Terminé' }).click();
+
+    await page.goto('/app/pos');
+    const product = page.locator('.merchant-card', { hasText: 'Panier persistant' }).first();
+    await product.getByRole('button', { name: /Standard/ }).click();
+    await page.getByLabel('Moyen de paiement').selectOption('CREDIT');
+    await page.getByLabel('Montant encaissé maintenant').fill('200');
+    await expect(page.getByRole('heading', { name: 'Panier (1)' })).toBeVisible();
+
+    // Attendre la transaction IndexedDB du brouillon, pas seulement le rendu React.
+    await page.waitForFunction(() => new Promise<boolean>((resolve) => {
+      const request = indexedDB.open('gawjaay-pos-drafts', 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('cartDrafts', 'readonly');
+        const read = tx.objectStore('cartDrafts').getAll();
+        read.onsuccess = () => {
+          const saved = read.result.some((draft: { cart?: Record<string, { quantity?: number }> }) =>
+            Object.values(draft.cart ?? {}).some((line) => line.quantity === 1),
+          );
+          db.close();
+          resolve(saved);
+        };
+        read.onerror = () => { db.close(); resolve(false); };
+      };
+      request.onerror = () => resolve(false);
+    }));
+
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Panier (1)' })).toBeVisible();
+    await expect(page.getByText('Panier persistant — Standard')).toBeVisible();
+    await expect(page.getByLabel('Moyen de paiement')).toHaveValue('CREDIT');
+    await expect(page.getByLabel('Montant encaissé maintenant')).toHaveValue('200');
+  });
+
 });
