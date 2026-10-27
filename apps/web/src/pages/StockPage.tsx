@@ -225,6 +225,12 @@ export function StockPage() {
           <div>
             {movements.data.movements.slice(0, 50).map((m) => (
               <div className="movement-row" key={m.id}>
+                <ProductThumb
+                  productId={m.productId}
+                  name={m.productName}
+                  hasImage
+                  className="movement-product-thumb"
+                />
                 <div className="movement-main">
                   <div style={{ fontWeight: 600 }}>{m.productName}</div>
                   <div className="small muted">

@@ -7,6 +7,7 @@ import { formatXOF, formatDateTime, formatPackaging } from '../lib/format';
 import { useStore } from '../context/StoreContext';
 import { useAuth } from '../context/AuthContext';
 import { Alert, Card, Chips, EmptyState, Section, Spinner, Stat } from '../components/ui';
+import { ProductThumb } from '../components/product';
 import { IconChart, IconPackage, IconReceipt, IconTrendUp, IconWallet } from '../components/icons';
 
 interface DashboardData {
@@ -36,6 +37,7 @@ interface RecentSale {
 
 interface RecentMovement {
   id: string;
+  productId: string;
   createdAt: string;
   type: string;
   quantity: number;
@@ -297,6 +299,7 @@ export function DashboardPage() {
                 <div>
                   {recentMovements.data.movements.slice(0, 8).map((m) => (
                     <div className="movement-row" key={m.id}>
+                      <ProductThumb productId={m.productId} name={m.productName} hasImage className="movement-product-thumb" />
                       <div className="movement-main">
                         <div style={{ fontWeight: 600 }}>{m.productName}</div>
                         <div className="small muted">{MOVEMENT_LABELS[m.type] ?? m.type}</div>
