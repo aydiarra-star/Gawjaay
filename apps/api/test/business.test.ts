@@ -517,7 +517,7 @@ describe('tableau de bord (données réelles)', () => {
     expect(first.body.saleId).toBe(second.body.saleId);
     expect(await prisma.sale.count({ where: { storeId: org.storeId } })).toBe(1);
     expect(await prisma.inventoryMovement.count({ where: { storeId: org.storeId, type: 'SALE' } })).toBe(1);
-    expect((await prisma.inventory.findFirst({ where: { storeId: org.storeId, variantId }))?.quantity).toBe(7);
+    expect((await prisma.inventory.findFirst({ where: { storeId: org.storeId, variantId } }))?.quantity).toBe(7);
   });
 
   it('refuse une clé d’idempotence réutilisée avec un panier différent', async () => {
