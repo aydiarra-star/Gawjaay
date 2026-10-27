@@ -149,4 +149,54 @@ test.describe('parcours marchand — produit, stock, vente', () => {
     await expect(page.getByLabel('Montant encaissé maintenant')).toHaveValue('200');
   });
 
+
+  test('ignore les brouillons appartenant à un autre compte ou une autre boutique', async ({ page }) => {
+    const unique = Date.now();
+    await register(page, unique);
+
+    await page.evaluate(() => new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('gawjaay-pos-drafts', 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('cartDrafts')) {
+          db.createObjectStore('cartDrafts', { keyPath: 'id' });
+        }
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('cartDrafts', 'readwrite');
+        tx.objectStore('cartDrafts').put({
+          id: 'other-user:other-organization:other-store',
+          userId: 'other-user',
+          organizationId: 'other-organization',
+          storeId: 'other-store',
+          cart: {
+            foreign: {
+              productId: 'foreign-product',
+              variantId: 'foreign-variant',
+              name: 'Brouillon étranger — Standard',
+              price: 999999,
+              quantity: 1,
+              packaging: 'UNIT',
+              hasImage: false,
+              imageUrl: null,
+            },
+          },
+          customerId: '',
+          payMethod: 'CASH',
+          paidAmount: '',
+          updatedAt: Date.now(),
+        });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
+      };
+    }));
+
+    await page.goto('/app/pos');
+    await expect(page.getByRole('heading', { name: 'Panier (0)' })).toBeVisible();
+    await expect(page.getByText('Brouillon étranger — Standard')).toHaveCount(0);
+  });
+
 });
