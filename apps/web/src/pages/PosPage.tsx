@@ -5,6 +5,9 @@ import { api, ApiError } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatXOF, packagingLine } from '../lib/format';
 import { useStore } from '../context/StoreContext';
+import { useAuth } from '../context/AuthContext';
+import { getUser } from '../lib/session';
+import { deletePosCartDraft, loadPosCartDraft, savePosCartDraft } from '../lib/posDraftStorage';
 import { Alert, Card, EmptyState, PageHead, Spinner } from '../components/ui';
 import { ProductThumb } from '../components/product';
 
@@ -45,6 +48,12 @@ function newCheckoutId(): string {
 
 export function PosPage() {
   const { storeId } = useStore();
+  const { user, organizationId } = useAuth();
+  const draftUserId = user?.id ?? getUser()?.id ?? null;
+  const draftScopeKey = draftUserId && organizationId && storeId
+    ? [draftUserId, organizationId, storeId].join(':')
+    : null;
+  const hydratedDraftScopeRef = useRef<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const products = useApi<{ items: Product[] }>(() => api.get('/products?pageSize=100'), []);
@@ -69,6 +78,50 @@ export function PosPage() {
   if (checkoutIdRef.current === null) {
     checkoutIdRef.current = newCheckoutId();
   }
+
+
+  // Restaure uniquement le brouillon du compte, de l'organisation et de la boutique actifs.
+  useEffect(() => {
+    let active = true;
+    hydratedDraftScopeRef.current = null;
+    if (!draftScopeKey || !draftUserId || !organizationId || !storeId) {
+      setCart({});
+      setCustomerId('');
+      setPaidAmount('');
+      setPayMethod('CASH');
+      return () => { active = false; };
+    }
+
+    const scope = { userId: draftUserId, organizationId, storeId };
+    void loadPosCartDraft(scope).then((draft) => {
+      if (!active) return;
+      setCart(draft?.cart ?? {});
+      setCustomerId(draft?.customerId ?? '');
+      setPayMethod((draft?.payMethod as PaymentMethod | undefined) ?? 'CASH');
+      setPaidAmount(draft?.paidAmount ?? '');
+      hydratedDraftScopeRef.current = draftScopeKey;
+    }).catch((err: unknown) => {
+      if (active) setError(err instanceof Error ? err.message : 'Impossible de restaurer le brouillon de caisse.');
+    });
+
+    return () => { active = false; };
+  }, [draftScopeKey, draftUserId, organizationId, storeId]);
+
+  // La sauvegarde commence seulement après l'hydratation du bon périmètre.
+  useEffect(() => {
+    if (!draftScopeKey || hydratedDraftScopeRef.current !== draftScopeKey || !draftUserId || !organizationId || !storeId) return;
+    void savePosCartDraft({
+      userId: draftUserId,
+      organizationId,
+      storeId,
+      cart,
+      customerId,
+      payMethod,
+      paidAmount,
+    }).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : 'Impossible de sauvegarder le brouillon de caisse.');
+    });
+  }, [draftScopeKey, draftUserId, organizationId, storeId, cart, customerId, payMethod, paidAmount]);
 
   const customers = useApi<{ customers: Array<{ id: string; name: string }> }>(() => api.get('/customers'), []);
 
@@ -182,6 +235,11 @@ export function PosPage() {
       setCart({});
       setPaidAmount('');
       setCustomerId('');
+      if (draftUserId && organizationId && storeId) {
+        void deletePosCartDraft({ userId: draftUserId, organizationId, storeId }).catch(() => {
+          // La vente est déjà confirmée côté serveur : ne pas la présenter comme échouée si le nettoyage local échoue.
+        });
+      }
       checkoutIdRef.current = newCheckoutId(); // nouvelle clé pour la vente suivante
       stock.reload();
     } catch (err) {
