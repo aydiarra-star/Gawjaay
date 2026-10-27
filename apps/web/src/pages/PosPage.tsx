@@ -101,7 +101,15 @@ export function PosPage() {
       setPaidAmount(draft?.paidAmount ?? '');
       setHydratedDraftScope(draftScopeKey);
     }).catch((err: unknown) => {
-      if (active) setError(err instanceof Error ? err.message : 'Impossible de restaurer le brouillon de caisse.');
+      if (!active) return;
+      setError(err instanceof Error ? err.message : 'Impossible de restaurer le brouillon de caisse.');
+      // Ne pas bloquer toute la caisse si IndexedDB est indisponible : démarrer
+      // avec un panier vide et laisser l'utilisateur continuer sans persistance.
+      setCart({});
+      setCustomerId('');
+      setPayMethod('CASH');
+      setPaidAmount('');
+      setHydratedDraftScope(draftScopeKey);
     });
 
     return () => { active = false; };
