@@ -196,7 +196,7 @@ export function ImageLightbox({
         <button type="button" className="lightbox-nav prev" aria-label="Image précédente" onClick={(e) => { e.stopPropagation(); go(-1); }}>‹</button>
       )}
 
-      <figure className="lightbox-stage" onClick={(e) => e.stopPropagation()}>
+      <figure className="lightbox-stage" onClick={onClose}>
         <div className="lightbox-image-frame">
           {!imageError ? (
             <img
