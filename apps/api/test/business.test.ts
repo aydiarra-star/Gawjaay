@@ -472,6 +472,78 @@ describe('tableau de bord (données réelles)', () => {
     const dashboard = await request(app).get('/api/v1/reports/dashboard').set(auth(org));
     expect(dashboard.body.grossMargin).toBe(300);
   });
+
+  it('rejoue une vente identique sans décrémenter le stock deux fois', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 1500 });
+    await setStock(org, variantId, 8);
+    const payload = {
+      storeId: org.storeId,
+      clientRequestId: 'pos-retry-identique-001',
+      items: [{ variantId, quantity: 2 }],
+      payments: [{ method: 'CASH', amount: 3000 }],
+    };
+
+    const first = await request(app).post('/api/v1/sales').set(auth(org)).send(payload);
+    const replay = await request(app).post('/api/v1/sales').set(auth(org)).send(payload);
+
+    expect(first.status).toBe(201);
+    expect(replay.status).toBe(201);
+    expect(replay.body.saleId).toBe(first.body.saleId);
+    expect(replay.body.replayed).toBe(true);
+    expect(await prisma.sale.count({ where: { storeId: org.storeId } })).toBe(1);
+    expect(await prisma.inventoryMovement.count({ where: { storeId: org.storeId, type: 'SALE' } })).toBe(1);
+    expect((await prisma.inventory.findFirst({ where: { storeId: org.storeId, variantId } }))?.quantity).toBe(6);
+  });
+
+  it('ne crée qu’une vente lorsque deux requêtes identiques arrivent simultanément', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 1200 });
+    await setStock(org, variantId, 10);
+    const payload = {
+      storeId: org.storeId,
+      clientRequestId: 'pos-concurrent-retry-001',
+      items: [{ variantId, quantity: 3 }],
+      payments: [{ method: 'CASH', amount: 3600 }],
+    };
+
+    const [first, second] = await Promise.all([
+      request(app).post('/api/v1/sales').set(auth(org)).send(payload),
+      request(app).post('/api/v1/sales').set(auth(org)).send(payload),
+    ]);
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.saleId).toBe(second.body.saleId);
+    expect(await prisma.sale.count({ where: { storeId: org.storeId } })).toBe(1);
+    expect(await prisma.inventoryMovement.count({ where: { storeId: org.storeId, type: 'SALE' } })).toBe(1);
+    expect((await prisma.inventory.findFirst({ where: { storeId: org.storeId, variantId } }))?.quantity).toBe(7);
+  });
+
+  it('refuse une clé d’idempotence réutilisée avec un panier différent', async () => {
+    const org = await createOrg();
+    const { variantId } = await createProduct(org, { price: 1000 });
+    await setStock(org, variantId, 10);
+    const key = 'pos-retry-payload-different-001';
+    const first = await request(app).post('/api/v1/sales').set(auth(org)).send({
+      storeId: org.storeId,
+      clientRequestId: key,
+      items: [{ variantId, quantity: 1 }],
+      payments: [{ method: 'CASH', amount: 1000 }],
+    });
+    const replay = await request(app).post('/api/v1/sales').set(auth(org)).send({
+      storeId: org.storeId,
+      clientRequestId: key,
+      items: [{ variantId, quantity: 2 }],
+      payments: [{ method: 'CASH', amount: 2000 }],
+    });
+
+    expect(first.status).toBe(201);
+    expect(replay.status).toBe(409);
+    expect(await prisma.sale.count({ where: { storeId: org.storeId } })).toBe(1);
+    expect((await prisma.inventory.findFirst({ where: { storeId: org.storeId, variantId } }))?.quantity).toBe(9);
+  });
+
 });
 
 describe('limites de plan', () => {

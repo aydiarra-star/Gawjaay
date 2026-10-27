@@ -60,9 +60,38 @@ export async function createSale(tx: Tx, orgId: string, input: CreateSaleInput) 
   if (clientRequestId) {
     const existing = await tx.sale.findFirst({
       where: { storeId: input.storeId, clientRequestId },
-      include: { payments: true },
+      include: { payments: true, items: true },
     });
-    if (existing) return summarizeSale(existing);
+    if (existing) {
+      const sameItems = (a: Array<{ variantId: string; quantity: number }>, b: Array<{ variantId: string; quantity: number }>) => {
+        const normalize = (items: Array<{ variantId: string; quantity: number }>) =>
+          items.map((item) => ({ variantId: item.variantId, quantity: item.quantity }))
+            .sort((x, y) => x.variantId.localeCompare(y.variantId) || x.quantity - y.quantity);
+        return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
+      };
+      const samePayments = (a: Array<{ method: string; amount: number }>, b: Array<{ method: string; amount: number }>) => {
+        const normalize = (payments: Array<{ method: string; amount: number }>) =>
+          payments.filter((p) => Math.round(p.amount) > 0)
+            .map((p) => ({ method: p.method, amount: Math.round(p.amount) }))
+            .sort((x, y) => x.method.localeCompare(y.method) || x.amount - y.amount);
+        return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
+      };
+      const existingPayments = existing.payments
+        .filter((p) => p.status === 'SUCCESSFUL')
+        .map((p) => ({ method: p.method, amount: p.amount }));
+      if (
+        existing.customerId !== (input.customerId ?? null) ||
+        existing.discount !== Math.max(0, Math.round(input.discount ?? 0)) ||
+        !sameItems(existing.items, input.items) ||
+        !samePayments(existingPayments, input.payments)
+      ) {
+        throw AppError.conflict('Cette clé de requête POS est déjà utilisée pour une vente différente', {
+          clientRequestId,
+          saleId: existing.id,
+        });
+      }
+      return summarizeSale(existing);
+    }
   }
 
   const variantIds = input.items.map((i) => i.variantId);

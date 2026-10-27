@@ -43,7 +43,7 @@ router.post('/', requirePermission('sales:create'), asyncHandler(async (req, res
   const input = saleSchema.parse(req.body);
   assertStoreAccess(req, input.storeId);
 
-  const result = await prisma.$transaction((tx) =>
+  const create = () => prisma.$transaction((tx) =>
     createSale(tx, req.auth!.organizationId, {
       storeId: input.storeId,
       userId: req.auth!.userId,
@@ -54,6 +54,20 @@ router.post('/', requirePermission('sales:create'), asyncHandler(async (req, res
       clientRequestId: input.clientRequestId ?? null,
     }),
   );
+
+  let result;
+  try {
+    result = await create();
+  } catch (error) {
+    // Deux requêtes concurrentes peuvent toutes deux ne rien trouver avant
+    // l'insertion. La contrainte unique arbitre ; la perdante relit ensuite la
+    // vente gagnante et le service vérifie que le payload est identique.
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+    if (code !== 'P2002' || !input.clientRequestId?.trim()) throw error;
+    result = await create();
+  }
 
   await audit({ organizationId: req.auth.organizationId, userId: req.auth.userId, action: 'sale.create', entity: 'sale', entityId: result.saleId, meta: { total: result.total, replayed: result.replayed ?? false } });
   res.status(201).json(result);
