@@ -73,6 +73,27 @@ test.describe('parcours marchand — produit, stock, vente', () => {
     await page.getByRole('button', { name: 'Encaisser' }).click();
     await expect(page.locator('.alert-success')).toContainText('14 000 FCFA');
 
+    // Une vente confirmée ne doit pas restaurer les articles déjà encaissés.
+    await page.waitForFunction(() => new Promise<boolean>((resolve) => {
+      const request = indexedDB.open('gawjaay-pos-drafts', 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('cartDrafts', 'readonly');
+        const read = tx.objectStore('cartDrafts').getAll();
+        read.onsuccess = () => {
+          const cleared = read.result.every((draft: { cart?: Record<string, unknown> }) =>
+            Object.keys(draft.cart ?? {}).length === 0,
+          );
+          db.close();
+          resolve(cleared);
+        };
+        read.onerror = () => { db.close(); resolve(false); };
+      };
+      request.onerror = () => resolve(false);
+    }));
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Panier (0)' })).toBeVisible();
+
     /* ── Stock décrémenté ── */
     await page.goto('/app/stock');
     await expect(page.locator('.stock-card', { hasText: 'Riz' }).first()).toContainText('14 sacs');
