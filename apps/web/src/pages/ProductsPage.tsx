@@ -800,10 +800,10 @@ export function ProductsPage() {
                     </div>
                     <div className="field">
                       <label htmlFor="flash-end">Fin de l’offre (optionnel)</label>
-                      <input id="flash-end" type="datetime-local" value={flashEndsInput} onChange={(e) => setFlashEndsInput(e.target.value)} />
+                      <input id="flash-end" type="datetime-local" value={flashEndsAtInput} onChange={(e) => setFlashEndsAtInput(e.target.value)} />
                       <p className="field-hint">Une quantité limite ou une date de fin est obligatoire.</p>
                     </div>
-                    <button type="button" className="btn btn-sm" disabled={flashBusy || !flashPriceInput || (!flashQuantityInput && !flashEndsInput)} onClick={() => void createFlashOfferForManage()}>
+                    <button type="button" className="btn btn-sm" disabled={flashBusy || !flashPriceInput || (!flashQuantityInput && !flashEndsAtInput)} onClick={() => void createFlashOffer()}>
                       {flashBusy ? 'Enregistrement…' : 'Créer l’Offre Flash'}
                     </button>
                   </div>
