@@ -2682,3 +2682,147 @@ tbody tr:last-child td {
     margin-bottom: 0;
   }
 }
+
+
+/* Finition UX mobile — catalogue, accueil et menu latéral */
+.catalog-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, auto) auto;
+  gap: 10px;
+  align-items: center;
+  width: min(100%, 760px);
+}
+.catalog-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--muted);
+}
+.catalog-search > span {
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.catalog-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.catalog-search input:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+.catalog-search:focus-within {
+  border-color: var(--brand);
+  box-shadow: var(--e-focus);
+}
+.catalog-category {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.dashboard-first-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r);
+  background: linear-gradient(120deg, var(--surface), var(--gold-soft));
+}
+.dashboard-first-steps strong {
+  display: block;
+  margin-bottom: 3px;
+}
+.dashboard-first-steps p {
+  color: var(--muted);
+  font-size: .88rem;
+}
+.dashboard-first-steps-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+@media (max-width: 860px) {
+  .sidebar {
+    background: var(--surface);
+    isolation: isolate;
+    overscroll-behavior: contain;
+  }
+  .sidebar-backdrop.open {
+    background: rgb(20 17 12 / 0.62);
+  }
+  .main {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 640px) {
+  .landing-topbar {
+    column-gap: 12px;
+    row-gap: 10px;
+    padding-block: 10px;
+  }
+  .landing-topbar .brand {
+    margin-right: 4px;
+  }
+  .landing-nav-actions {
+    margin-left: auto;
+    gap: 8px;
+  }
+  .landing-nav-actions .btn-sm {
+    min-height: 38px;
+    padding-inline: 10px;
+    font-size: .78rem;
+  }
+  .announcement-ticker {
+    min-height: 48px;
+  }
+  .announcement-track {
+    min-height: 48px;
+  }
+  .announcement-item {
+    padding-inline: 18px;
+    font-size: .8rem;
+  }
+  .catalog-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+  .catalog-search {
+    width: 100%;
+    min-height: 48px;
+  }
+  .catalog-category {
+    min-height: 48px;
+  }
+  .catalog-search-submit {
+    width: 100%;
+    min-height: 46px;
+  }
+  .dashboard-first-steps {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .dashboard-first-steps-actions {
+    flex-direction: column;
+  }
+  .dashboard-first-steps-actions .btn {
+    width: 100%;
+  }
+  .merchant-grid {
+    padding-bottom: 8px;
+  }
+}
