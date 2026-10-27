@@ -41,7 +41,9 @@ function requireScope(value: string, name: string): string {
 }
 
 function draftId(userId: string, organizationId: string, storeId: string): string {
-  return [userId, organizationId, storeId].map((part) => encodeURIComponent(requireScope(part, 'contexte de session'))).join(':');
+  return [userId, organizationId, storeId]
+    .map((part) => encodeURIComponent(requireScope(part, 'contexte de session')))
+    .join(':');
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -53,9 +55,7 @@ function openDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'id' });
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -67,28 +67,38 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
+/** Resolve only after the IndexedDB transaction completes, not merely its request. */
 function runRequest<T>(
   mode: IDBTransactionMode,
   action: (store: IDBObjectStore) => IDBRequest<T>,
 ): Promise<T> {
   return openDatabase().then((db) => new Promise<T>((resolve, reject) => {
+    let transaction: IDBTransaction;
     let request: IDBRequest<T>;
+    let result: T;
     try {
-      request = action(db.transaction(STORE_NAME, mode).objectStore(STORE_NAME));
+      transaction = db.transaction(STORE_NAME, mode);
+      request = action(transaction.objectStore(STORE_NAME));
     } catch (error) {
       db.close();
       reject(error);
       return;
     }
-    request.onsuccess = () => {
-      const result = request.result;
+
+    request.onsuccess = () => { result = request.result; };
+    request.onerror = () => {
+      reject(request.error ?? new Error('Opération de stockage POS impossible.'));
+    };
+    transaction.oncomplete = () => {
       db.close();
       resolve(result);
     };
-    request.onerror = () => {
-      const error = request.error ?? new Error('Opération de stockage POS impossible.');
+    transaction.onabort = () => {
       db.close();
-      reject(error);
+      reject(transaction.error ?? new Error('La transaction de stockage POS a été annulée.'));
+    };
+    transaction.onerror = () => {
+      // onabort reports the terminal failure; keep this handler to avoid an unhandled event.
     };
   }));
 }
@@ -109,8 +119,16 @@ export async function loadPosCartDraft(
   const id = draftId(scope.userId, scope.organizationId, scope.storeId);
   const result = await runRequest<StoredDraft | undefined>('readonly', (store) => store.get(id));
   if (!result) return null;
-  const { id: _id, ...draft } = result;
-  return draft;
+  return {
+    userId: result.userId,
+    organizationId: result.organizationId,
+    storeId: result.storeId,
+    cart: result.cart,
+    customerId: result.customerId,
+    payMethod: result.payMethod,
+    paidAmount: result.paidAmount,
+    updatedAt: result.updatedAt,
+  };
 }
 
 /** Remove a draft only from its exact user/org/store scope. */
