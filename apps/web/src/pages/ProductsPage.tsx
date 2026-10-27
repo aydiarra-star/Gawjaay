@@ -266,17 +266,27 @@ export function ProductsPage() {
         title="Mon catalogue"
         actions={
           <form
-            className="row"
+            className="catalog-toolbar"
             onSubmit={(e) => {
               e.preventDefault();
-              setQuery(search);
+              setQuery(search.trim());
             }}
           >
+            <label className="catalog-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                aria-label="Rechercher un produit"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un produit…"
+                type="search"
+              />
+            </label>
             <select
               aria-label="Filtrer par catégorie"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              style={{ width: 'auto', maxWidth: 170 }}
+              className="catalog-category"
             >
               <option value="">Toutes catégories</option>
               {(categories.data?.categories ?? []).map((c) => (
@@ -285,16 +295,8 @@ export function ProductsPage() {
                 </option>
               ))}
             </select>
-            <input
-              aria-label="Rechercher un produit"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher…"
-              style={{ width: 160 }}
-              type="search"
-            />
-            <button className="btn btn-secondary btn-sm" type="submit">
-              OK
+            <button className="btn btn-secondary catalog-search-submit" type="submit">
+              Rechercher
             </button>
           </form>
         }
