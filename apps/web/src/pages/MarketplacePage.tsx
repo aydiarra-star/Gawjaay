@@ -263,7 +263,7 @@ export function MarketplacePage() {
               onSubmit={apply}
             />
 
-            <div style={{ marginTop: 12 }}>
+            <div className="marketplace-filter-chips" style={{ marginTop: 12 }}>
               <Chips
                 allLabel="Tous"
                 value={tab}
