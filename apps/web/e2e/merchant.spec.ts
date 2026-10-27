@@ -199,4 +199,18 @@ test.describe('parcours marchand — produit, stock, vente', () => {
     await expect(page.getByText('Brouillon étranger — Standard')).toHaveCount(0);
   });
 
+
+  test('la caisse reste accessible si IndexedDB est indisponible', async ({ page }) => {
+    await register(page, Date.now());
+
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', { configurable: true, value: undefined });
+    });
+    await page.goto('/app/pos');
+
+    await expect(page.getByRole('heading', { name: 'Vente (POS)' })).toBeVisible();
+    await expect(page.getByText(/stockage local durable n’est pas disponible/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Panier (0)' })).toBeVisible();
+  });
+
 });
